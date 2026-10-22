@@ -31,6 +31,19 @@ How to use it:
 - **Keep screen on** stops the phone from sleeping while you listen.
 - **Disconnect** forgets the radio, so the next **Connect** lets you pick a different one.
 
+### On this frequency
+
+Once the radio settles on a frequency, the page asks [radiomap.cl](https://www.radiomap.cl/)
+what is there (its per-frequency JSON API, `api/v1/freq/{kHz}.json`):
+
+- **Shortwave**: the full EiBi schedule for that kHz, an ON AIR / OFF AIR pill, today's
+  transmissions on a UTC bar, and the next broadcast when nothing is on.
+- **Stations**: Chilean broadcasters, amateur repeaters (CTCSS tone, shift, DMR, EchoLink)
+  and ATC, each linked to the radiomap.cl map.
+- **Nearby with data**: tap a chip to tune the radio there.
+- **Near me** sorts stations by distance. Your location is rounded to about 1 km and stays in
+  the browser; the only thing sent to radiomap.cl is the frequency.
+
 Web Bluetooth only works on **https** pages or `localhost`, so opening the file
 directly from the phone's storage won't connect.
 

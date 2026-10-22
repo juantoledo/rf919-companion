@@ -3,29 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#101418">
+<meta name="theme-color" content="#070d15">
+<meta name="color-scheme" content="dark">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>RF919 Remote</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='18' width='56' height='40' rx='8' fill='%231a1206' stroke='%23ffb300' stroke-width='4'/%3E%3Cpath d='M14 18 46 4' stroke='%23ffb300' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='38' r='9' fill='none' stroke='%23ffb300' stroke-width='4'/%3E%3Crect x='12' y='30' width='18' height='4' fill='%23ffb300'/%3E%3Crect x='12' y='40' width='18' height='4' fill='%23ffb300'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='18' width='56' height='40' rx='8' fill='%230a131d' stroke='%23ffb33f' stroke-width='4'/%3E%3Cpath d='M14 18 46 4' stroke='%23ffb33f' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='38' r='9' fill='none' stroke='%23ffb33f' stroke-width='4'/%3E%3Crect x='12' y='30' width='18' height='4' fill='%23ffb33f'/%3E%3Crect x='12' y='40' width='18' height='4' fill='%23ffb33f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Goldman:wght@400;700&display=swap">
 <style>
+/* The Shortwave Atlas look: cold blue ink, one warm dial-lamp amber for everything "lit" */
 :root {
-  --bg: #101418; --panel: #172028; --panel-2: #1e2a34; --line: #2c3a46;
-  --text: #dfe7ec; --muted: #8a9aa6; --accent: #ffb300;
-  --lcd-bg: #1a1206; --lcd-line: #4a3510; --lcd-text: #ffb300; --lcd-dim: #ffcc80; --lcd-ghost: rgba(255,179,0,.07);
-  --ok: #4caf50; --warn: #ffb300; --bad: #ef5350;
-  --fn-bg: #1e3a2a; --fn-text: #a5d6a7; --danger-bg: #4a1c1c;
-  --radius: 12px;
+  --ink: #070d15; --panel: #0c1520; --panel-bg: #0a131d; --deep: #050a11;
+  --line: rgba(140, 185, 230, .14); --line-strong: rgba(140, 185, 230, .3); --hover: rgba(140, 185, 230, .08);
+  --text: #d6e2ef; --dim: #8498ad; --faint: #4b5b6c;
+  --amber: #ffb33f; --amber-soft: rgba(255, 179, 63, .14); --amber-line: rgba(255, 179, 63, .6);
+  --cool: #7fd0ff; --cool-soft: rgba(127, 208, 255, .08); --cool-line: rgba(127, 208, 255, .4);
+  --warn: #ff8a7a; --warn-soft: rgba(255, 138, 122, .08); --warn-line: rgba(255, 138, 122, .5);
+  --radius: 14px; --hit: 32px; --key: 52px;
+  --font-display: 'Big Shoulders Display', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+  --font-freq: 'Goldman', var(--font-display);
+  --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; background: var(--bg); color: var(--text); overflow-x: hidden; }
+html, body { margin: 0; background: var(--ink); color: var(--text); overflow-x: hidden; }
 body {
-  font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased;
   padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   -webkit-tap-highlight-color: transparent;
 }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
 .app { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 @media (min-width: 960px) {
   .app { max-width: 1100px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
@@ -34,117 +50,220 @@ body {
 .col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 
 /* top bar */
-.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px;
-       padding: 10px 0; background: var(--bg); }
-.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bad); flex: none; }
-.dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
-.dot.busy { background: var(--warn); }
-.brand { font-weight: 700; letter-spacing: .04em; }
-.stat { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
-.stat b { color: var(--text); font-weight: 600; }
-.btn-top { flex: none; }
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 0 10px; background: var(--ink); }
+.lamp { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #3b4a5b; }
+.lamp.ok { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool); animation: blink .5s steps(2, jump-none) infinite; }
+.lamp.bad { background: #3b4a5b; }
+.wordmark { font: 800 26px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.status { flex: 1; min-width: 0; font: 400 11.5px/1.4 var(--font-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status b { color: var(--amber); font-weight: 500; }
+@media (max-width: 440px) { .wordmark { font-size: 21px; } }
 
-.banner { background: #3a2a0a; border: 1px solid #6b4f12; color: #ffe0b2; border-radius: var(--radius); padding: 10px 12px; font-size: 14px; }
-.banner[hidden] { display: none; }
+.banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: 6px; background: var(--warn-soft); font-size: 13px; }
+.banner b { font-weight: 500; color: var(--warn); }
 
-/* LCD */
-.lcd { background: var(--lcd-bg); border: 2px solid var(--accent); border-radius: 16px; padding: 14px; color: var(--lcd-text);
-       font-family: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace; box-shadow: inset 0 0 30px rgba(0,0,0,.6); }
-.lcd-row { display: flex; align-items: flex-end; gap: 12px; min-width: 0; }
-.band { flex: none; min-width: 56px; padding: 8px 10px; border-radius: 8px; background: #81c784; color: #101418; font-weight: 800;
-        text-align: center; font-family: system-ui, sans-serif; letter-spacing: .05em; align-self: center; }
-.freq { position: relative; flex: 1; min-width: 0; line-height: 1; font-variant-numeric: tabular-nums; }
-.freq .ghost, .freq .main { font-size: clamp(30px, 11vw, 64px); font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
-.freq .ghost { position: absolute; left: 0; bottom: 0; color: var(--lcd-ghost); pointer-events: none; }
-.freq .main { position: relative; text-shadow: 0 0 12px rgba(255,179,0,.45); }
-.freq .small { font-size: clamp(18px, 5vw, 26px); font-weight: 700; margin-left: 2px; }
-.unit { flex: none; font-weight: 700; color: var(--lcd-dim); padding-bottom: 4px; font-family: system-ui, sans-serif; }
-.sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; min-height: 20px; color: var(--lcd-dim); font-size: 13px; }
-.alert { color: var(--bad); font-weight: 800; }
-.cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 8px; margin-top: 12px; }
-.cell { border: 1px solid var(--lcd-line); border-radius: 8px; padding: 6px 8px; min-width: 0; }
-.cell .l { font-size: 11px; color: var(--lcd-dim); opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cell .v { font-size: 17px; font-weight: 700; color: #ffe0b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lines { margin-top: 10px; font-size: 12.5px; color: var(--lcd-dim); display: grid; gap: 2px; }
+/* the faceplate: what the radio's LCD shows */
+.lcd { padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
+.lcd-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.band {
+  --band: var(--dim); flex: none; align-self: center; min-width: 52px; padding: 3px 10px; border-radius: 999px; text-align: center;
+  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--band); border: 1px solid currentColor; background: var(--hover);
+  border-color: color-mix(in srgb, var(--band) 55%, transparent); background: color-mix(in srgb, var(--band) 12%, transparent);
+}
+.freq { flex: 1; min-width: 0; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.freq .main {
+  font: italic 700 clamp(30px, 10.5vw, 46px)/1.05 var(--font-freq); letter-spacing: .01em;
+  color: #fff; text-shadow: 0 0 18px rgba(255, 255, 255, .35);
+}
+.freq .small { font: italic 700 clamp(17px, 5vw, 24px) var(--font-freq); color: #fff; opacity: .8; margin-left: 2px; }
+.unit { flex: none; font: 500 13px var(--font-mono); letter-spacing: .1em; color: var(--dim); }
+.lcd.off .freq .main, .lcd.off .freq .small { color: var(--faint); text-shadow: none; }
+.sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; min-height: 18px; font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+.alert { color: var(--warn); }
+.cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 10px 12px; margin-top: 10px; }
+.cell { min-width: 0; padding-top: 6px; border-top: 1px solid var(--line); }
+.cell .l { font: 500 10px/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell .v { margin-top: 2px; font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lines { margin-top: 10px; font: 400 11px/1.5 var(--font-mono); color: var(--dim); display: grid; gap: 2px; }
 .lines div { min-height: 1.3em; overflow-wrap: anywhere; }
+.lines div:empty { min-height: 0; }
 
-/* panels & buttons */
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
-.panel h2, summary { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
-details.panel > summary { margin: 0; cursor: pointer; list-style: none; display: flex; justify-content: space-between; }
-details.panel > summary::after { content: "▾"; transition: transform .15s; }
-details.panel[open] > summary { margin-bottom: 10px; }
-details.panel:not([open]) > summary::after { transform: rotate(-90deg); }
+/* panels */
+.panel { min-width: 0; padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
+.panel h2, summary, .h {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px;
+  font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+}
+details.panel > summary { margin: 0; cursor: pointer; list-style: none; }
+details.panel > summary::after {
+  content: ""; flex: none; width: 10px; height: 6px; background: currentColor; transform: rotate(-90deg); transition: transform .15s;
+  -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat;
+}
+details.panel[open] > summary { margin-bottom: 12px; }
+details.panel[open] > summary::after { transform: none; color: var(--amber); }
 summary::-webkit-details-marker { display: none; }
+summary .sum-v { margin-left: auto; color: var(--amber); letter-spacing: .06em; }
+
+/* keys */
 .grid { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid.fn { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .grid.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 button, select, input { font: inherit; color: inherit; }
 button {
-  min-height: 52px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); color: var(--text);
-  font-weight: 650; font-size: 14px; padding: 4px 6px; cursor: pointer; touch-action: manipulation;
-  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: transform .06s, background .15s;
+  min-height: var(--key); padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; color: var(--text);
+  font: 500 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; touch-action: manipulation;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: transform .06s, background-color .15s, border-color .15s;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-button:active, button.pressing { transform: scale(.96); background: #2a3a47; }
-button.long-fired { background: var(--accent); color: #101418; }
-button:disabled { opacity: .35; }
-button.fn { background: var(--fn-bg); color: var(--fn-text); border-color: #2d5a40; font-size: 12.5px; }
-@media (max-width: 440px) { button.fn { font-size: 11px; padding: 2px; letter-spacing: -.02em; } }
-button.danger { background: var(--danger-bg); border-color: #6d2a2a; }
-button.primary { background: var(--accent); color: #101418; border-color: var(--accent); }
-button.toggle[aria-pressed="true"] { background: var(--accent); color: #101418; }
+button:hover:not(:disabled) { background: var(--hover); border-color: rgba(140, 185, 230, .45); }
+button:active, button.pressing { transform: scale(.96); background: rgba(140, 185, 230, .14); }
+button.long-fired { background: var(--amber); border-color: var(--amber); color: var(--ink); box-shadow: 0 0 14px rgba(255, 179, 63, .55); }
+button:disabled { opacity: .35; cursor: default; }
+button.fn { background: var(--cool-soft); border-color: var(--cool-line); color: var(--cool); font-size: 11.5px; }
+@media (max-width: 440px) { button.fn { font-size: 10.5px; padding: 2px; letter-spacing: 0; } }
+button.danger { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
+button.primary { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber); }
+button.toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--dim); }
+button.toggle::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--dim); }
+button.toggle[aria-pressed="true"] { color: var(--text); border-color: var(--amber-line); }
+button.toggle[aria-pressed="true"]::before { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px var(--amber); }
 button.wide { grid-column: 1 / -1; }
-button.small { min-height: 40px; padding: 4px 12px; }
-.hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+button.small { min-height: var(--hit); padding: 4px 12px; border-radius: 999px; font-size: 11px; }
+.grid.k3 button { font-size: 18px; letter-spacing: 0; }
+.grid.k3 button.wide { font-size: 12px; letter-spacing: .08em; }
+.hint { margin: 10px 0 0; font: 400 11px/1.5 var(--font-mono); color: var(--dim); }
 .row { display: flex; gap: 8px; }
 .row > * { flex: 1; min-width: 0; }
 select, input[type=text] {
-  min-height: 48px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); padding: 0 12px; width: 100%;
+  min-height: 48px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel);
+  transition: border-color .12s;
 }
-input[type=text] { font-size: 18px; font-variant-numeric: tabular-nums; }
+select:hover, input[type=text]:hover { border-color: rgba(140, 185, 230, .45); }
+select:focus, input[type=text]:focus { outline: none; border-color: var(--amber-line); }
+select { font: 500 13px var(--font-mono); }
+input[type=text] { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; }
+input[type=text]::placeholder { color: var(--faint); font-size: 14px; }
 .toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-label.chk { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; margin-top: 8px; }
-.log { max-height: 280px; overflow: auto; font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace; background: #0c0f12; border-radius: 8px; padding: 8px; }
+label.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
+label.chk input { accent-color: var(--amber); }
+.log { max-height: 280px; overflow: auto; padding: 8px; background: var(--deep); border: 1px solid var(--line); border-radius: 6px; font: 10.5px/1.45 var(--font-mono); color: var(--dim); scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .log div { white-space: pre-wrap; overflow-wrap: anywhere; }
-.log .t { color: #546e7a; }
-.k-freq, .k-entry { color: #4dd0e1; } .k-button_label { color: #81c784; } .k-unknown { color: #ce93d8; }
-.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--bad); } .k-toast, .k-status_text { color: #fff176; } .k-link { color: #64b5f6; } .k-debug { color: #78909c; }
-.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px);
-         background: #263238; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; z-index: 10; white-space: pre-line;
-         box-shadow: 0 6px 24px rgba(0,0,0,.5); }
-.toast[hidden] { display: none; }
+.log .t { color: var(--faint); }
+.k-freq, .k-entry { color: var(--cool); } .k-button_label { color: var(--text); } .k-unknown { color: #e0a3c8; }
+.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--warn); } .k-toast, .k-status_text { color: #ffe2a0; }
+.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap { color: var(--amber); }
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10;
+  max-width: calc(100% - 32px); padding: 9px 14px; white-space: pre-line;
+  background: rgba(8, 14, 23, .97); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  font: 400 12.5px/1.45 var(--font-mono); animation: rise-in .2s ease-out both;
+}
+.toast.err { background: rgba(40, 14, 12, .96); border-color: var(--warn-line); color: #ffb3a8; }
 
+/* ---- On this frequency (radiomap.cl) ---- */
+.station > div { animation: fade-in .15s ease-out both; }
+#of-body > :not(:first-child):not(.note) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.of-msg { margin: 0; color: var(--dim); font: 400 12px/1.5 var(--font-mono); }
+.d-empty .empty-t { margin: 0; font: 800 24px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+.d-empty .empty-d { margin: 6px 0 0; color: var(--dim); font-size: 13px; }
+.d-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.d-sub { color: var(--dim); font-size: 12.5px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
+  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap;
+}
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.on { color: var(--amber); border-color: rgba(255, 179, 63, .5); background: var(--amber-soft); }
+.pill.on::before { box-shadow: 0 0 8px var(--amber); }
+.d-name {
+  margin: 10px 0 0; font: 800 32px/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.d-meta { margin: 4px 0 0; color: var(--dim); font-size: 13px; }
+.d-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 12px 0 0; }
+.d-grid > div { min-width: 0; }
+.d-grid .w2 { grid-column: span 2; }
+.d-grid dt { font: 500 10px/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.d-grid dd { margin: 2px 0 0; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.sched { margin-top: 14px; }
+.sched .h { margin-bottom: 8px; }
+.bar { position: relative; height: 10px; border-radius: 2px; background: rgba(140, 185, 230, .1); }
+.bar .win { position: absolute; top: 0; bottom: 0; background: rgba(255, 179, 63, .6); }
+.bar .now { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
+.axis { display: flex; justify-content: space-between; margin-top: 4px; font: 400 10px var(--font-mono); color: var(--dim); }
+.slots { margin-top: 14px; }
+.slots-box { max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.slots table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.slots th {
+  position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--panel-bg);
+  font: 500 10px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
+}
+.slots td { padding: 6px 6px 6px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+.slots td:first-child { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slots td small { display: block; color: var(--dim); font-size: 11px; }
+.slots tr.idle td { color: var(--faint); }
+.slots tr.idle td small { color: var(--faint); }
+.slots tr.cur td { color: var(--amber); }
+.of-st .h button.toggle { min-height: 28px; padding: 2px 10px; border-radius: 999px; font-size: 10.5px; letter-spacing: .08em; }
+.list { list-style: none; margin: 0; padding: 0; }
+.st { padding: 9px 0; border-top: 1px solid var(--line); }
+.st-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.st-main b { flex: none; font: 500 13.5px var(--font-mono); color: var(--text); }
+.st-main span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-main .km { flex: none; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--amber); }
+.st-sub { margin-top: 2px; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tag {
+  display: inline-flex; align-items: center; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
+  font: 500 10.5px/1.6 var(--font-mono); letter-spacing: .04em; color: var(--dim); white-space: nowrap; text-decoration: none;
+}
+.tag.amber { color: var(--amber); border-color: rgba(255, 179, 63, .5); }
+.tag.cool { color: var(--cool); border-color: var(--cool-line); }
+a.tag:hover { color: var(--text); background: var(--hover); }
+.more { width: 100%; min-height: var(--hit); margin-top: 8px; border-radius: 6px; font-size: 11px; }
+.cands { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cands .lab { width: 100%; font: 500 10.5px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; min-height: var(--hit); padding: 4px 12px; border-radius: 999px;
+  font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; text-transform: none;
+}
+.dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1px solid #5b6c7f; }
+.dot.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 63, .7); }
+.note { margin: 12px 0 0; font: 400 10px/1.45 var(--font-mono); letter-spacing: .03em; color: var(--dim); }
+.note a { color: var(--amber); text-underline-offset: 3px; }
+@media (max-width: 440px) { .d-name { font-size: 27px; } .d-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (pointer: coarse) { :root { --hit: 44px; } .of-st .h button.toggle { min-height: 36px; } }
 .blink { animation: blink .5s steps(2, jump-none) infinite; }
 @keyframes blink { 0% { opacity: 1; } 100% { opacity: .15; } }
 @media (prefers-reduced-motion: reduce) {
-  .blink { animation: none; text-decoration: underline wavy; }
-  button { transition: none; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .blink { text-decoration: underline wavy; }
 }
 </style>
 </head>
 <body>
 <div class="app">
   <header class="top">
-    <span class="dot" id="dot"></span>
-    <span class="brand">RF919</span>
-    <span class="stat" id="stat">not connected</span>
-    <button class="small primary btn-top" id="connect">Connect</button>
+    <span class="lamp" id="dot"></span>
+    <span class="wordmark">RF919</span>
+    <span class="status" id="stat">not connected</span>
+    <button class="small primary" id="connect">Connect</button>
   </header>
 
   <div class="banner" id="nobt" hidden>
-    This browser has no Web Bluetooth. Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on iPhone.
-    The page must be opened over <b>https</b> (e.g. GitHub Pages) or localhost. <b>Demo</b> mode still works.
+    <b>No Web Bluetooth in this browser.</b>
+    <span>Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on iPhone.
+    The page must be opened over https (e.g. GitHub Pages) or localhost. <b>Demo</b> mode still works.</span>
   </div>
 
   <div class="col">
-    <section class="lcd" aria-label="Radio display">
+    <section class="lcd off" id="lcd" aria-label="Radio display">
       <div class="lcd-row">
         <div class="band" id="band">--</div>
-        <div class="freq" id="freqbox">
-          <span class="ghost" id="ghost" aria-hidden="true">888.888</span>
-          <span class="main" id="freq">---.---</span><span class="small" id="small"></span>
-        </div>
+        <div class="freq" id="freqbox"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
         <div class="unit" id="unit"></div>
       </div>
       <div class="sub"><span id="preset"></span><span class="alert" id="alert"></span></div>
@@ -161,6 +280,11 @@ label.chk { display: flex; align-items: center; gap: 8px; color: var(--muted); f
         <div id="statusline"></div>
       </div>
     </section>
+
+    <details class="panel station" id="onfreq" open hidden>
+      <summary>On this frequency <span class="sum-v" id="of-k"></span></summary>
+      <div id="of-body" aria-live="polite"></div>
+    </details>
 
     <section class="panel">
       <h2>Controls</h2>
@@ -430,6 +554,167 @@ const DEMO = "ab021300c0 ab022001ce ab020702b6 ab02054bfd ab0506000c0100c3 ab030
 const fromHex = (s) => Uint8Array.from(s.match(/../g), h => parseInt(h, 16));
 </script>
 
+<script id="radiomap">
+"use strict";
+// ---- radiomap.cl lookup (contract: radiomap README, "API por frecuencia") ----
+const RADIOMAP = "https://www.radiomap.cl/api/v1/";
+const RADIOMAP_SITE = "https://www.radiomap.cl/";
+const EMPTY_FREQ = Object.freeze({stations: [], shortwave: []});
+const DAY = 86400000;
+
+// The tuned frequency as radiomap keys it: integer kHz, halves up. null = nothing to look up
+function toKHz({raw, dp, unit, alert}) {
+  if (!raw || alert) return null;
+  const v = parseFloat(formatFreq(raw, dp)) * (unit === "MHz" ? 1000 : 1);
+  return Number.isFinite(v) && v > 0 ? Math.floor(v + 0.5) : null;
+}
+const fmtKHz = (k) => k >= 30000 ? `${(k / 1000).toFixed(3)} MHz` : `${k} kHz`;
+
+// Closest kHz with data, within a window that suits the band's channel spacing; sorted ascending
+const nearWindow = (k) => k < 1800 ? 20 : k < 30000 ? 10 : k >= 87500 && k <= 108000 ? 400 : k < 300000 ? 100 : 200;
+function nearby(freqs, k, n = 4, win = nearWindow(k)) {
+  let lo = 0, hi = freqs.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (freqs[mid] < k) lo = mid + 1; else hi = mid; }
+  let a = lo - 1, b = freqs[lo] === k ? lo + 1 : lo;
+  const out = [];
+  while (out.length < n) {
+    const da = a >= 0 ? k - freqs[a] : Infinity, db = b < freqs.length ? freqs[b] - k : Infinity;
+    if (Math.min(da, db) > win) break;
+    out.push(da <= db ? freqs[a--] : freqs[b++]);
+  }
+  return out.sort((x, y) => x - y);
+}
+
+// ---- EiBi schedule: is it on the air? ----
+const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];  // API weekday 0 = Monday
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const SEASON = {4: "winter only", 5: "summer only"};
+const hhmmMin = (s) => +s.slice(0, 2) * 60 + +s.slice(2, 4);
+const minHHMM = (m) => `${pad2(Math.floor(m / 60) % 24)}:${pad2(Math.floor(m) % 60)}`;
+const utcDay = (t) => Math.floor(t / DAY) * DAY;
+const apiWeekday = (d) => (d.getUTCDay() + 6) % 7;
+
+// Start (00:00 UTC) of the last Sunday of a month
+function lastSunday(year, month) {
+  const last = new Date(Date.UTC(year, month + 1, 0));
+  return last.getTime() - last.getUTCDay() * DAY;
+}
+// Boreal summer: last Sunday of March up to the last Sunday of October
+function borealSummer(t) {
+  const y = new Date(t).getUTCFullYear();
+  return t >= lastSunday(y, 2) && t < lastSunday(y, 9);
+}
+
+function daysMatch(days, day) {
+  const d = new Date(day), wd = apiWeekday(d), dom = d.getUTCDate();
+  switch (days && days.t) {
+    case "d": return true;
+    case "w": return !!(days.m >> wd & 1);
+    case "n": return wd === days.wd && Math.ceil(dom / 7) === days.n;
+    case "l": return wd === days.wd && dom + 7 > new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+    case "date": return dom === days.d && d.getUTCMonth() + 1 === days.m;
+    default: return false;  // "irr": no fixed days
+  }
+}
+
+// Does the entry start a broadcast on this UTC day (ms at 00:00)? Days count from the start time
+function runsOn(e, day) {
+  if (e.season === 4 && borealSummer(day)) return false;
+  if (e.season === 5 && !borealSummer(day)) return false;
+  const iso = new Date(day).toISOString().slice(0, 10);
+  if ((e.validFrom && iso < e.validFrom) || (e.validTo && iso > e.validTo)) return false;
+  return daysMatch(e.days, day);
+}
+
+// [start, end] in minutes from its start day's midnight; end > 1440 when it crosses midnight
+function span(e) {
+  const s = hhmmMin(e.startUTC);
+  let end = hhmmMin(e.endUTC);
+  if (end <= s) end += 1440;
+  return [s, end];
+}
+
+// {on, endsIn} or {on: false, startsIn}, in minutes; startsIn is null when nothing within 5 weeks
+function swAir(e, now = Date.now()) {
+  const [s, end] = span(e), today = utcDay(now), m = (now - today) / 60000;
+  for (const back of [0, 1]) {
+    const from = s - back * 1440, to = end - back * 1440;
+    if (m >= from && m < to && runsOn(e, today - back * DAY)) return {on: true, endsIn: Math.ceil(to - m)};
+  }
+  for (let i = 0; i < 36; i++) {
+    const at = i * 1440 + s;
+    if (at > m && runsOn(e, today + i * DAY)) return {on: false, startsIn: Math.ceil(at - m)};
+  }
+  return {on: false, startsIn: null};
+}
+
+// The parts of today (UTC, minutes) during which the entry is on
+function todayWindows(e, now = Date.now()) {
+  const [s, end] = span(e), today = utcDay(now), out = [];
+  if (runsOn(e, today)) out.push([s, Math.min(end, 1440)]);
+  if (end > 1440 && runsOn(e, today - DAY)) out.push([0, end - 1440]);
+  return out;
+}
+
+function daysText(e) {
+  const days = e.days || {};
+  let t;
+  switch (days.t) {
+    case "d": t = "daily"; break;
+    case "w": t = days.m === 127 ? "daily" : days.m === 31 ? "Mon–Fri" : days.m === 96 ? "Sat–Sun" : WD.filter((_, i) => days.m >> i & 1).join(" "); break;
+    case "n": t = `${["1st", "2nd", "3rd", "4th", "5th"][days.n - 1] || days.n + "th"} ${WD[days.wd]} of month`; break;
+    case "l": t = `last ${WD[days.wd]} of month`; break;
+    case "date": t = `${days.d} ${MON[days.m - 1]}`; break;
+    default: t = "irregular";
+  }
+  return SEASON[e.season] ? `${t} · ${SEASON[e.season]}` : t;
+}
+const dur = (min) => min < 60 ? `${min} min` : min < 2880 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}` : `${Math.round(min / 1440)} days`;
+
+// ---- stations ----
+function haversineKm(a, b) {
+  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
+  return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+// Repeater shift: input (tx) relative to output (rx)
+function fmtShift(rx, tx) {
+  const d = Math.round(tx - rx);
+  if (!d) return "simplex";
+  const a = Math.abs(d);
+  return `${d < 0 ? "−" : "+"}${a >= 1000 ? +(a / 1000).toFixed(3) + " MHz" : a + " kHz"}`;
+}
+const radiomapUrl = (u) => typeof u === "string" && u.startsWith(RADIOMAP_SITE) ? u : null;
+
+class RadioMap {
+  constructor(base = RADIOMAP) { this.base = base; this.cache = new Map(); this.idx = null; }
+
+  async get(path) {
+    const r = await fetch(this.base + path);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  // index.json, fetched once
+  index() {
+    if (!this.idx) this.idx = this.get("index.json").catch((e) => { this.idx = null; throw e; });
+    return this.idx;
+  }
+
+  // Everything on k kHz (404 = nothing known there). In-flight requests are shared, failures not cached
+  lookup(k) {
+    if (!this.cache.has(k)) {
+      if (this.cache.size >= 300) this.cache.delete(this.cache.keys().next().value);
+      this.cache.set(k, this.get(`freq/${k}.json`)
+        .then((d) => d || {...EMPTY_FREQ, kHz: k})
+        .catch((e) => { this.cache.delete(k); throw e; }));
+    }
+    return this.cache.get(k);
+  }
+}
+</script>
+
 <script>
 "use strict";
 // ---- Links ----
@@ -597,7 +882,8 @@ const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: fa
 let link = null;
 
 function setStatus(kind, text) {
-  $("dot").className = "dot " + kind;
+  $("dot").className = "lamp " + kind;
+  $("lcd").classList.toggle("off", kind !== "ok");
   state.link = text;
   renderStat();
   $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
@@ -616,8 +902,8 @@ function renderStat() {
 
 const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 let toastTimer;
-function toast(text, ms = 3500) {
-  const t = $("toast"); t.textContent = text; t.hidden = false;
+function toast(text, ms = 3500, err = false) {
+  const t = $("toast"); t.textContent = text; t.hidden = false; t.classList.toggle("err", err);
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
 }
 
@@ -644,15 +930,16 @@ const handlers = {
   freq(d) {
     const band = $("band");
     band.textContent = d.band;
-    band.style.background = BAND_COLORS[d.band] || "#b0bec5";
-    if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); return; }
+    band.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5");
+    if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); scheduleLookup(null); return; }
     $("alert").textContent = ""; setBlink($("alert"), false);
     const [main, small] = d.raw ? splitFreq(d.raw, d.dp) : ["---.---", ""];
     $("freq").textContent = main;
-    $("ghost").textContent = main.replace(/[0-9-]/g, "8");
     $("small").textContent = small;
     $("unit").textContent = d.unit;
     setBlink($("freqbox"), d.state === 2);
+    of.unit = d.unit;
+    scheduleLookup(toKHz(d));
   },
   field(d) {
     const v = d.value.trim();
@@ -681,7 +968,7 @@ const handlers = {
   button_blink(d) { setBlink(document.querySelector(`[data-fn="${d.button}"]`), d.blink); },
   mode(d) { state.mode = d.mode; renderStat(); },
   battery(d) {
-    const color = ["var(--bad)", "var(--warn)", "var(--ok)", "var(--ok)"][Math.min(d.level, 3)];
+    const color = ["var(--warn)", "var(--amber)", "var(--cool)", "var(--cool)"][Math.min(d.level, 3)];
     state.battery = `<span style="color:${color}">${"▮".repeat(d.level)}${"▯".repeat(Math.max(0, 3 - d.level))}</span>${d.charging ? " ⚡" : ""}`;
     renderStat();
   },
@@ -699,6 +986,194 @@ function statusLine() {
   $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
 }
 
+// ---- On this frequency (radiomap.cl) ----
+// Per-viewer conveniences only; the page works the same when storage is unavailable
+const store = {
+  get(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } },
+};
+const rm = new RadioMap();
+// k: kHz shown; data/err: its lookup; near: nearby chips; fresh: scroll the schedule to "now" on the next render
+const of = {k: null, data: null, err: null, near: null, idx: null, all: false, fresh: false, timer: 0, unit: "MHz"};
+let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
+
+// Debounced, so a SCAN or seek sweep only looks up the frequency it settles on
+function scheduleLookup(k) {
+  clearTimeout(of.timer);
+  if (k === null) { of.k = null; $("onfreq").hidden = true; return; }
+  if (k === of.k) return;
+  of.timer = setTimeout(() => lookupFreq(k), 500);
+}
+
+async function lookupFreq(k) {
+  Object.assign(of, {k, data: null, err: null, near: null, all: false, fresh: true});
+  $("onfreq").hidden = false;
+  renderOnFreq();
+  try {
+    const data = await rm.lookup(k);
+    if (of.k !== k) return;
+    of.data = data;
+    log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${data.stations.length} stations, ${data.shortwave.length} shortwave`});
+  } catch (e) {
+    if (of.k !== k) return;
+    of.err = e;
+    log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${errText(e)}`});
+  }
+  renderOnFreq();
+  loadNearby(k);
+}
+
+async function loadNearby(k) {
+  try {
+    const idx = await rm.index();
+    if (of.k !== k) return;
+    of.idx = idx;
+    of.near = nearby(idx.freqs, k).map((f) => ({k: f, on: false}));
+    renderOnFreq();
+    if (k >= 30000 || !of.near.length) return;  // on-air dots: shortwave schedule only
+    const near = of.near, all = await Promise.all(near.map((n) => rm.lookup(n.k).catch(() => EMPTY_FREQ)));
+    if (of.near !== near) return;
+    all.forEach((d, i) => { near[i].on = d.shortwave.some((e) => swAir(e).on); });
+    renderOnFreq();
+  } catch { /* the chips are optional */ }
+}
+
+function renderOnFreq() {
+  if (of.k === null) return;
+  const body = $("of-body"), old = body.querySelector(".slots-box"), top = old ? old.scrollTop : 0;
+  $("of-k").textContent = fmtKHz(of.k);
+  const parts = [];
+  if (of.err) parts.push(`<p class="of-msg">radiomap.cl unreachable (${esc(errText(of.err))})</p>`);
+  else if (!of.data) parts.push(`<p class="of-msg">Looking up ${fmtKHz(of.k)}…</p>`);
+  else {
+    const {stations, shortwave} = of.data;
+    if (!stations.length && !shortwave.length) {
+      parts.push(`<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(of.k)}.</p></div>`);
+    }
+    if (shortwave.length) parts.push(swHtml(shortwave));
+    if (stations.length) parts.push(stationsHtml(stations));
+  }
+  if (of.near && of.near.length) parts.push(nearHtml());
+  const ver = of.idx ? ` v${esc(of.idx.version)} · EiBi ${esc(of.idx.shortwaveSeason)}` : "";
+  parts.push(`<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · now ${minHHMM((Date.now() - utcDay(Date.now())) / 60000)} UTC</p>`);
+  body.innerHTML = parts.join("");
+
+  const box = body.querySelector(".slots-box");
+  if (!box) return;
+  const target = of.fresh && (box.querySelector("tr.cur") || box.querySelector("tr.next"));
+  if (of.fresh) { box.scrollTop = target ? target.offsetTop - box.querySelector("thead").offsetHeight : 0; of.fresh = false; }
+  else box.scrollTop = top;
+}
+
+function swHtml(list) {
+  const now = Date.now(), m = (now - utcDay(now)) / 60000;
+  const rows = list.map((e) => ({e, air: swAir(e, now), today: todayWindows(e, now)}));
+  const on = rows.filter((r) => r.air.on);
+  const next = rows.filter((r) => r.air.startsIn != null).sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
+  const head = on[0] || next || rows[0], e = head.e;
+  const hhmm = (s) => `${s.slice(0, 2)}:${s.slice(2)}`;
+  const sub = head.air.on ? `until ${minHHMM(hhmmMin(e.endUTC))} UTC · ${dur(head.air.endsIn)} left${on.length > 1 ? ` · ${on.length - 1} more on air` : ""}`
+            : head.air.startsIn != null ? `next at ${hhmm(e.startUTC)} UTC · in ${dur(head.air.startsIn)}`
+            : "nothing scheduled in the coming weeks";
+  const meta = [e.country, [e.langLabel || e.lang, e.targetLabel || e.target].filter(Boolean).join(" → ")].filter(Boolean).join(" · ");
+  const grid = [];
+  if (e.site && e.site.name) grid.push(`<div class="w2"><dt>Site</dt><dd>${esc(e.site.name)}</dd></div>`);
+  grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
+  if (e.lastHeard) grid.push(`<div><dt>Last heard</dt><dd>${esc(e.lastHeard.slice(0, 2))}/20${esc(e.lastHeard.slice(2))}</dd></div>`);
+  if (nearMe && myPos && e.site && e.site.lat != null) grid.push(`<div><dt>Distance</dt><dd>${Math.round(haversineKm(myPos, e.site)).toLocaleString()} km</dd></div>`);
+  const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
+  const slots = rows.map((r) => {
+    const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
+    return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
+      `<td>${esc(r.e.station)}<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}</small></td>` +
+      `<td>${esc(r.e.targetLabel || r.e.target || "")}</td></tr>`;
+  }).join("");
+  return `<div class="of-sw"><div class="d-top">
+      <div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
+      <h3 class="d-name">${esc(e.station)}</h3>
+      <p class="d-meta">${esc(meta)}</p>
+      <dl class="d-grid">${grid.join("")}</dl>
+    </div>
+    <div class="sched"><h4 class="h"><span>Today</span><span>UTC</span></h4>
+      <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
+      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
+    <div class="slots"><h4 class="h"><span>Schedule</span><span>${list.length}</span></h4>
+      <div class="slots-box"><table><thead><tr><th>UTC</th><th>Station</th><th>Target</th></tr></thead><tbody>${slots}</tbody></table></div></div>
+  </div>`;
+}
+
+function stationsHtml(list) {
+  let rows = list.map((s) => ({s, km: nearMe && myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null}));
+  if (nearMe && myPos) rows = rows.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+  const shown = of.all ? rows : rows.slice(0, 5);
+  return `<div class="of-st"><h4 class="h"><span>${list.length === 1 ? "Station" : `Stations · ${list.length}`}</span>` +
+    `<button class="toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button></h4>` +
+    `<ul class="list">${shown.map(stationRow).join("")}</ul>` +
+    (rows.length > shown.length ? `<button class="more" type="button" data-act="more">Show all ${rows.length}</button>` : "") + `</div>`;
+}
+
+function stationRow({s, km}) {
+  const tag = (text, cls = "") => `<span class="tag ${cls}">${esc(text)}</span>`;
+  const seen = new Set();
+  const where = [s.ubicacion, s.comuna, s.region].filter((v) => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()));
+  const tags = [];
+  if (s.category === "amateur") {
+    if (s.tono) tags.push(tag(`Tone ${s.tono}`));
+    if (s.rxKHz && s.txKHz) tags.push(tag(fmtShift(s.rxKHz, s.txKHz)));
+    if (s.rxKHz && s.matchedOn && !s.matchedOn.includes("rx")) tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "amber"));
+  }
+  if (s.category === "atc") tags.push(tag("ATC"));
+  if (s.isDMR) {
+    const d = s.dmr || {};
+    tags.push(tag(["DMR", d.colorCode != null && `CC${d.colorCode}`, d.slot != null && `TS${d.slot}`, d.tg && `TG${d.tg}`].filter(Boolean).join(" "), "cool"));
+  }
+  if (s.isEcholink) tags.push(tag("EchoLink", "amber"));
+  const url = radiomapUrl(s.url);
+  if (url) tags.push(`<a class="tag" href="${esc(url)}" target="_blank" rel="noopener">radiomap ↗</a>`);
+  return `<li class="st"><div class="st-main"><b>${esc(s.signal || "")}</b><span>${esc(s.nombre || "")}</span>` +
+    (km != null ? `<span class="km">${Math.round(km).toLocaleString()} km</span>` : "") + `</div>` +
+    (where.length || s.notes ? `<div class="st-sub">${esc([...where, s.notes].filter(Boolean).join(" · "))}</div>` : "") +
+    (tags.length ? `<div class="tags">${tags.join("")}</div>` : "") + `</li>`;
+}
+
+function nearHtml() {
+  const sw = of.k < 30000;
+  return `<div class="cands"><span class="lab">Nearby with data · tap to tune</span>` + of.near.map((n) =>
+    `<button class="chip" type="button" data-khz="${n.k}">${sw ? `<span class="dot${n.on ? " on" : ""}"></span>${n.k}` : (n.k / 1000).toFixed(3)}</button>`).join("") + `</div>`;
+}
+
+// Type the frequency on the radio's keypad, in the unit its current band shows
+function tuneKHz(k) {
+  const text = of.unit === "MHz" ? String(k / 1000) : String(k);
+  toast(`Tuning ${fmtKHz(k)}…`, 2000);
+  send(() => link ? link.typeFreq(text) : Promise.reject(new Error("not connected")));
+}
+
+function toggleNearMe() {
+  if (nearMe) { nearMe = false; store.set("rf919.nearme", false); renderOnFreq(); return; }
+  if (!navigator.geolocation) { toast("Location isn't available here", 3500, true); return; }
+  navigator.geolocation.getCurrentPosition((p) => {
+    // ~1 km is plenty to sort stations, and is all that gets stored
+    myPos = {lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2)};
+    nearMe = true;
+    store.set("rf919.pos", myPos); store.set("rf919.nearme", true);
+    renderOnFreq();
+  }, (e) => toast(`Location: ${e.message || "not allowed"}`, 4000, true), {maximumAge: 600000, timeout: 15000});
+}
+
+$("of-body").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-act], [data-khz]");
+  if (!t) return;
+  if (t.dataset.khz) tuneKHz(+t.dataset.khz);
+  else if (t.dataset.act === "more") { of.all = true; renderOnFreq(); }
+  else if (t.dataset.act === "nearme") toggleNearMe();
+});
+$("onfreq").open = store.get("rf919.onfreq", true);
+$("onfreq").addEventListener("toggle", () => store.set("rf919.onfreq", $("onfreq").open));
+// Keep the on-air state, the "now" marker and the current slot moving
+setInterval(() => { if (!document.hidden && of.data) renderOnFreq(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && of.data) renderOnFreq(); });
+
 function debug(text) { log({kind: "debug", text, raw: new Uint8Array()}); }
 function hasGbk() { try { new TextDecoder("gbk"); return true; } catch { return false; } }
 
@@ -710,7 +1185,7 @@ function onEvent(ev) {
 
 async function send(fn) {
   try { await fn(); }
-  catch (e) { toast(e.message === "not connected" ? "Not connected — tap Connect" : `Error: ${e.message || e}`); }
+  catch (e) { toast(e.message === "not connected" ? "Not connected — tap Connect" : `Error: ${e.message || e}`, 3500, true); }
 }
 
 function pressKey(key, long) {
@@ -795,7 +1270,7 @@ async function setWake(on) {
     if (on) { state.wake = await navigator.wakeLock.request("screen"); state.wake.addEventListener("release", () => { if (!document.hidden) syncWake(false); }); }
     else if (state.wake) { await state.wake.release(); state.wake = null; }
     syncWake(on);
-  } catch (e) { toast("Keep-screen-on isn't available here"); syncWake(false); }
+  } catch (e) { toast("Keep-screen-on isn't available here", 3500, true); syncWake(false); }
 }
 const syncWake = (on) => $("wake").setAttribute("aria-pressed", on);
 $("wake").addEventListener("click", () => setWake($("wake").getAttribute("aria-pressed") !== "true"));
