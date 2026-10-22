@@ -21,7 +21,7 @@ Open **https://juantoledo.github.io/rf919-companion/**
 | iPhone / iPad | **Bluefy** (free, App Store). Safari has no Web Bluetooth |
 
 1. Turn the radio on and make sure the vendor app isn't connected to it.
-2. Tap **Connect** and pick `RF919-BLE`.
+2. Tap **Connect** and pick `RF919-BLE` from the list of nearby Bluetooth devices.
 3. Optional: use **Add to Home screen** so it opens like an app.
 
 How to use it:
