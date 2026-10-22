@@ -1,0 +1,4 @@
+# Vendor app and decompiled output must never be committed
+*.apk
+*.zip
+out/
