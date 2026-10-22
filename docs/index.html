@@ -8,13 +8,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>RF919 Remote</title>
+<title>RF919 Companion</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='18' width='56' height='40' rx='8' fill='%230a131d' stroke='%23ffb33f' stroke-width='4'/%3E%3Cpath d='M14 18 46 4' stroke='%23ffb33f' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='38' r='9' fill='none' stroke='%23ffb33f' stroke-width='4'/%3E%3Crect x='12' y='30' width='18' height='4' fill='%23ffb33f'/%3E%3Crect x='12' y='40' width='18' height='4' fill='%23ffb33f'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Goldman:wght@400;700&display=swap">
 <style>
-/* The Shortwave Atlas look: cold blue ink, one warm dial-lamp amber for everything "lit" */
+/* The Shortwave Atlas look: cold blue ink, one warm dial-lamp amber for everything "lit".
+   Information first (search, dossier, stations, nearby); the radio's keys live in the Remote sheet. */
 :root {
   --ink: #070d15; --panel: #0c1520; --panel-bg: #0a131d; --deep: #050a11;
   --line: rgba(140, 185, 230, .14); --line-strong: rgba(140, 185, 230, .3); --hover: rgba(140, 185, 230, .08);
@@ -22,7 +23,7 @@
   --amber: #ffb33f; --amber-soft: rgba(255, 179, 63, .14); --amber-line: rgba(255, 179, 63, .6);
   --cool: #7fd0ff; --cool-soft: rgba(127, 208, 255, .08); --cool-line: rgba(127, 208, 255, .4);
   --warn: #ff8a7a; --warn-soft: rgba(255, 138, 122, .08); --warn-line: rgba(255, 138, 122, .5);
-  --radius: 14px; --hit: 32px; --key: 52px;
+  --radius: 14px; --hit: 32px; --key: 52px; --dock-h: 0px;
   --font-display: 'Big Shoulders Display', 'Arial Narrow', 'Roboto Condensed', sans-serif;
   --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
@@ -33,83 +34,41 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--ink); color: var(--text); overflow-x: hidden; }
 body {
-  font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased;
-  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  -webkit-tap-highlight-color: transparent;
+  font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(24px + var(--dock-h) + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
 }
+body.has-dock { --dock-h: 76px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes sheet-in { from { transform: translateX(100%); } to { transform: none; } }
 
 .app { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 @media (min-width: 960px) {
-  .app { max-width: 1100px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  .app { max-width: 1120px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
   .top, .banner { grid-column: 1 / -1; }
 }
 .col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
 
-/* top bar */
+/* ---- top bar ---- */
 .top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 0 10px; background: var(--ink); }
 .lamp { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #3b4a5b; }
 .lamp.ok { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 .lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool); animation: blink .5s steps(2, jump-none) infinite; }
-.lamp.bad { background: #3b4a5b; }
+.lamp.cool { background: var(--cool); box-shadow: 0 0 8px rgba(127, 208, 255, .65); }
 .wordmark { font: 800 26px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
 .status { flex: 1; min-width: 0; font: 400 11.5px/1.4 var(--font-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status b { color: var(--amber); font-weight: 500; }
-@media (max-width: 440px) { .wordmark { font-size: 21px; } }
+.clock { flex: none; font: 400 11px var(--font-mono); letter-spacing: .08em; color: var(--dim); white-space: nowrap; }
+.clock b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
+@media (max-width: 440px) { .wordmark { font-size: 21px; } .clock small { display: none; } }
 
 .banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: 6px; background: var(--warn-soft); font-size: 13px; }
 .banner b { font-weight: 500; color: var(--warn); }
 
-/* the faceplate: what the radio's LCD shows */
-.lcd { padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
-.lcd-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.band {
-  --band: var(--dim); flex: none; align-self: center; min-width: 52px; padding: 3px 10px; border-radius: 999px; text-align: center;
-  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
-  color: var(--band); border: 1px solid currentColor; background: var(--hover);
-  border-color: color-mix(in srgb, var(--band) 55%, transparent); background: color-mix(in srgb, var(--band) 12%, transparent);
-}
-.freq { flex: 1; min-width: 0; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.freq .main {
-  font: italic 700 clamp(30px, 10.5vw, 46px)/1.05 var(--font-freq); letter-spacing: .01em;
-  color: #fff; text-shadow: 0 0 18px rgba(255, 255, 255, .35);
-}
-.freq .small { font: italic 700 clamp(17px, 5vw, 24px) var(--font-freq); color: #fff; opacity: .8; margin-left: 2px; }
-.unit { flex: none; font: 500 13px var(--font-mono); letter-spacing: .1em; color: var(--dim); }
-.lcd.off .freq .main, .lcd.off .freq .small { color: var(--faint); text-shadow: none; }
-.sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; min-height: 18px; font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
-.alert { color: var(--warn); }
-.cells { display: grid; grid-template-columns: repeat(auto-fit, minmax(86px, 1fr)); gap: 10px 12px; margin-top: 10px; }
-.cell { min-width: 0; padding-top: 6px; border-top: 1px solid var(--line); }
-.cell .l { font: 500 10px/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cell .v { margin-top: 2px; font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lines { margin-top: 10px; font: 400 11px/1.5 var(--font-mono); color: var(--dim); display: grid; gap: 2px; }
-.lines div { min-height: 1.3em; overflow-wrap: anywhere; }
-.lines div:empty { min-height: 0; }
-
-/* panels */
-.panel { min-width: 0; padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
-.panel h2, summary, .h {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px;
-  font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
-}
-details.panel > summary { margin: 0; cursor: pointer; list-style: none; }
-details.panel > summary::after {
-  content: ""; flex: none; width: 10px; height: 6px; background: currentColor; transform: rotate(-90deg); transition: transform .15s;
-  -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat;
-}
-details.panel[open] > summary { margin-bottom: 12px; }
-details.panel[open] > summary::after { transform: none; color: var(--amber); }
-summary::-webkit-details-marker { display: none; }
-summary .sum-v { margin-left: auto; color: var(--amber); letter-spacing: .06em; }
-
-/* keys */
-.grid { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid.fn { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.grid.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+/* ---- buttons (base) ---- */
 button, select, input { font: inherit; color: inherit; }
 button {
   min-height: var(--key); padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; color: var(--text);
@@ -121,53 +80,83 @@ button:hover:not(:disabled) { background: var(--hover); border-color: rgba(140, 
 button:active, button.pressing { transform: scale(.96); background: rgba(140, 185, 230, .14); }
 button.long-fired { background: var(--amber); border-color: var(--amber); color: var(--ink); box-shadow: 0 0 14px rgba(255, 179, 63, .55); }
 button:disabled { opacity: .35; cursor: default; }
-button.fn { background: var(--cool-soft); border-color: var(--cool-line); color: var(--cool); font-size: 11.5px; }
-@media (max-width: 440px) { button.fn { font-size: 10.5px; padding: 2px; letter-spacing: 0; } }
-button.danger { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
 button.primary { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber); }
+button.danger { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
+button.fn { background: var(--cool-soft); border-color: var(--cool-line); color: var(--cool); font-size: 11.5px; }
 button.toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--dim); }
 button.toggle::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--dim); }
 button.toggle[aria-pressed="true"] { color: var(--text); border-color: var(--amber-line); }
 button.toggle[aria-pressed="true"]::before { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px var(--amber); }
-button.wide { grid-column: 1 / -1; }
 button.small { min-height: var(--hit); padding: 4px 12px; border-radius: 999px; font-size: 11px; }
-.grid.k3 button { font-size: 18px; letter-spacing: 0; }
-.grid.k3 button.wide { font-size: 12px; letter-spacing: .08em; }
-.hint { margin: 10px 0 0; font: 400 11px/1.5 var(--font-mono); color: var(--dim); }
-.row { display: flex; gap: 8px; }
-.row > * { flex: 1; min-width: 0; }
-select, input[type=text] {
-  min-height: 48px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel);
-  transition: border-color .12s;
-}
-select:hover, input[type=text]:hover { border-color: rgba(140, 185, 230, .45); }
-select:focus, input[type=text]:focus { outline: none; border-color: var(--amber-line); }
-select { font: 500 13px var(--font-mono); }
-input[type=text] { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; }
-input[type=text]::placeholder { color: var(--faint); font-size: 14px; }
-.toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-label.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
-label.chk input { accent-color: var(--amber); }
-.log { max-height: 280px; overflow: auto; padding: 8px; background: var(--deep); border: 1px solid var(--line); border-radius: 6px; font: 10.5px/1.45 var(--font-mono); color: var(--dim); scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.log div { white-space: pre-wrap; overflow-wrap: anywhere; }
-.log .t { color: var(--faint); }
-.k-freq, .k-entry { color: var(--cool); } .k-button_label { color: var(--text); } .k-unknown { color: #e0a3c8; }
-.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--warn); } .k-toast, .k-status_text { color: #ffe2a0; }
-.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap { color: var(--amber); }
-.toast {
-  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 10;
-  max-width: calc(100% - 32px); padding: 9px 14px; white-space: pre-line;
-  background: rgba(8, 14, 23, .97); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
-  font: 400 12.5px/1.45 var(--font-mono); animation: rise-in .2s ease-out both;
-}
-.toast.err { background: rgba(40, 14, 12, .96); border-color: var(--warn-line); color: #ffb3a8; }
+button.wide { grid-column: 1 / -1; }
 
-/* ---- On this frequency (radiomap.cl) ---- */
-.station > div { animation: fade-in .15s ease-out both; }
-#of-body > :not(:first-child):not(.note) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+/* ---- search + what the radio shows ---- */
+.tuner { display: grid; gap: 10px; min-width: 0; }
+.search { display: flex; gap: 8px; }
+.search input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 0 14px 0 38px; -webkit-appearance: none; appearance: none;
+  background: var(--panel) no-repeat 14px center / 14px 14px; border: 1px solid var(--line-strong); border-radius: 999px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6.5' cy='6.5' r='5' fill='none' stroke='%238498ad' stroke-width='1.6'/%3E%3Cpath d='M10.3 10.3 15 15' stroke='%238498ad' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; transition: border-color .12s;
+}
+.search input::placeholder { color: var(--faint); font-size: 13.5px; }
+.search input::-webkit-search-cancel-button { display: none; }
+.search input:focus { outline: none; border-color: var(--amber-line); }
+.search button { min-height: 44px; padding: 0 16px; }
+.readout { padding: 12px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); animation: fade-in .2s both; }
+.readout .h { margin-bottom: 6px; }
+.lcd-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.band {
+  --band: var(--dim); flex: none; align-self: center; min-width: 48px; padding: 2px 9px; border-radius: 999px; text-align: center;
+  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--band); border: 1px solid currentColor; background: var(--hover);
+  border-color: color-mix(in srgb, var(--band) 55%, transparent); background: color-mix(in srgb, var(--band) 12%, transparent);
+}
+.freq { flex: 1; min-width: 0; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.freq .main { font: italic 700 clamp(28px, 8.5vw, 36px)/1.05 var(--font-freq); letter-spacing: .01em; color: #fff; text-shadow: 0 0 18px rgba(255, 255, 255, .35); }
+.freq .small { font: italic 700 clamp(15px, 4.4vw, 19px) var(--font-freq); color: #fff; opacity: .8; margin-left: 2px; }
+.unit { flex: none; font: 500 12px var(--font-mono); letter-spacing: .1em; color: var(--dim); }
+.sub { display: flex; justify-content: space-between; gap: 8px; font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
+.sub:has(span:empty + span:empty) { display: none; }
+.alert { color: var(--warn); }
+.cells { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 6px; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; }
+.cell { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.cell .l { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+.cell .v { white-space: nowrap; }
+.pinned { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--cool-line); border-radius: 999px; background: var(--cool-soft); font: 500 12px var(--font-mono); color: var(--dim); }
+.pinned b { color: var(--cool); font-weight: 500; }
+.pinned span:nth-child(2) { flex: 1; min-width: 0; }
+
+/* ---- panels ---- */
+.panel { min-width: 0; padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
+.panel h2, .h, summary {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px;
+  font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
+}
+.h .hv { color: var(--amber); letter-spacing: .06em; }
+.h button.toggle, .h button.small { min-height: 28px; padding: 2px 10px; border-radius: 999px; font-size: 10.5px; letter-spacing: .08em; }
+details > summary { margin: 0; cursor: pointer; list-style: none; }
+details > summary::after {
+  content: ""; flex: none; width: 10px; height: 6px; background: currentColor; transform: rotate(-90deg); transition: transform .15s;
+  -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat;
+}
+details[open] > summary { margin-bottom: 10px; }
+details[open] > summary::after { transform: none; color: var(--amber); }
+summary::-webkit-details-marker { display: none; }
+
+/* ---- flags ---- */
+.flag { display: inline-block; flex: none; width: 1.25em; height: .94em; margin-right: .4em; vertical-align: -.1em; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px rgba(140, 185, 230, .25); }
+svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: none; }
+.d-name .flag { height: .62em; width: .83em; vertical-align: .06em; margin-right: .3em; }
+
+/* ---- the dossier ---- */
+.hero { animation: fade-in .15s ease-out both; }
 .of-msg { margin: 0; color: var(--dim); font: 400 12px/1.5 var(--font-mono); }
-.d-empty .empty-t { margin: 0; font: 800 24px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
-.d-empty .empty-d { margin: 6px 0 0; color: var(--dim); font-size: 13px; }
+.d-empty { padding: 6px 0 4px; }
+.empty-t { margin: 0; font: 800 28px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
+.empty-d { margin: 8px 0 0; max-width: 46ch; color: var(--dim); }
+.intro-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.intro-act button { min-height: 40px; padding: 0 16px; border-radius: 999px; }
 .d-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .d-sub { color: var(--dim); font-size: 12.5px; }
 .pill {
@@ -177,9 +166,10 @@ label.chk input { accent-color: var(--amber); }
 .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .pill.on { color: var(--amber); border-color: rgba(255, 179, 63, .5); background: var(--amber-soft); }
 .pill.on::before { box-shadow: 0 0 8px var(--amber); }
+.pill.cat { color: var(--cool); border-color: var(--cool-line); }
 .d-name {
-  margin: 10px 0 0; font: 800 32px/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  margin: 10px 0 0; font: 800 34px/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .d-meta { margin: 4px 0 0; color: var(--dim); font-size: 13px; }
 .d-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 12px 0 0; }
@@ -187,14 +177,17 @@ label.chk input { accent-color: var(--amber); }
 .d-grid .w2 { grid-column: span 2; }
 .d-grid dt { font: 500 10px/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
 .d-grid dd { margin: 2px 0 0; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.sched { margin-top: 14px; }
+.d-grid dd.mono { font: 500 13px var(--font-mono); }
+.tune-here { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.tune-here button { min-height: 40px; padding: 0 16px; border-radius: 999px; }
+.sched { margin-top: 16px; }
 .sched .h { margin-bottom: 8px; }
 .bar { position: relative; height: 10px; border-radius: 2px; background: rgba(140, 185, 230, .1); }
 .bar .win { position: absolute; top: 0; bottom: 0; background: rgba(255, 179, 63, .6); }
 .bar .now { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
 .axis { display: flex; justify-content: space-between; margin-top: 4px; font: 400 10px var(--font-mono); color: var(--dim); }
-.slots { margin-top: 14px; }
-.slots-box { max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.slots { margin-top: 16px; }
+.slots-box { max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .slots table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .slots th {
   position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--panel-bg);
@@ -203,18 +196,10 @@ label.chk input { accent-color: var(--amber); }
 .slots td { padding: 6px 6px 6px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
 .slots td:first-child { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .slots td small { display: block; color: var(--dim); font-size: 11px; }
-.slots tr.idle td { color: var(--faint); }
-.slots tr.idle td small { color: var(--faint); }
+.slots tr.idle td, .slots tr.idle td small { color: var(--faint); }
+.slots tr.idle .flag { opacity: .5; }
 .slots tr.cur td { color: var(--amber); }
-.of-st .h button.toggle { min-height: 28px; padding: 2px 10px; border-radius: 999px; font-size: 10.5px; letter-spacing: .08em; }
-.list { list-style: none; margin: 0; padding: 0; }
-.st { padding: 9px 0; border-top: 1px solid var(--line); }
-.st-main { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.st-main b { flex: none; font: 500 13.5px var(--font-mono); color: var(--text); }
-.st-main span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.st-main .km { flex: none; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--amber); }
-.st-sub { margin-top: 2px; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .tag {
   display: inline-flex; align-items: center; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
   font: 500 10.5px/1.6 var(--font-mono); letter-spacing: .04em; color: var(--dim); white-space: nowrap; text-decoration: none;
@@ -222,20 +207,109 @@ label.chk input { accent-color: var(--amber); }
 .tag.amber { color: var(--amber); border-color: rgba(255, 179, 63, .5); }
 .tag.cool { color: var(--cool); border-color: var(--cool-line); }
 a.tag:hover { color: var(--text); background: var(--hover); }
-.more { width: 100%; min-height: var(--hit); margin-top: 8px; border-radius: 6px; font-size: 11px; }
-.cands { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.cands .lab { width: 100%; font: 500 10.5px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
-.chip {
-  display: inline-flex; align-items: center; gap: 7px; min-height: var(--hit); padding: 4px 12px; border-radius: 999px;
-  font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: .02em; text-transform: none;
-}
-.dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1px solid #5b6c7f; }
-.dot.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 63, .7); }
+button.tag { min-height: 30px; padding: 2px 12px; font-size: 12px; letter-spacing: .02em; text-transform: none; }
+@media (pointer: coarse) { button.tag { min-height: 38px; } }
 .note { margin: 12px 0 0; font: 400 10px/1.45 var(--font-mono); letter-spacing: .03em; color: var(--dim); }
 .note a { color: var(--amber); text-underline-offset: 3px; }
-@media (max-width: 440px) { .d-name { font-size: 27px; } .d-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-@media (pointer: coarse) { :root { --hit: 44px; } .of-st .h button.toggle { min-height: 36px; } }
+/* ---- stations & nearby lists ---- */
+.list { list-style: none; margin: 0; padding: 0; }
+.st { padding: 10px 0; border-top: 1px solid var(--line); }
+.st-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.st-main b { flex: none; font: 500 13.5px var(--font-mono); color: var(--text); }
+.st-main span { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
+.st-main .km { flex: none; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--amber); }
+.st-sub { margin-top: 2px; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
+.more { width: 100%; min-height: var(--hit); margin-top: 8px; border-radius: 6px; font-size: 11px; }
+.near-row {
+  display: grid; grid-template-columns: 4.6em minmax(0, 1fr) 10px; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 6px;
+  text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0;
+  font: 14px var(--font-body); letter-spacing: 0; text-transform: none; white-space: normal;
+}
+.near-row:hover:not(:disabled) { border-color: var(--line); }
+.nf { font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; }
+.nn { min-width: 0; }
+.nn b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nn small { display: block; font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.near-row.loading .nn b { color: var(--faint); }
+.dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1px solid #5b6c7f; }
+.dot.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 63, .7); }
+.dot.none { visibility: hidden; }
+
+/* ---- mini dock ---- */
+.dock {
+  position: fixed; z-index: 8; left: 50%; bottom: 0; translate: -50% 0; width: min(560px, 100%);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr); gap: 6px;
+  padding: 10px max(12px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgba(7, 13, 21, .92); border-top: 1px solid var(--line-strong);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: rise-in .2s ease-out both;
+}
+@media (min-width: 600px) { .dock { bottom: 12px; border: 1px solid var(--line-strong); border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); padding-bottom: 10px; } }
+.dock button { min-height: 48px; }
+
+/* ---- Remote sheet ---- */
+.sheet-layer { position: fixed; inset: 0; z-index: 20; }
+.sheet-backdrop { position: absolute; inset: 0; background: rgba(3, 7, 12, .6); animation: fade-in .2s both; }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column;
+  padding: 16px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: var(--panel-bg); border-top: 1px solid var(--line-strong); border-radius: 18px 18px 0 0; box-shadow: 0 -20px 60px rgba(0, 0, 0, .45);
+  animation: sheet-up .26s cubic-bezier(.2, .8, .2, 1) both;
+}
+@media (min-width: 960px) {
+  .sheet { left: auto; top: 0; width: min(480px, 100%); max-height: none; border-top: 0; border-left: 1px solid var(--line-strong); border-radius: 0; animation-name: sheet-in; }
+}
+.sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sheet-head h2 { margin: 0; font: 800 28px/1 var(--font-display); letter-spacing: .03em; text-transform: uppercase; color: var(--text); }
+.sheet-head button { min-height: 40px; width: 40px; padding: 0; border-radius: 999px; font-size: 15px; }
+.tabs { flex: none; display: flex; gap: 2px; margin-top: 12px; border-bottom: 1px solid var(--line); }
+.tabs button {
+  flex: 1; min-height: 40px; padding: 6px 4px; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px;
+  font: 500 11px var(--font-mono); letter-spacing: .1em; color: var(--dim);
+}
+.tabs button:hover:not(:disabled) { background: none; color: var(--text); }
+.tabs button[aria-selected="true"] { color: var(--amber); border-bottom-color: var(--amber); }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 14px -4px 0; padding: 0 4px 4px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.sheet-body section + section { margin-top: 16px; }
+.grid { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid.fn { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 8px; }
+.grid.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.k3 button { font-size: 18px; letter-spacing: 0; }
+.grid.k3 button.wide { font-size: 12px; letter-spacing: .08em; }
+@media (max-width: 440px) { button.fn { font-size: 10.5px; padding: 2px; letter-spacing: 0; } }
+.hint { margin: 10px 0 0; font: 400 11px/1.5 var(--font-mono); color: var(--dim); }
+.row { display: flex; gap: 8px; }
+.row > * { flex: 1; min-width: 0; }
+select, input[type=text] {
+  min-height: 48px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); transition: border-color .12s;
+}
+select:focus, input[type=text]:focus { outline: none; border-color: var(--amber-line); }
+select { font: 500 13px var(--font-mono); }
+input[type=text] { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; }
+input[type=text]::placeholder { color: var(--faint); font-size: 14px; }
+.toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+label.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
+label.chk input { accent-color: var(--amber); }
+.lines { font: 400 12px/1.6 var(--font-mono); color: var(--text); display: grid; gap: 4px; }
+.lines div { overflow-wrap: anywhere; }
+.lines div:empty { display: none; }
+.log { max-height: 320px; overflow: auto; padding: 8px; background: var(--deep); border: 1px solid var(--line); border-radius: 6px; font: 10.5px/1.45 var(--font-mono); color: var(--dim); scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.log div { white-space: pre-wrap; overflow-wrap: anywhere; }
+.log .t { color: var(--faint); }
+.k-freq, .k-entry { color: var(--cool); } .k-button_label { color: var(--text); } .k-unknown { color: #e0a3c8; }
+.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--warn); } .k-toast, .k-status_text { color: #ffe2a0; }
+.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap { color: var(--amber); }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(20px + var(--dock-h) + env(safe-area-inset-bottom)); translate: -50% 0; z-index: 30;
+  max-width: calc(100% - 32px); padding: 9px 14px; white-space: pre-line;
+  background: rgba(8, 14, 23, .97); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
+  font: 400 12.5px/1.45 var(--font-mono); animation: rise-in .2s ease-out both;
+}
+.toast.err { background: rgba(40, 14, 12, .96); border-color: var(--warn-line); color: #ffb3a8; }
+
+@media (max-width: 440px) { .d-name { font-size: 28px; } .d-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (pointer: coarse) { :root { --hit: 44px; } .h button.toggle, .h button.small { min-height: 36px; } }
 .blink { animation: blink .5s steps(2, jump-none) infinite; }
 @keyframes blink { 0% { opacity: 1; } 100% { opacity: .15; } }
 @media (prefers-reduced-motion: reduce) {
@@ -245,123 +319,171 @@ a.tag:hover { color: var(--text); background: var(--hover); }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app">
   <header class="top">
     <span class="lamp" id="dot"></span>
     <span class="wordmark">RF919</span>
     <span class="status" id="stat">not connected</span>
+    <span class="clock" id="clock" title="Coordinated Universal Time"></span>
     <button class="small primary" id="connect">Connect</button>
+    <button class="small" id="remote-top" aria-label="Remote and settings" aria-haspopup="dialog">☰</button>
   </header>
 
   <div class="banner" id="nobt" hidden>
     <b>No Web Bluetooth in this browser.</b>
-    <span>Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on iPhone.
-    The page must be opened over https (e.g. GitHub Pages) or localhost. <b>Demo</b> mode still works.</span>
+    <span>You can still look up frequencies. To control the radio use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on iPhone,
+    over https (e.g. GitHub Pages) or localhost. <b>Demo</b> shows the radio side with recorded data.</span>
   </div>
 
   <div class="col">
-    <section class="lcd off" id="lcd" aria-label="Radio display">
-      <div class="lcd-row">
-        <div class="band" id="band">--</div>
-        <div class="freq" id="freqbox"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
-        <div class="unit" id="unit"></div>
+    <section class="tuner" aria-label="Frequency">
+      <form class="search" id="search" role="search">
+        <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
+               placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
+        <button class="small" type="submit">Look up</button>
+      </form>
+      <div class="readout" id="readout" hidden>
+        <h2 class="h"><span>The radio</span><span class="hv" id="radio-k"></span></h2>
+        <div class="lcd-row">
+          <div class="band" id="band">--</div>
+          <div class="freq" id="freqbox"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
+          <div class="unit" id="unit"></div>
+        </div>
+        <div class="sub"><span id="preset"></span><span class="alert" id="alert"></span></div>
+        <div class="cells">
+          <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
+          <div class="cell" id="c-bw"><span class="l">BW</span><span class="v">–</span></div>
+          <div class="cell" id="c-snr"><span class="l">SNR</span><span class="v">–</span></div>
+          <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
+          <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
+        </div>
       </div>
-      <div class="sub"><span id="preset"></span><span class="alert" id="alert"></span></div>
-      <div class="cells">
-        <div class="cell" id="c-demod"><div class="l">Demod</div><div class="v">–</div></div>
-        <div class="cell" id="c-bw"><div class="l">BW</div><div class="v">–</div></div>
-        <div class="cell" id="c-snr"><div class="l">SNR</div><div class="v">–</div></div>
-        <div class="cell" id="c-rssi"><div class="l">RSSI</div><div class="v">–</div></div>
-        <div class="cell" id="c-field9"><div class="l">SQL</div><div class="v">–</div></div>
-      </div>
-      <div class="lines">
-        <div id="field11"></div>
-        <div id="field12"></div>
-        <div id="statusline"></div>
+      <div class="pinned" id="pinned" hidden>
+        <span class="lamp cool"></span>
+        <span>Looking at <b id="pin-k"></b></span>
+        <button class="small" id="back" hidden>Back to radio · <span id="back-k"></span></button>
       </div>
     </section>
 
-    <details class="panel station" id="onfreq" open hidden>
-      <summary>On this frequency <span class="sum-v" id="of-k"></span></summary>
-      <div id="of-body" aria-live="polite"></div>
-    </details>
-
-    <section class="panel">
-      <h2>Controls</h2>
-      <div class="grid">
-        <button data-key="POWER" class="danger">⏻ Power</button>
-        <button data-key="BAND">Band</button>
-        <button data-key="DOWN">◀ Down</button>
-        <button data-key="UP">Up ▶</button>
-        <button data-key="VOL-">Vol −</button>
-        <button data-key="VOL+">Vol +</button>
-        <button data-key="SQ">SQ</button>
-        <button data-key="PRESET">Preset</button>
-        <button data-key="MEMO">Memo</button>
-        <button data-key="REC">Rec</button>
-        <button data-key="ALARM">Alarm</button>
-        <button data-key="BLUETOOTH">BT</button>
-      </div>
-      <div class="grid fn" style="margin-top:8px">
-        <button class="fn" data-fn="MODE">MODE</button>
-        <button class="fn" data-fn="STEP">STEP</button>
-        <button class="fn" data-fn="SCAN">SCAN</button>
-        <button class="fn" data-fn="SOS">SOS</button>
-        <button class="fn" data-fn="FUNC">FUNC</button>
-      </div>
-      <p class="hint">Hold a button ≈0.6 s for its long-press action (seek, band list, lock…).</p>
-    </section>
+    <section class="panel hero" id="dossier" aria-live="polite"></section>
   </div>
 
   <div class="col">
-    <details class="panel" open>
-      <summary>Direct tune</summary>
-      <div class="row">
-        <select id="bandsel" aria-label="Band"><option value="">Band…</option></select>
-        <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="e.g. 9.5 or 101.1" autocomplete="off">
-      </div>
-      <div class="row" style="margin-top:8px">
-        <button class="primary" id="tunebtn">Tune</button>
-        <button id="settime">Sync clock</button>
-      </div>
-    </details>
+    <section class="panel" id="stations" hidden></section>
+    <section class="panel" id="nearby" hidden></section>
+  </div>
+</div>
 
-    <details class="panel">
-      <summary>Keypad</summary>
-      <div class="grid k3">
-        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
-        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
-        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-        <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK">⌫</button>
-        <button data-key="FREQ" class="primary wide">FREQ ⏎</button>
-      </div>
-      <div class="grid" style="margin-top:8px">
-        <button data-key="STEREO">Stereo</button>
-        <button data-key="DE">DE</button>
-        <button data-key="PLAY">Play</button>
-        <button data-key="MUSIC">Music</button>
-      </div>
-    </details>
+<nav class="dock" id="dock" hidden aria-label="Radio controls">
+  <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
+  <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
+  <button data-key="VOL-">Vol −</button>
+  <button data-key="VOL+">Vol +</button>
+  <button class="primary" id="remote-open" aria-haspopup="dialog">Remote ⌃</button>
+</nav>
 
-    <section class="panel">
-      <h2>Options</h2>
-      <div class="toggles">
-        <button class="toggle" id="hold" aria-pressed="false">HOLD next press</button>
-        <button class="toggle" id="wake" aria-pressed="false">Keep screen on</button>
-        <button id="demo">Demo (no radio)</button>
-        <button id="disconnect">Disconnect</button>
+<div class="sheet-layer" id="remote" hidden>
+  <div class="sheet-backdrop" data-close></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="remote-title">
+    <div class="sheet-head">
+      <h2 id="remote-title">Remote</h2>
+      <button data-close aria-label="Close">✕</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="keys" aria-selected="true">Keys</button>
+      <button role="tab" data-tab="tune" aria-selected="false">Tune</button>
+      <button role="tab" data-tab="display" aria-selected="false">Display</button>
+      <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+    </div>
+    <div class="sheet-body">
+      <div data-pane="keys" role="tabpanel">
+        <section>
+          <div class="grid">
+            <button data-key="POWER" class="danger">⏻ Power</button>
+            <button data-key="BAND">Band</button>
+            <button data-key="DOWN">◀ Down</button>
+            <button data-key="UP">Up ▶</button>
+            <button data-key="VOL-">Vol −</button>
+            <button data-key="VOL+">Vol +</button>
+            <button data-key="SQ">SQ</button>
+            <button data-key="PRESET">Preset</button>
+            <button data-key="MEMO">Memo</button>
+            <button data-key="REC">Rec</button>
+            <button data-key="ALARM">Alarm</button>
+            <button data-key="BLUETOOTH">BT</button>
+          </div>
+          <div class="grid fn">
+            <button class="fn" data-fn="MODE">MODE</button>
+            <button class="fn" data-fn="STEP">STEP</button>
+            <button class="fn" data-fn="SCAN">SCAN</button>
+            <button class="fn" data-fn="SOS">SOS</button>
+            <button class="fn" data-fn="FUNC">FUNC</button>
+          </div>
+          <p class="hint">Hold a button ≈0.6 s for its long-press action (seek, band list, lock…).</p>
+        </section>
+        <section>
+          <h2 class="h">Keypad</h2>
+          <div class="grid k3">
+            <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+            <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+            <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+            <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK">⌫</button>
+            <button data-key="FREQ" class="primary wide">FREQ ⏎</button>
+          </div>
+          <div class="grid" style="margin-top:8px">
+            <button data-key="STEREO">Stereo</button>
+            <button data-key="DE">DE</button>
+            <button data-key="PLAY">Play</button>
+            <button data-key="MUSIC">Music</button>
+          </div>
+        </section>
       </div>
-      <label class="chk"><input type="checkbox" id="onlyRadio"> Only list RF919 radios when connecting</label>
-    </section>
-
-    <details class="panel" id="logpanel">
-      <summary>Log</summary>
-      <div class="row" style="align-items:center;margin-bottom:8px">
-        <label class="chk" style="margin:0"><input type="checkbox" id="rawlog"> Raw hex</label>
-        <button class="small" id="copylog">Copy log</button>
+      <div data-pane="tune" role="tabpanel" hidden>
+        <section>
+          <h2 class="h">Direct tune</h2>
+          <div class="row">
+            <select id="bandsel" aria-label="Band"><option value="">Band…</option></select>
+            <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="e.g. 9.5 or 101.1" autocomplete="off">
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" id="tunebtn">Tune</button>
+            <button id="settime">Sync clock</button>
+          </div>
+          <p class="hint">Typed in the unit the radio's band shows (MHz on SW and FM).</p>
+        </section>
       </div>
-      <div class="log" id="log" aria-live="off"></div>
-    </details>
+      <div data-pane="display" role="tabpanel" hidden>
+        <section>
+          <h2 class="h">The radio's text lines</h2>
+          <div class="lines">
+            <div id="field11"></div>
+            <div id="field12"></div>
+            <div id="statusline"></div>
+          </div>
+        </section>
+      </div>
+      <div data-pane="settings" role="tabpanel" hidden>
+        <section>
+          <div class="toggles">
+            <button class="toggle" id="hold" aria-pressed="false">HOLD next press</button>
+            <button class="toggle" id="wake" aria-pressed="false">Keep screen on</button>
+            <button id="demo">Demo (no radio)</button>
+            <button id="disconnect">Disconnect</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="onlyRadio"> Only list RF919 radios when connecting</label>
+        </section>
+        <section>
+          <details id="logpanel">
+            <summary>Log</summary>
+            <div class="row" style="align-items:center;margin-bottom:8px">
+              <label class="chk" style="margin:0"><input type="checkbox" id="rawlog"> Raw hex</label>
+              <button class="small" id="copylog">Copy log</button>
+            </div>
+            <div class="log" id="log" aria-live="off"></div>
+          </details>
+        </section>
+      </div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast" hidden></div>
@@ -571,7 +693,8 @@ function toKHz({raw, dp, unit, alert}) {
 const fmtKHz = (k) => k >= 30000 ? `${(k / 1000).toFixed(3)} MHz` : `${k} kHz`;
 
 // Closest kHz with data, within a window that suits the band's channel spacing; sorted ascending
-const nearWindow = (k) => k < 1800 ? 20 : k < 30000 ? 10 : k >= 87500 && k <= 108000 ? 400 : k < 300000 ? 100 : 200;
+// SW ±25 (5 kHz channels), MW ±20, FM broadcast ±400 (200 kHz channels), VHF ±100, UHF ±200
+const nearWindow = (k) => k < 1800 ? 20 : k < 30000 ? 25 : k >= 87500 && k <= 108000 ? 400 : k < 300000 ? 100 : 200;
 function nearby(freqs, k, n = 4, win = nearWindow(k)) {
   let lo = 0, hi = freqs.length;
   while (lo < hi) { const mid = (lo + hi) >> 1; if (freqs[mid] < k) lo = mid + 1; else hi = mid; }
@@ -685,6 +808,54 @@ function fmtShift(rx, tx) {
   return `${d < 0 ? "−" : "+"}${a >= 1000 ? +(a / 1000).toFixed(3) + " MHz" : a + " kHz"}`;
 }
 const radiomapUrl = (u) => typeof u === "string" && u.startsWith(RADIOMAP_SITE) ? u : null;
+
+// ---- search ----
+// "9580" / "720" kHz, "9.58" / "146.73" / "101.3" MHz, "101" MHz, "7" MHz, "720k", "9,58" (comma decimal), "146.73 MHz"
+function parseFreqInput(text) {
+  const m = String(text).trim().toLowerCase().replace(",", ".").match(/^(\d+(?:\.\d*)?|\.\d+)\s*(k|khz|m|mhz)?$/);
+  if (!m) return null;
+  const v = parseFloat(m[1]);
+  if (!(v > 0)) return null;
+  const mhz = m[2] ? m[2][0] === "m" : m[1].includes(".") ? v < 1000 : v < 150;
+  const k = Math.floor(v * (mhz ? 1000 : 1) + 0.5);
+  return k < 3e6 ? k : null;
+}
+
+// ---- flags ----
+// EiBi (ITU) country code -> flag-icons key (ISO 3166-1 alpha-2, or its extras: sh-ac, sh-ta, ic, xk, un, um, tf).
+// Hand-made from EiBi's README "II) Country codes"; codes with no country (CLA, IW, XUU…) get a globe
+const ITU_FLAG = new Map((
+  "ABW:aw AFG:af AFS:za AGL:ao AIA:ai ALB:al ALG:dz ALS:us AMS:tf AND:ad AOE:eh ARG:ar ARM:am ARS:sa ASC:sh-ac " +
+  "ATA:aq ATG:ag AUS:au AUT:at AZE:az AZR:pt B:br BAH:bs BDI:bi BEL:be BEN:bj BER:bm BES:bq BFA:bf BGD:bd BHR:bh " +
+  "BIH:ba BIO:io BLM:bl BLR:by BLZ:bz BOL:bo BOT:bw BRB:bb BRM:mm BRU:bn BTN:bt BUL:bg BVT:bv CAB:ao CAF:cf " +
+  "CAN:ca CBG:kh CEU:es CHL:cl CHN:cn CHR:cx CKH:ck CLM:co CLN:lk CME:cm CNR:ic COD:cd COG:cg COM:km CPT:fr " +
+  "CPV:cv CRO:tf CTI:ci CTR:cr CUB:cu CUW:cw CVA:va CYM:ky CYP:cy CZE:cz D:de DJI:dj DMA:dm DNK:dk DOM:do E:es " +
+  "EGY:eg EQA:ec ERI:er EST:ee ETH:et EUR:tf F:fr FIN:fi FJI:fj FLK:fk FRO:fo FSM:fm G:gb GAB:ga GEO:ge GHA:gh " +
+  "GIB:gi GLP:gp GMB:gm GNB:gw GNE:gq GPG:ec GRC:gr GRD:gd GRL:gl GTM:gt GUF:gf GUI:gn GUM:gu GUY:gy HKG:hk " +
+  "HMD:hm HND:hn HNG:hu HOL:nl HRV:hr HTI:ht HWA:us HWL:um I:it ICO:cc IND:in INS:id IRL:ie IRN:ir IRQ:iq ISL:is " +
+  "ISR:il IWA:jp J:jp JAR:um JDN:tf JMC:jm JMY:sj JON:um JOR:jo JUF:cl KAL:ru KAZ:kz KEN:ke KER:tf KGZ:kg KIR:ki " +
+  "KNA:kn KOR:kr KOS:xk KRE:kp KWT:kw LAO:la LBN:lb LBR:lr LBY:ly LCA:lc LIE:li LSO:ls LTU:lt LUX:lu LVA:lv " +
+  "MAC:mo MAF:mf MAU:mu MCO:mc MDA:md MDG:mg MDR:pt MDW:um MEL:es MEX:mx MHL:mh MKD:mk MLA:my MLD:mv MLI:ml " +
+  "MLT:mt MNE:me MNG:mn MOZ:mz MRA:mp MRC:ma MRN:za MRT:mq MSR:ms MTN:mr MWI:mw MYA:mm MYT:yt NCG:ni NCL:nc " +
+  "NFK:nf NGR:ne NIG:ng NIU:nu NMB:na NOR:no NPL:np NRU:nr NZL:nz OCE:pf OMA:om PAK:pk PAQ:cl PHL:ph PHX:ki " +
+  "PLM:um PLW:pw PNG:pg PNR:pa POL:pl POR:pt PRG:py PRU:pe PRV:jp PSE:ps PTC:pn PTR:pr QAT:qa REU:re ROD:mu " +
+  "ROU:ro RRW:rw RUS:ru S:se SAP:co SDN:sd SEN:sn SEY:sc SGA:gs SHN:sh SLM:sb SLV:sv SMA:as SMO:ws SMR:sm SNG:sg " +
+  "SOK:aq SOM:so SPM:pm SRB:rs SRL:sl SSD:ss SSI:gs STP:st SUI:ch SUR:sr SVB:sj SVK:sk SVN:si SWZ:sz SXM:sx " +
+  "SYR:sy TCA:tc TCD:td TGO:tg THA:th TJK:tj TKL:tk TKM:tm TLS:tl TON:to TRC:sh-ta TRD:tt TUN:tn TUR:tr TUV:tv " +
+  "TWN:tw TZA:tz UAE:ae UGA:ug UKR:ua UN:un URG:uy USA:us UZB:uz VCT:vc VEN:ve VIR:vi VRG:vg VTN:vn VUT:vu WAK:um " +
+  "WAL:wf XGZ:ps XWB:ps YEM:ye ZMB:zm ZWE:zw "
+).trim().split(" ").map((p) => p.split(":")));
+const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/";
+const escHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+const ituFlag = (itu) => ITU_FLAG.get(itu) || null;
+// radiomap's stations are Chilean, except the worldwide channels (category "global")
+const stationFlag = (s) => s.category === "global" ? null : "cl";
+const globeSvg = (title) => `<svg class="flag none" viewBox="0 0 16 12" role="img" aria-label="${escHtml(title)}"><title>${escHtml(title)}</title>` +
+  `<circle cx="8" cy="6" r="4.6"/><ellipse cx="8" cy="6" rx="2" ry="4.6"/><path d="M3.4 6h9.2"/></svg>`;
+function flagHtml(key, title = "") {
+  if (!key || !/^[a-z]{2}(-[a-z]{2})?$/.test(key)) return globeSvg(title || "International");
+  return `<img class="flag" src="${FLAG_CDN}${key}.svg" alt="${escHtml(title)}" title="${escHtml(title)}" loading="lazy" decoding="async">`;
+}
 
 class RadioMap {
   constructor(base = RADIOMAP) { this.base = base; this.cache = new Map(); this.idx = null; }
@@ -878,17 +1049,18 @@ class ReplayLink extends BaseLink {
 const $ = (id) => document.getElementById(id);
 const BAND_COLORS = {FM:"#4fc3f7", AM:"#ffb74d", SW:"#81c784", LW:"#ce93d8", AIR:"#90caf9", WB:"#ef5350",
   HAM:"#fff176", CB:"#a1887f", VHF:"#4db6ac", UHF:"#9575cd"};
-const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null};
+const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null, ok: false};
 let link = null;
 
 function setStatus(kind, text) {
   $("dot").className = "lamp " + kind;
-  $("lcd").classList.toggle("off", kind !== "ok");
   state.link = text;
+  state.ok = kind === "ok";
   renderStat();
   $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
-  $("connect").disabled = kind === "ok" || kind === "busy";
+  $("connect").disabled = kind === "ok" || kind === "busy" || !navigator.bluetooth;
   log({kind: "link", text: "● " + text, raw: new Uint8Array()});
+  renderView();
 }
 
 function renderStat() {
@@ -922,7 +1094,7 @@ function log(ev) {
 function setBlink(el, on) { if (el) el.classList.toggle("blink", !!on); }
 function cell(name, label, value) {
   const c = $("c-" + name);
-  if (label !== undefined) c.querySelector(".l").textContent = label || " ";
+  if (label !== undefined) c.querySelector(".l").textContent = label || " ";
   if (value !== undefined) c.querySelector(".v").textContent = value || "–";
 }
 
@@ -931,15 +1103,15 @@ const handlers = {
     const band = $("band");
     band.textContent = d.band;
     band.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5");
-    if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); scheduleLookup(null); return; }
+    if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); radioFreq(null); return; }
     $("alert").textContent = ""; setBlink($("alert"), false);
     const [main, small] = d.raw ? splitFreq(d.raw, d.dp) : ["---.---", ""];
     $("freq").textContent = main;
     $("small").textContent = small;
     $("unit").textContent = d.unit;
     setBlink($("freqbox"), d.state === 2);
-    of.unit = d.unit;
-    scheduleLookup(toKHz(d));
+    view.unit = d.unit;
+    radioFreq(toKHz(d));
   },
   field(d) {
     const v = d.value.trim();
@@ -986,193 +1158,383 @@ function statusLine() {
   $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
 }
 
-// ---- On this frequency (radiomap.cl) ----
+// ---- What's on a frequency (radiomap.cl) ----
 // Per-viewer conveniences only; the page works the same when storage is unavailable
 const store = {
   get(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } },
 };
 const rm = new RadioMap();
-// k: kHz shown; data/err: its lookup; near: nearby chips; fresh: scroll the schedule to "now" on the next render
-const of = {k: null, data: null, err: null, near: null, idx: null, all: false, fresh: false, timer: 0, unit: "MHz"};
+// radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
+// near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
+const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
+  all: false, fresh: false, timer: 0, unit: "MHz"};
 let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
+const following = () => view.follow && state.ok;
 
 // Debounced, so a SCAN or seek sweep only looks up the frequency it settles on
-function scheduleLookup(k) {
-  clearTimeout(of.timer);
-  if (k === null) { of.k = null; $("onfreq").hidden = true; return; }
-  if (k === of.k) return;
-  of.timer = setTimeout(() => lookupFreq(k), 500);
+function radioFreq(k) {
+  if (k === view.pendingK) return;
+  view.pendingK = k;
+  clearTimeout(view.timer);
+  view.timer = setTimeout(() => {
+    view.radioK = k;
+    if (view.follow && k !== null && k !== view.k) show(k);
+    else renderView();
+  }, 500);
 }
 
-async function lookupFreq(k) {
-  Object.assign(of, {k, data: null, err: null, near: null, all: false, fresh: true});
-  $("onfreq").hidden = false;
-  renderOnFreq();
+async function show(k) {
+  Object.assign(view, {k, data: null, err: null, near: [], all: false, fresh: true});
+  renderView();
   try {
     const data = await rm.lookup(k);
-    if (of.k !== k) return;
-    of.data = data;
+    if (view.k !== k) return;
+    view.data = data;
     log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${data.stations.length} stations, ${data.shortwave.length} shortwave`});
   } catch (e) {
-    if (of.k !== k) return;
-    of.err = e;
+    if (view.k !== k) return;
+    view.err = e;
     log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${errText(e)}`});
   }
-  renderOnFreq();
+  renderView();
   loadNearby(k);
 }
 
 async function loadNearby(k) {
   try {
     const idx = await rm.index();
-    if (of.k !== k) return;
-    of.idx = idx;
-    of.near = nearby(idx.freqs, k).map((f) => ({k: f, on: false}));
-    renderOnFreq();
-    if (k >= 30000 || !of.near.length) return;  // on-air dots: shortwave schedule only
-    const near = of.near, all = await Promise.all(near.map((n) => rm.lookup(n.k).catch(() => EMPTY_FREQ)));
-    if (of.near !== near) return;
-    all.forEach((d, i) => { near[i].on = d.shortwave.some((e) => swAir(e).on); });
-    renderOnFreq();
-  } catch { /* the chips are optional */ }
+    if (view.k !== k) return;
+    view.idx = idx;
+    const near = view.near = nearby(idx.freqs, k, 6).map((f) => ({k: f, data: null}));
+    renderNearby();
+    await Promise.all(near.map(async (n) => {
+      try { n.data = await rm.lookup(n.k); } catch { n.data = EMPTY_FREQ; }
+      if (view.near === near) renderNearby();
+    }));
+  } catch { /* nearby is optional */ }
 }
 
-function renderOnFreq() {
-  if (of.k === null) return;
-  const body = $("of-body"), old = body.querySelector(".slots-box"), top = old ? old.scrollTop : 0;
-  $("of-k").textContent = fmtKHz(of.k);
-  const parts = [];
-  if (of.err) parts.push(`<p class="of-msg">radiomap.cl unreachable (${esc(errText(of.err))})</p>`);
-  else if (!of.data) parts.push(`<p class="of-msg">Looking up ${fmtKHz(of.k)}…</p>`);
-  else {
-    const {stations, shortwave} = of.data;
-    if (!stations.length && !shortwave.length) {
-      parts.push(`<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(of.k)}.</p></div>`);
-    }
-    if (shortwave.length) parts.push(swHtml(shortwave));
-    if (stations.length) parts.push(stationsHtml(stations));
-  }
-  if (of.near && of.near.length) parts.push(nearHtml());
-  const ver = of.idx ? ` v${esc(of.idx.version)} · EiBi ${esc(of.idx.shortwaveSeason)}` : "";
-  parts.push(`<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · now ${minHHMM((Date.now() - utcDay(Date.now())) / 60000)} UTC</p>`);
-  body.innerHTML = parts.join("");
-
-  const box = body.querySelector(".slots-box");
-  if (!box) return;
-  const target = of.fresh && (box.querySelector("tr.cur") || box.querySelector("tr.next"));
-  if (of.fresh) { box.scrollTop = target ? target.offsetTop - box.querySelector("thead").offsetHeight : 0; of.fresh = false; }
-  else box.scrollTop = top;
+// A search, a shared link or a nearby row while not following: pin the page to k
+function lookUp(k) {
+  view.follow = false;
+  setHash(k);
+  if (k !== view.k) show(k);
+  else renderView();
 }
-
-function swHtml(list) {
-  const now = Date.now(), m = (now - utcDay(now)) / 60000;
-  const rows = list.map((e) => ({e, air: swAir(e, now), today: todayWindows(e, now)}));
-  const on = rows.filter((r) => r.air.on);
-  const next = rows.filter((r) => r.air.startsIn != null).sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
-  const head = on[0] || next || rows[0], e = head.e;
-  const hhmm = (s) => `${s.slice(0, 2)}:${s.slice(2)}`;
-  const sub = head.air.on ? `until ${minHHMM(hhmmMin(e.endUTC))} UTC · ${dur(head.air.endsIn)} left${on.length > 1 ? ` · ${on.length - 1} more on air` : ""}`
-            : head.air.startsIn != null ? `next at ${hhmm(e.startUTC)} UTC · in ${dur(head.air.startsIn)}`
-            : "nothing scheduled in the coming weeks";
-  const meta = [e.country, [e.langLabel || e.lang, e.targetLabel || e.target].filter(Boolean).join(" → ")].filter(Boolean).join(" · ");
-  const grid = [];
-  if (e.site && e.site.name) grid.push(`<div class="w2"><dt>Site</dt><dd>${esc(e.site.name)}</dd></div>`);
-  grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
-  if (e.lastHeard) grid.push(`<div><dt>Last heard</dt><dd>${esc(e.lastHeard.slice(0, 2))}/20${esc(e.lastHeard.slice(2))}</dd></div>`);
-  if (nearMe && myPos && e.site && e.site.lat != null) grid.push(`<div><dt>Distance</dt><dd>${Math.round(haversineKm(myPos, e.site)).toLocaleString()} km</dd></div>`);
-  const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
-  const slots = rows.map((r) => {
-    const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
-    return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
-      `<td>${esc(r.e.station)}<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}</small></td>` +
-      `<td>${esc(r.e.targetLabel || r.e.target || "")}</td></tr>`;
-  }).join("");
-  return `<div class="of-sw"><div class="d-top">
-      <div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
-      <h3 class="d-name">${esc(e.station)}</h3>
-      <p class="d-meta">${esc(meta)}</p>
-      <dl class="d-grid">${grid.join("")}</dl>
-    </div>
-    <div class="sched"><h4 class="h"><span>Today</span><span>UTC</span></h4>
-      <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
-      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
-    <div class="slots"><h4 class="h"><span>Schedule</span><span>${list.length}</span></h4>
-      <div class="slots-box"><table><thead><tr><th>UTC</th><th>Station</th><th>Target</th></tr></thead><tbody>${slots}</tbody></table></div></div>
-  </div>`;
+function backToRadio() {
+  view.follow = true;
+  setHash(null);
+  if (view.radioK !== null && view.radioK !== view.k) show(view.radioK);
+  else renderView();
 }
-
-function stationsHtml(list) {
-  let rows = list.map((s) => ({s, km: nearMe && myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null}));
-  if (nearMe && myPos) rows = rows.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
-  const shown = of.all ? rows : rows.slice(0, 5);
-  return `<div class="of-st"><h4 class="h"><span>${list.length === 1 ? "Station" : `Stations · ${list.length}`}</span>` +
-    `<button class="toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button></h4>` +
-    `<ul class="list">${shown.map(stationRow).join("")}</ul>` +
-    (rows.length > shown.length ? `<button class="more" type="button" data-act="more">Show all ${rows.length}</button>` : "") + `</div>`;
+// Nearby rows "go there": tune the radio while following it, otherwise just look
+function goTo(k) { if (following()) tuneKHz(k); else lookUp(k); }
+function tuneHere() {
+  tuneKHz(view.k);
+  view.follow = true;
+  setHash(null);
+  renderView();
 }
-
-function stationRow({s, km}) {
-  const tag = (text, cls = "") => `<span class="tag ${cls}">${esc(text)}</span>`;
-  const seen = new Set();
-  const where = [s.ubicacion, s.comuna, s.region].filter((v) => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()));
-  const tags = [];
-  if (s.category === "amateur") {
-    if (s.tono) tags.push(tag(`Tone ${s.tono}`));
-    if (s.rxKHz && s.txKHz) tags.push(tag(fmtShift(s.rxKHz, s.txKHz)));
-    if (s.rxKHz && s.matchedOn && !s.matchedOn.includes("rx")) tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "amber"));
-  }
-  if (s.category === "atc") tags.push(tag("ATC"));
-  if (s.isDMR) {
-    const d = s.dmr || {};
-    tags.push(tag(["DMR", d.colorCode != null && `CC${d.colorCode}`, d.slot != null && `TS${d.slot}`, d.tg && `TG${d.tg}`].filter(Boolean).join(" "), "cool"));
-  }
-  if (s.isEcholink) tags.push(tag("EchoLink", "amber"));
-  const url = radiomapUrl(s.url);
-  if (url) tags.push(`<a class="tag" href="${esc(url)}" target="_blank" rel="noopener">radiomap ↗</a>`);
-  return `<li class="st"><div class="st-main"><b>${esc(s.signal || "")}</b><span>${esc(s.nombre || "")}</span>` +
-    (km != null ? `<span class="km">${Math.round(km).toLocaleString()} km</span>` : "") + `</div>` +
-    (where.length || s.notes ? `<div class="st-sub">${esc([...where, s.notes].filter(Boolean).join(" · "))}</div>` : "") +
-    (tags.length ? `<div class="tags">${tags.join("")}</div>` : "") + `</li>`;
-}
-
-function nearHtml() {
-  const sw = of.k < 30000;
-  return `<div class="cands"><span class="lab">Nearby with data · tap to tune</span>` + of.near.map((n) =>
-    `<button class="chip" type="button" data-khz="${n.k}">${sw ? `<span class="dot${n.on ? " on" : ""}"></span>${n.k}` : (n.k / 1000).toFixed(3)}</button>`).join("") + `</div>`;
-}
-
 // Type the frequency on the radio's keypad, in the unit its current band shows
 function tuneKHz(k) {
-  const text = of.unit === "MHz" ? String(k / 1000) : String(k);
+  const text = view.unit === "MHz" ? String(k / 1000) : String(k);
   toast(`Tuning ${fmtKHz(k)}…`, 2000);
   send(() => link ? link.typeFreq(text) : Promise.reject(new Error("not connected")));
 }
 
+function setHash(k) {
+  try { history.replaceState(null, "", k ? `#f=${k}` : location.pathname + location.search); } catch { /* sandboxed */ }
+}
+function fromHash() {
+  const m = location.hash.match(/^#f=(\d{1,7})$/);
+  return m && +m[1] > 0 ? +m[1] : null;
+}
+
+// ---- rendering ----
+function renderView() {
+  const ok = state.ok, fol = following();
+  $("readout").hidden = !ok;
+  $("radio-k").textContent = ok && fol ? "● following" : "";
+  $("pinned").hidden = fol || view.k === null;
+  $("pin-k").textContent = view.k === null ? "" : fmtKHz(view.k);
+  $("back").hidden = !ok || view.radioK === null;
+  $("back-k").textContent = view.radioK === null ? "" : fmtKHz(view.radioK);
+  $("dock").hidden = !ok;
+  document.body.classList.toggle("has-dock", ok);
+  renderDossier();
+  renderStations();
+  renderNearby();
+}
+
+function renderDossier() {
+  const box = $("dossier"), old = box.querySelector(".slots-box"), top = old ? old.scrollTop : 0;
+  box.innerHTML = dossierHtml();
+  const slots = box.querySelector(".slots-box");
+  if (!slots) return;
+  if (view.fresh) {
+    const target = slots.querySelector("tr.cur") || slots.querySelector("tr.next");
+    slots.scrollTop = target ? target.offsetTop - slots.querySelector("thead").offsetHeight : 0;
+    view.fresh = false;
+  } else slots.scrollTop = top;
+}
+
+function dossierHtml() {
+  const k = view.k;
+  if (k === null) {
+    return state.ok ? `<div class="d-empty"><p class="empty-t">Listening…</p><p class="empty-d">Waiting for the radio's frequency.</p></div>` : introHtml();
+  }
+  const near = view.data && (view.data.stations.length || view.data.shortwave.length)
+    ? `<button class="toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
+  const head = `<h2 class="h"><span>On <span class="hv">${fmtKHz(k)}</span></span>${near}</h2>`;
+  if (view.err) return head + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
+  if (!view.data) return head + `<p class="of-msg">Looking up ${fmtKHz(k)}…</p>`;
+  const {stations, shortwave} = view.data;
+  const body = shortwave.length ? swHtml(shortwave)
+    : stations.length ? stationHero(stationRows()[0])
+    : `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
+  const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
+  return head + body + tuneHereHtml() +
+    `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p>`;
+}
+
+function introHtml() {
+  const examples = [[9580, "9580"], [11620, "11620"], [146730, "146.730"], [101300, "101.3"], [118100, "118.1"]];
+  return `<div class="d-empty"><p class="empty-t">What's on the air?</p>
+    <p class="empty-d">Look up any frequency to see who transmits there, their schedule and what's nearby.
+    Connect your RF919 and the page follows the radio's dial.</p>
+    <div class="intro-act">${navigator.bluetooth ? `<button class="primary" type="button" data-act="connect">Connect radio</button>` : ""}` +
+    `<button type="button" data-act="demo">Demo</button></div>
+    <div class="tags">${examples.map(([k, t]) => `<button class="tag" type="button" data-look="${k}">${t}</button>`).join("")}</div></div>`;
+}
+
+function tuneHereHtml() {
+  if (!state.ok || view.k === null || view.k === view.radioK) return "";
+  return `<div class="tune-here"><button class="primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(view.k)}</button></div>`;
+}
+
+const hhmm = (s) => `${s.slice(0, 2)}:${s.slice(2)}`;
+// The schedule's state now: which entries are on, the next to start, and the one to headline
+function swPick(list, now = Date.now()) {
+  const rows = list.map((e) => ({e, air: swAir(e, now), today: todayWindows(e, now)}));
+  const on = rows.filter((r) => r.air.on);
+  const next = rows.filter((r) => r.air.startsIn != null).sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
+  return {rows, on, next, head: on[0] || next || rows[0]};
+}
+
+function swHtml(list) {
+  const now = Date.now(), m = (now - utcDay(now)) / 60000;
+  const {rows, on, next, head} = swPick(list, now), e = head.e;
+  const sub = head.air.on ? `until ${minHHMM(hhmmMin(e.endUTC))} · ${dur(head.air.endsIn)} left${on.length > 1 ? ` · ${on.length - 1} more on air` : ""}`
+            : head.air.startsIn != null ? `next at ${hhmm(e.startUTC)} UTC · in ${dur(head.air.startsIn)}`
+            : "nothing scheduled in the coming weeks";
+  const meta = [e.country, [e.langLabel || e.lang, e.targetLabel || e.target].filter(Boolean).join(" → ")].filter(Boolean).join(" · ");
+  const grid = [];
+  if (e.site && e.site.name) {
+    const siteFlag = e.site.itu && e.site.itu !== e.itu ? flagHtml(ituFlag(e.site.itu), e.site.itu) : "";
+    grid.push(`<div class="w2"><dt>Transmitter</dt><dd>${siteFlag}${esc(e.site.name)}</dd></div>`);
+  }
+  grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
+  if (nearMe && myPos && e.site && e.site.lat != null) grid.push(`<div><dt>Distance</dt><dd>${Math.round(haversineKm(myPos, e.site)).toLocaleString()} km</dd></div>`);
+  if (e.lastHeard) grid.push(`<div><dt>Last heard</dt><dd>${esc(e.lastHeard.slice(0, 2))}/20${esc(e.lastHeard.slice(2))}</dd></div>`);
+  const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
+  const slots = rows.map((r) => {
+    const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
+    return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
+      `<td>${flagHtml(ituFlag(r.e.itu), r.e.country)}${esc(r.e.station)}<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}</small></td>` +
+      `<td>${esc(r.e.targetLabel || r.e.target || "")}</td></tr>`;
+  }).join("");
+  return `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
+    <h3 class="d-name">${flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
+    <p class="d-meta">${esc(meta)}</p>
+    <dl class="d-grid">${grid.join("")}</dl>
+    <div class="sched"><h4 class="h"><span>Today</span><span>UTC</span></h4>
+      <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
+      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
+    <div class="slots"><h4 class="h"><span>Schedule</span><span>${list.length}</span></h4>
+      <div class="slots-box"><table><thead><tr><th>UTC</th><th>Station</th><th>Target</th></tr></thead><tbody>${slots}</tbody></table></div></div>`;
+}
+
+// Stations with their distance; nearest first with Near me
+function stationRows(list = view.data.stations) {
+  const rows = list.map((s) => ({s, km: nearMe && myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null}));
+  if (nearMe && myPos) rows.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
+  return rows;
+}
+function placeOf(s) {
+  const seen = new Set();
+  return [s.ubicacion, s.comuna, s.region].filter((v) => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()));
+}
+const isRepeater = (s) => s.category === "amateur" && s.rxKHz && s.txKHz && Math.round(s.rxKHz) !== Math.round(s.txKHz);
+const dmrText = (s) => { const d = s.dmr || {}; return [d.colorCode != null && `CC${d.colorCode}`, d.slot != null && `TS${d.slot}`, d.tg && `TG${d.tg}`].filter(Boolean).join(" "); };
+const CATEGORY = {amateur: "Amateur", broadcast: "Broadcast", atc: "Air traffic", global: "Channel"};
+const tag = (text, cls = "") => `<span class="tag ${cls}">${esc(text)}</span>`;
+
+// Badges; the hero shows tone, shift and DMR in its grid instead
+function stationTags(s, inGrid = false) {
+  const tags = [];
+  if (!inGrid && s.category === "amateur") {
+    if (s.tono) tags.push(tag(`Tone ${s.tono}`));
+    if (s.rxKHz && s.txKHz) tags.push(tag(fmtShift(s.rxKHz, s.txKHz)));
+  }
+  if (s.category === "amateur" && s.rxKHz && s.matchedOn && !s.matchedOn.includes("rx")) {
+    tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "amber"));
+  }
+  if (!inGrid && s.category === "atc") tags.push(tag("ATC"));
+  if (!inGrid && s.isDMR) tags.push(tag(`DMR ${dmrText(s)}`.trim(), "cool"));
+  if (s.isEcholink) tags.push(tag("EchoLink", "amber"));
+  const url = radiomapUrl(s.url);
+  if (url) tags.push(`<a class="tag" href="${esc(url)}" target="_blank" rel="noopener">radiomap ↗</a>`);
+  return tags.join("");
+}
+
+function stationHero({s, km}) {
+  const dd = (label, v, cls = "") => v ? `<div class="${cls}"><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
+  const grid = s.category === "amateur"
+    ? [dd("Output", s.rxKHz && fmtKHz(Math.round(s.rxKHz))), dd("Input", isRepeater(s) && fmtKHz(Math.round(s.txKHz))),
+       dd("Tone", s.tono), dd("Shift", isRepeater(s) && fmtShift(s.rxKHz, s.txKHz)), dd("Power", s.potencia && `${s.potencia} W`),
+       dd("DMR", s.isDMR && (dmrText(s) || "yes"))]
+    : [dd("Band", s.banda), dd("Region", s.region, "w2")];
+  if (km != null) grid.push(dd("Distance", `${Math.round(km).toLocaleString()} km`));
+  const tags = stationTags(s, true), place = placeOf(s);
+  const cat = isRepeater(s) ? "Repeater" : CATEGORY[s.category] || "Station";
+  return `<div class="d-head"><span class="pill cat">${esc(cat)}</span><span class="d-sub">${esc(s.signal || "")}</span></div>
+    <h3 class="d-name">${flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.nombre || s.signal || "")}</h3>
+    ${place.length || s.notes ? `<p class="d-meta">${esc([...place, s.notes].filter(Boolean).join(" · "))}</p>` : ""}
+    <dl class="d-grid">${grid.join("")}</dl>
+    ${tags ? `<div class="tags">${tags}</div>` : ""}`;
+}
+
+function renderStations() {
+  const box = $("stations"), d = view.data;
+  const rows = d && !view.err ? stationRows() : [];
+  // Without shortwave the first station is the dossier's hero
+  const list = d && d.shortwave.length ? rows : rows.slice(1);
+  box.hidden = !list.length;
+  if (!list.length) { box.innerHTML = ""; return; }
+  const shown = view.all ? list : list.slice(0, 6);
+  const title = d.shortwave.length ? `Stations · ${list.length}` : `Also on ${fmtKHz(view.k)} · ${list.length}`;
+  box.innerHTML = `<h2 class="h"><span>${title}</span>${nearMe && myPos ? "<span>nearest first</span>" : ""}</h2>` +
+    `<ul class="list">${shown.map(stationRow).join("")}</ul>` +
+    (list.length > shown.length ? `<button class="more" type="button" data-act="more">Show all ${list.length}</button>` : "");
+}
+
+function stationRow({s, km}) {
+  const tags = stationTags(s), place = placeOf(s);
+  return `<li class="st"><div class="st-main"><b>${flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.signal || "")}</b>` +
+    `<span>${esc(s.nombre || "")}</span>` + (km != null ? `<span class="km">${Math.round(km).toLocaleString()} km</span>` : "") + `</div>` +
+    (place.length || s.notes ? `<div class="st-sub">${esc([...place, s.notes].filter(Boolean).join(" · "))}</div>` : "") +
+    (tags ? `<div class="tags">${tags}</div>` : "") + `</li>`;
+}
+
+function renderNearby() {
+  const box = $("nearby");
+  box.hidden = !view.near.length;
+  if (!view.near.length) { box.innerHTML = ""; return; }
+  const fol = following();
+  box.innerHTML = `<h2 class="h"><span>Nearby</span><span>${fol ? "tap to tune the radio" : "tap to look up"}</span></h2>` +
+    `<ul class="list">${view.near.map((n) => nearRow(n, fol)).join("")}</ul>`;
+}
+
+// One line per nearby frequency: what's on air there now, else what's next, else its first (or nearest) station
+function nearRow(n, fol) {
+  const label = n.k >= 30000 ? (n.k / 1000).toFixed(3) : String(n.k);
+  let name = "…", sub = "", flag = "", lamp = "none";
+  const d = n.data;
+  if (d && d.shortwave.length) {
+    const {on, head} = swPick(d.shortwave), e = head.e;
+    name = e.station; flag = flagHtml(ituFlag(e.itu), e.country); lamp = head.air.on ? "on" : "";
+    sub = [e.langLabel || e.lang,
+      head.air.on ? `on air until ${minHHMM(hhmmMin(e.endUTC))}` : head.air.startsIn != null ? `next ${hhmm(e.startUTC)} UTC` : "",
+      on.length > 1 ? `+${on.length - 1} on air` : d.shortwave.length > 1 ? `${d.shortwave.length} slots` : ""].filter(Boolean).join(" · ");
+  } else if (d && d.stations.length) {
+    const {s, km} = stationRows(d.stations)[0];
+    name = s.nombre || s.signal; flag = flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile");
+    sub = [s.signal, placeOf(s)[1] || placeOf(s)[0], km != null && `${Math.round(km).toLocaleString()} km`,
+      d.stations.length > 1 && `+${d.stations.length - 1} more`].filter(Boolean).join(" · ");
+  } else if (d) name = "—";
+  return `<li><button class="near-row${d ? "" : " loading"}" type="button" data-go="${n.k}" aria-label="${fol ? "Tune to" : "Look up"} ${fmtKHz(n.k)}${d ? ": " + esc(name) : ""}">` +
+    `<span class="nf">${label}</span><span class="nn"><b>${flag}${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
+    `<span class="dot ${lamp}"></span></button></li>`;
+}
+
 function toggleNearMe() {
-  if (nearMe) { nearMe = false; store.set("rf919.nearme", false); renderOnFreq(); return; }
+  if (nearMe) { nearMe = false; store.set("rf919.nearme", false); renderView(); return; }
   if (!navigator.geolocation) { toast("Location isn't available here", 3500, true); return; }
   navigator.geolocation.getCurrentPosition((p) => {
     // ~1 km is plenty to sort stations, and is all that gets stored
     myPos = {lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2)};
     nearMe = true;
     store.set("rf919.pos", myPos); store.set("rf919.nearme", true);
-    renderOnFreq();
+    renderView();
   }, (e) => toast(`Location: ${e.message || "not allowed"}`, 4000, true), {maximumAge: 600000, timeout: 15000});
 }
 
-$("of-body").addEventListener("click", (e) => {
-  const t = e.target.closest("[data-act], [data-khz]");
-  if (!t) return;
-  if (t.dataset.khz) tuneKHz(+t.dataset.khz);
-  else if (t.dataset.act === "more") { of.all = true; renderOnFreq(); }
-  else if (t.dataset.act === "nearme") toggleNearMe();
+$("search").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const k = parseFreqInput($("q").value);
+  if (k === null) { toast("Type a frequency: 9580 (kHz), or 9.58 / 146.73 (MHz)", 4000, true); return; }
+  $("q").value = ""; $("q").blur();
+  lookUp(k);
 });
-$("onfreq").open = store.get("rf919.onfreq", true);
-$("onfreq").addEventListener("toggle", () => store.set("rf919.onfreq", $("onfreq").open));
+$("back").addEventListener("click", backToRadio);
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-go], [data-look], [data-act]");
+  if (!t) return;
+  if (t.dataset.go) goTo(+t.dataset.go);
+  else if (t.dataset.look) lookUp(+t.dataset.look);
+  else if (t.dataset.act === "more") { view.all = true; renderStations(); }
+  else if (t.dataset.act === "nearme") toggleNearMe();
+  else if (t.dataset.act === "tunehere") tuneHere();
+  else if (t.dataset.act === "connect") startBle();
+  else if (t.dataset.act === "demo") startDemo();
+});
+// A flag the CDN can't serve becomes the globe
+document.addEventListener("error", (e) => {
+  const img = e.target;
+  if (img instanceof HTMLImageElement && img.classList.contains("flag")) img.outerHTML = globeSvg(img.alt);
+}, true);
+window.addEventListener("hashchange", () => { const k = fromHash(); if (k) lookUp(k); });
 // Keep the on-air state, the "now" marker and the current slot moving
-setInterval(() => { if (!document.hidden && of.data) renderOnFreq(); }, 60000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && of.data) renderOnFreq(); });
+setInterval(() => { if (!document.hidden && view.data) renderView(); }, 60000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && view.data) renderView(); });
+function tickClock() {
+  const d = new Date();
+  $("clock").innerHTML = `<b>${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}</b> <small>UTC</small>`;
+}
+tickClock();
+setInterval(tickClock, 15000);
+
+// ---- Remote sheet ----
+const TABS = ["keys", "tune", "display", "settings"];
+let sheetOpener = null;
+function selectTab(name) {
+  if (!TABS.includes(name)) name = "keys";
+  document.querySelectorAll("#remote [data-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === name));
+  document.querySelectorAll("#remote [data-pane]").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+  store.set("rf919.tab", name);
+}
+function openRemote(tab) {
+  if (tab) selectTab(tab);
+  sheetOpener = document.activeElement;
+  $("remote").hidden = false;
+  $("app").inert = true; $("dock").inert = true;
+  $("remote").querySelector('[aria-selected="true"]').focus();
+}
+function closeRemote() {
+  if ($("remote").hidden) return;
+  $("remote").hidden = true;
+  $("app").inert = false; $("dock").inert = false;
+  if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus();
+}
+selectTab(store.get("rf919.tab", "keys"));
+$("remote-open").addEventListener("click", () => openRemote());
+$("remote-top").addEventListener("click", () => openRemote());
+$("remote").addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]")) closeRemote();
+  const t = e.target.closest("[data-tab]");
+  if (t) selectTab(t.dataset.tab);
+});
 
 function debug(text) { log({kind: "debug", text, raw: new Uint8Array()}); }
 function hasGbk() { try { new TextDecoder("gbk"); return true; } catch { return false; } }
@@ -1242,9 +1604,9 @@ async function startBle() {
   catch (e) {
     if (e.name === "NotFoundError") {
       setStatus("bad", "no device chosen");
-      if ($("onlyRadio").checked) toast("Radio not in the list? Untick \"Only list RF919 radios\" and try again", 6000);
+      if ($("onlyRadio").checked) toast("Radio not in the list? Untick \"Only list RF919 radios\" in Remote › Settings", 6000);
     }
-    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; }
+    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; openRemote("settings"); }
   }
 }
 
@@ -1277,24 +1639,29 @@ $("wake").addEventListener("click", () => setWake($("wake").getAttribute("aria-p
 document.addEventListener("visibilitychange", () => { if (!document.hidden && $("wake").getAttribute("aria-pressed") === "true") setWake(true); });
 if (!("wakeLock" in navigator)) $("wake").disabled = true;
 
-// Desktop keyboard shortcuts
+// Keyboard: / search, r Remote, and the radio's keys (typing digits searches while no radio is connected)
 const SHORTCUTS = {ArrowLeft: "DOWN", ArrowRight: "UP", "+": "VOL+", "=": "VOL+", "-": "VOL-", b: "BAND", s: "PLAY", p: "POWER", m: "MEMO",
   ".": "POINT", Enter: "FREQ", Backspace: "BACK"};
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !$("remote").hidden) { closeRemote(); return; }
   if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.target.matches("button") && (e.key === "Enter" || e.key === " ")) return;
+  if (e.key === "/") { e.preventDefault(); $("q").focus(); return; }
+  if (e.key === "r" && $("remote").hidden) { e.preventDefault(); openRemote(); return; }
+  if (!state.ok && /^[0-9.]$/.test(e.key)) { e.preventDefault(); $("q").focus(); $("q").value += e.key; return; }
   const key = /^[0-9]$/.test(e.key) ? e.key : SHORTCUTS[e.key];
   if (key) { e.preventDefault(); pressKey(key, e.shiftKey); }
 });
 
+if (!navigator.bluetooth) $("nobt").hidden = false;
 setStatus("bad", navigator.bluetooth ? "not connected" : "no Web Bluetooth");
-if (!navigator.bluetooth) { $("nobt").hidden = false; $("connect").disabled = true; }
 debug(`page ${document.lastModified} · ${navigator.userAgent}`);
 debug(`secure context: ${window.isSecureContext} · Web Bluetooth: ${!!navigator.bluetooth}` +
   ` · requestDevice: ${typeof navigator.bluetooth?.requestDevice} · GBK decoder: ${hasGbk()}`);
 if (navigator.bluetooth?.getAvailability) {
   navigator.bluetooth.getAvailability().then(a => debug(`Bluetooth adapter available: ${a}`), e => debug(`getAvailability failed: ${errText(e)}`));
 }
+if (fromHash()) lookUp(fromHash());
 if (new URLSearchParams(location.search).has("demo")) startDemo();
 </script>
 </body>
