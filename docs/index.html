@@ -764,7 +764,10 @@ async function startBle() {
   if (!(link instanceof BleLink)) { if (link) await link.close(); link = new BleLink(onEvent, setStatus); }
   try { await link.connect($("allDevices").checked); }
   catch (e) {
-    if (e.name === "NotFoundError") setStatus("bad", "no device chosen");
+    if (e.name === "NotFoundError") {
+      setStatus("bad", "no device chosen");
+      if (!$("allDevices").checked) toast("Radio not in the list? Tick \"Show all Bluetooth devices\" and try again", 6000);
+    }
     else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; }
   }
 }
@@ -811,6 +814,11 @@ document.addEventListener("keydown", (e) => {
 setStatus("bad", navigator.bluetooth ? "not connected" : "no Web Bluetooth");
 if (!navigator.bluetooth) { $("nobt").hidden = false; $("connect").disabled = true; }
 debug(`page ${document.lastModified} · ${navigator.userAgent}`);
+// iOS Web Bluetooth browsers (Bluefy) may not match the name/service filter; list everything like the vendor app does
+if (/iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) {
+  $("allDevices").checked = true;
+  debug("iOS detected: showing all Bluetooth devices in the picker");
+}
 debug(`secure context: ${window.isSecureContext} · Web Bluetooth: ${!!navigator.bluetooth}` +
   ` · requestDevice: ${typeof navigator.bluetooth?.requestDevice} · GBK decoder: ${hasGbk()}`);
 if (navigator.bluetooth?.getAvailability) {
