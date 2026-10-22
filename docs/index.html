@@ -109,7 +109,7 @@ label.chk { display: flex; align-items: center; gap: 8px; color: var(--muted); f
 .log div { white-space: pre-wrap; overflow-wrap: anywhere; }
 .log .t { color: #546e7a; }
 .k-freq, .k-entry { color: #4dd0e1; } .k-button_label { color: #81c784; } .k-unknown { color: #ce93d8; }
-.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--bad); } .k-toast, .k-status_text { color: #fff176; } .k-link { color: #64b5f6; }
+.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--bad); } .k-toast, .k-status_text { color: #fff176; } .k-link { color: #64b5f6; } .k-debug { color: #78909c; }
 .toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); max-width: calc(100% - 32px);
          background: #263238; border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; z-index: 10; white-space: pre-line;
          box-shadow: 0 6px 24px rgba(0,0,0,.5); }
@@ -230,9 +230,12 @@ label.chk { display: flex; align-items: center; gap: 8px; color: var(--muted); f
       <label class="chk"><input type="checkbox" id="allDevices"> Show all Bluetooth devices when connecting</label>
     </section>
 
-    <details class="panel">
+    <details class="panel" id="logpanel">
       <summary>Log</summary>
-      <label class="chk" style="margin:0 0 8px"><input type="checkbox" id="rawlog"> Raw hex</label>
+      <div class="row" style="align-items:center;margin-bottom:8px">
+        <label class="chk" style="margin:0"><input type="checkbox" id="rawlog"> Raw hex</label>
+        <button class="small" id="copylog">Copy log</button>
+      </div>
       <div class="log" id="log" aria-live="off"></div>
     </details>
   </div>
@@ -242,7 +245,9 @@ label.chk { display: flex; align-items: center; gap: 8px; color: var(--muted); f
 <script id="protocol">
 "use strict";
 // ---- RF919 protocol (see PROTOCOL.md) ----
-const SERVICE = 0xff12, WRITE_CHAR = 0xff13, NOTIFY_CHAR = 0xff14;
+// Full 128-bit UUID strings: some Web Bluetooth implementations (e.g. iOS browsers) mishandle 16-bit integers
+const uuid16 = (n) => `0000${n.toString(16).padStart(4, "0")}-0000-1000-8000-00805f9b34fb`;
+const SERVICE = uuid16(0xff12), WRITE_CHAR = uuid16(0xff13), NOTIFY_CHAR = uuid16(0xff14);
 // Longest frame seen: 20 bytes (one BLE notification). The radio splits text into 13–14 byte chunks to stay within it.
 const MAX_FRAME = 20;
 
@@ -300,7 +305,10 @@ function splitFreq(raw, dp) {
 class RangeErr extends Error {}
 
 class Decoder {
-  constructor() { this.buf = []; this.chunks = new Map(); this.gbk = new TextDecoder("gbk"); }
+  constructor() {
+    this.buf = []; this.chunks = new Map();
+    try { this.gbk = new TextDecoder("gbk"); } catch { this.gbk = new TextDecoder(); }  // labels are ASCII in English mode
+  }
 
   *feed(data) {
     this.buf.push(...data);
@@ -427,8 +435,13 @@ const fromHex = (s) => Uint8Array.from(s.match(/../g), h => parseInt(h, 16));
 // ---- Links ----
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+const errText = (e) => `${e && e.name && e.name !== "Error" ? e.name + ": " : ""}${(e && e.message) || e}`;
+const charProps = (c) => ["read", "write", "writeWithoutResponse", "notify", "indicate"]
+  .filter(p => c.properties && c.properties[p]).join(", ") || "(none reported)";
+
 class BaseLink {
   constructor(onEvent, onStatus) { this.onEvent = onEvent; this.onStatus = onStatus; }
+  debug(text) { this.onEvent({kind: "debug", data: {}, text, raw: new Uint8Array()}); }
   press(key) { const code = typeof key === "number" ? key : KEYS[key]; return this.send(frame(0x0C, [code])); }
   tune(band, raw = 0) { return this.send(frame(0x10, [BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); }
   setTime(n = new Date()) {
@@ -447,6 +460,7 @@ class BleLink extends BaseLink {
     this.device = null; this.tx = null; this.queue = Promise.resolve(); this.userClosed = false;
     this.onNotify = (e) => {
       const v = e.target.value;
+      if (!this.rxCount++) this.debug(`first notification received (${v.byteLength} bytes)`);
       for (const ev of this.decoder.feed(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))) this.onEvent(ev);
     };
     this.onDrop = () => this.dropped();
@@ -456,38 +470,76 @@ class BleLink extends BaseLink {
   async pick(acceptAll) {
     const opts = acceptAll ? {acceptAllDevices: true, optionalServices: [SERVICE]}
                            : {filters: [{namePrefix: "RF919"}, {services: [SERVICE]}], optionalServices: [SERVICE]};
-    this.device = await navigator.bluetooth.requestDevice(opts);
+    this.debug(`requestDevice ${JSON.stringify(opts)}`);
+    try { this.device = await navigator.bluetooth.requestDevice(opts); }
+    catch (e) { this.debug(`requestDevice failed: ${errText(e)}`); throw e; }
+    this.debug(`picked "${this.device.name}" id=${this.device.id}`);
     this.device.addEventListener("gattserverdisconnected", this.onDrop);
   }
 
   async open() {
     this.userClosed = false;
     this.onStatus("busy", `connecting to ${this.device.name || "radio"}…`);
-    const server = await this.device.gatt.connect();
-    const svc = await server.getPrimaryService(SERVICE);
-    this.tx = await svc.getCharacteristic(WRITE_CHAR);
-    const rx = await svc.getCharacteristic(NOTIFY_CHAR);
-    this.decoder = new Decoder();
-    rx.addEventListener("characteristicvaluechanged", this.onNotify);
-    await rx.startNotifications();
-    await this.send(frame(0xFF));
+    // Each step is logged with its timing, and named on failure, to see where a browser gets stuck
+    let step = "", t0 = 0;
+    const begin = (name) => {
+      if (step) this.debug(`✓ ${step} (${Date.now() - t0} ms)`);
+      step = name; t0 = Date.now();
+      this.debug(`→ ${name}…`);
+    };
+    try {
+      begin("GATT connect");
+      const server = await this.device.gatt.connect();
+      begin("get service FF12");
+      const svc = await server.getPrimaryService(SERVICE);
+      begin("get characteristic FF13 (write)");
+      this.tx = await svc.getCharacteristic(WRITE_CHAR);
+      this.debug(`FF13 properties: ${charProps(this.tx)}`);
+      begin("get characteristic FF14 (notify)");
+      const rx = await svc.getCharacteristic(NOTIFY_CHAR);
+      this.debug(`FF14 properties: ${charProps(rx)}`);
+      begin("start notifications");
+      this.decoder = new Decoder();
+      this.rxCount = 0;
+      rx.addEventListener("characteristicvaluechanged", this.onNotify);
+      await rx.startNotifications();
+      begin("handshake");
+      await this.send(frame(0xFF));
+      this.debug(`✓ ${step} (${Date.now() - t0} ms)`);
+    } catch (e) {
+      throw new Error(`${step}: ${errText(e)}`);
+    }
     this.onStatus("ok", this.device.name || "connected");
+    // The radio answers the handshake with a state dump within ~1 s
+    const sentAt = Date.now();
+    setTimeout(() => {
+      if (this.connected && !this.rxCount) this.debug(`no data from the radio ${Date.now() - sentAt} ms after handshake; notifications may not be arriving`);
+    }, 3000);
   }
 
   async connect(acceptAll = false) {
     if (!this.device) await this.pick(acceptAll);
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try { await this.open(); return; }
-      catch (e) {
-        this.tx = null;
-        if (attempt === 2) { this.onStatus("bad", `failed: ${e.message || e}`); throw e; }
-        await sleep(1000 * 2 ** attempt);
+    this.connecting = true;
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { await this.open(); return; }
+        catch (e) {
+          this.tx = null;
+          this.debug(`attempt ${attempt + 1} failed at ${e.message}`);
+          if (attempt === 2) throw e;
+          this.onStatus("busy", `try ${attempt + 1} failed (${e.message}), retrying…`);
+          await sleep(1000 * 2 ** attempt);
+        }
       }
+    } finally {
+      this.connecting = false;
     }
   }
 
   async dropped() {
+    this.debug(`gattserverdisconnected${this.connecting ? " (during connect)" : this.userClosed ? " (requested)" : " (unexpected)"}`);
     this.tx = null;
+    if (this.connecting) return;  // a failed attempt dropped the link; connect() is already retrying
     if (this.userClosed) { this.onStatus("bad", "disconnected"); return; }
     this.onStatus("busy", "connection lost, reconnecting…");
     try { await this.connect(); } catch { this.onStatus("bad", "disconnected (tap Reconnect)"); }
@@ -495,9 +547,12 @@ class BleLink extends BaseLink {
 
   send(pkt) {
     if (!this.connected && pkt[2] !== 0xFF) return Promise.reject(new Error("not connected"));
-    const job = this.queue.then(() =>
-      this.tx.writeValueWithResponse ? this.tx.writeValueWithResponse(pkt) : this.tx.writeValue(pkt));
-    this.queue = job.catch(() => {});
+    const job = this.queue.then(() => {
+      const withResponse = !!this.tx.writeValueWithResponse;
+      this.debug(`TX ${hex(pkt)}${withResponse ? "" : " (writeValue)"}`);
+      return withResponse ? this.tx.writeValueWithResponse(pkt) : this.tx.writeValue(pkt);
+    });
+    this.queue = job.catch((e) => this.debug(`TX failed: ${errText(e)}`));
     return job;
   }
 
@@ -644,6 +699,9 @@ function statusLine() {
   $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
 }
 
+function debug(text) { log({kind: "debug", text, raw: new Uint8Array()}); }
+function hasGbk() { try { new TextDecoder("gbk"); return true; } catch { return false; } }
+
 function onEvent(ev) {
   const h = handlers[ev.kind];
   if (h) h(ev.data);
@@ -707,9 +765,17 @@ async function startBle() {
   try { await link.connect($("allDevices").checked); }
   catch (e) {
     if (e.name === "NotFoundError") setStatus("bad", "no device chosen");
-    else setStatus("bad", `failed: ${e.message || e}`);
+    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; }
   }
 }
+
+$("copylog").addEventListener("click", async () => {
+  const text = [...$("log").children].map(d => d.textContent).join("\n");
+  try { await navigator.clipboard.writeText(text); toast("Log copied"); }
+  catch {  // older iOS webviews: select the text so it can be copied by hand
+    getSelection().selectAllChildren($("log")); toast("Select-all done: tap Copy");
+  }
+});
 $("connect").addEventListener("click", startBle);
 $("disconnect").addEventListener("click", () => link && link.close(true));
 async function startDemo() {
@@ -744,6 +810,12 @@ document.addEventListener("keydown", (e) => {
 
 setStatus("bad", navigator.bluetooth ? "not connected" : "no Web Bluetooth");
 if (!navigator.bluetooth) { $("nobt").hidden = false; $("connect").disabled = true; }
+debug(`page ${document.lastModified} · ${navigator.userAgent}`);
+debug(`secure context: ${window.isSecureContext} · Web Bluetooth: ${!!navigator.bluetooth}` +
+  ` · requestDevice: ${typeof navigator.bluetooth?.requestDevice} · GBK decoder: ${hasGbk()}`);
+if (navigator.bluetooth?.getAvailability) {
+  navigator.bluetooth.getAvailability().then(a => debug(`Bluetooth adapter available: ${a}`), e => debug(`getAvailability failed: ${errText(e)}`));
+}
 if (new URLSearchParams(location.search).has("demo")) startDemo();
 </script>
 </body>
