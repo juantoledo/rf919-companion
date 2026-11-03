@@ -48,8 +48,39 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 - The bar at the bottom steps ◀ ▶ (**hold about 0.6 s** to seek) and sets the volume.
 - **Remote** (or ☰ at the top) opens every other key: the keypad, direct tune, the radio's
   text lines, and settings (Demo, Keep screen on, Disconnect, the connection log).
-- **Demo** shows the radio side with recorded data, no radio needed.
+- **Demo** shows the radio side with recorded data, no radio needed. It also pretends to be a
+  radio for what you send, so Memories can be tried without one.
 - **Disconnect** forgets the radio, so the next **Connect** lets you pick a different one.
+
+### Memories
+
+**Remote › Memories** loads a list of frequencies into the radio's memory channels. The radio
+has no command for this, so the page presses the same keys you would (tune, hold MEMO, type the
+channel, confirm), one channel at a time, about 2–3 s each. See [memory.md](memory.md).
+
+- **Build the list** by typing lines (`1 SW 5025`, `FM 101.3 Radio Bio Bio`, `146.730`), with
+  **+ Memory** under any frequency you look up, from the shortwave stations on air in the
+  chosen meter bands (EiBi), or from the Chilean stations near you (radiomap.cl).
+- **At most 200 channels per band**, which is the radio's limit. A line without a channel takes
+  the next free one in its band, and the page refuses anything past 200.
+- **Store** runs the list and stops at the first step the radio doesn't answer. **Resume**
+  picks it up from there. **Check on radio** recalls every channel and compares it.
+- **Store here** (under the radio's frequency) saves what the radio is tuned to on the channel after
+  the last one in use in that band. The radio proposes that channel when MEMO is held, and the page
+  just confirms it. If the page has looked the station up, its name is kept.
+- **Backup** exports what the app knows is on the radio (what it stored, plus what Check on radio
+  found) as a text file, one `channel band frequency name` line per channel, the same format as
+  Edit as text. Share it or download it. To import, open the file and choose **Load to store** (the
+  radio was wiped: the file becomes the list, then Store) or **Already on radio** (a new phone or
+  browser: the app learns the channels, and nothing is sent).
+- **By band:** when the list has several bands, tick the ones to store or check. All are ticked
+  until you pick; adding a new band to the list ticks them all again.
+- **Start fresh** wipes the ticked bands on the radio, the same as holding SCAN/ATS (all 200
+  channels of the band), then clears the app's list and record for them. It recalls a channel
+  afterwards to make sure it's empty before clearing anything in the app.
+- The radio can't show names. When it recalls a channel, the page shows the stored name.
+- **Test one memory** and **Settings › Developer** are for working out the parts of the store
+  sequence that aren't confirmed yet.
 
 Web Bluetooth only works on **https** pages or `localhost`, so opening the file
 directly from the phone's storage won't connect.

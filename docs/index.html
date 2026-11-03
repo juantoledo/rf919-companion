@@ -123,6 +123,7 @@ button.wide { grid-column: 1 / -1; }
 .cell { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .cell .l { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .cell .v { white-space: nowrap; }
+.readout-act { display: flex; justify-content: flex-end; margin-top: 8px; }
 .pinned { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--cool-line); border-radius: 999px; background: var(--cool-soft); font: 500 12px var(--font-mono); color: var(--dim); }
 .pinned b { color: var(--cool); font-weight: 500; }
 .pinned span:nth-child(2) { flex: 1; min-width: 0; }
@@ -298,7 +299,48 @@ label.chk input { accent-color: var(--amber); }
 .log .t { color: var(--faint); }
 .k-freq, .k-entry { color: var(--cool); } .k-button_label { color: var(--text); } .k-unknown { color: #e0a3c8; }
 .k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--warn); } .k-toast, .k-status_text { color: #ffe2a0; }
-.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap { color: var(--amber); }
+.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap, .k-mem { color: var(--amber); }
+
+/* ---- Memories tab ---- */
+textarea {
+  display: block; width: 100%; min-height: 140px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel);
+  font: 400 13px/1.55 var(--font-mono); color: var(--text); resize: vertical; transition: border-color .12s;
+}
+textarea:focus { outline: none; border-color: var(--amber-line); }
+textarea::placeholder { color: var(--faint); }
+.mem-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.tag.full { color: var(--warn); border-color: var(--warn-line); }
+.mem-box { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.mem-row {
+  display: grid; grid-template-columns: 2.6em 3.6em 5.6em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 4px 0;
+  border-top: 1px solid var(--line); font: 500 12.5px var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.mem-row .band { min-width: 0; padding: 1px 4px; font-size: 10px; }
+.mem-row .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 12.5px var(--font-body); color: var(--dim); }
+.mem-row .nm b { font-weight: 500; }
+.mem-row button { min-height: 30px; width: 30px; padding: 0; border-radius: 999px; font-size: 12px; }
+.mem-row.cur { color: var(--amber); }
+.mem-row.cur .nm { color: var(--amber); }
+.mem-row.ok .nm b::after { content: " ✓"; color: var(--cool); }
+.mem-row.bad, .mem-row.bad .nm { color: var(--warn); }
+.errs { margin: 8px 0 0; font: 400 11px/1.55 var(--font-mono); color: var(--warn); }
+.errs:empty { display: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.chips button.toggle { min-height: 34px; padding: 2px 10px; border-radius: 999px; font-size: 11px; letter-spacing: .04em; }
+.picks { margin-top: 10px; }
+.picks label {
+  display: grid; grid-template-columns: auto 5.4em minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 6px 0;
+  border-top: 1px solid var(--line); font-size: 12.5px; cursor: pointer;
+}
+.picks label input { accent-color: var(--amber); }
+.picks label b { font: 500 12.5px var(--font-mono); font-variant-numeric: tabular-nums; }
+.picks label small { display: block; color: var(--dim); font-size: 11.5px; }
+.picks label.in { color: var(--faint); }
+.progress { height: 6px; margin: 10px 0 6px; border-radius: 3px; background: rgba(140, 185, 230, .1); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--amber); transition: width .2s; }
+.mem-sub { margin-top: 12px; }
+.mem-sub > summary { padding: 6px 0; }
+.tabs button { letter-spacing: .06em; }
 
 .toast {
   position: fixed; left: 50%; bottom: calc(20px + var(--dock-h) + env(safe-area-inset-bottom)); translate: -50% 0; z-index: 30;
@@ -357,6 +399,9 @@ label.chk input { accent-color: var(--amber); }
           <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
           <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
         </div>
+        <div class="readout-act">
+          <button class="small primary" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
+        </div>
       </div>
       <div class="pinned" id="pinned" hidden>
         <span class="lamp cool"></span>
@@ -392,6 +437,7 @@ label.chk input { accent-color: var(--amber); }
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="keys" aria-selected="true">Keys</button>
       <button role="tab" data-tab="tune" aria-selected="false">Tune</button>
+      <button role="tab" data-tab="memories" aria-selected="false">Memories</button>
       <button role="tab" data-tab="display" aria-selected="false">Display</button>
       <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
     </div>
@@ -452,6 +498,100 @@ label.chk input { accent-color: var(--amber); }
           <p class="hint">Typed in the unit the radio's band shows (MHz on SW and FM).</p>
         </section>
       </div>
+      <div data-pane="memories" role="tabpanel" hidden>
+        <section>
+          <h2 class="h"><span>Memory list</span><span class="hv" id="mem-total"></span></h2>
+          <div class="mem-counts" id="mem-counts"></div>
+          <div class="mem-box"><ul class="list" id="mem-list"></ul></div>
+        </section>
+        <section id="mem-run"></section>
+        <section>
+          <details class="mem-sub" id="mem-fresh">
+            <summary>Start fresh: wipe bands</summary>
+            <div id="fresh-body"></div>
+          </details>
+        </section>
+        <section>
+          <details class="mem-sub" id="mem-backup">
+            <summary>Backup: export / import</summary>
+            <div id="backup-body"></div>
+            <input type="file" id="backup-file" accept=".txt,.csv,text/plain" hidden>
+          </details>
+        </section>
+        <section>
+          <details class="mem-sub" id="mem-textbox">
+            <summary>Edit as text</summary>
+            <textarea id="mem-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off"
+                      placeholder="1  SW  5025&#10;2  SW  6000  Radio Uno&#10;FM 101.3&#10;146.730"></textarea>
+            <p class="hint">One memory per line: channel, band, frequency, name. Channel and band are optional: a missing channel takes the next free one in its band, a missing band comes from the frequency. At most 200 per band.</p>
+            <div class="row" style="margin-top:8px">
+              <button class="small primary" type="button" data-mem="apply">Replace list</button>
+              <button class="small" type="button" data-mem="append">Add to list</button>
+            </div>
+            <p class="errs" id="mem-errs"></p>
+          </details>
+          <details class="mem-sub" id="mem-sw">
+            <summary>Add shortwave on air (EiBi)</summary>
+            <div class="chips" id="sw-bands"></div>
+            <div class="row">
+              <select id="sw-window" aria-label="When">
+                <option value="0">On air now</option>
+                <option value="120">Now or within 2 h</option>
+                <option value="360">Now or within 6 h</option>
+                <option value="720">Now or within 12 h</option>
+              </select>
+              <button class="small" type="button" data-mem="sw-find">Find</button>
+            </div>
+            <div id="sw-results"></div>
+          </details>
+          <details class="mem-sub" id="mem-near">
+            <summary>Add Chilean stations near me</summary>
+            <div class="row">
+              <select id="near-band" aria-label="Band"><option>FM</option><option>AM</option><option>VHF</option><option>UHF</option><option>AIR</option></select>
+              <select id="near-kind" aria-label="Kind">
+                <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
+                <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
+              </select>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select id="near-radius" aria-label="Distance">
+                <option value="25">Within 25 km</option><option value="50" selected>Within 50 km</option>
+                <option value="100">Within 100 km</option><option value="250">Within 250 km</option><option value="0">Any distance</option>
+              </select>
+              <button class="small" type="button" data-mem="near-find">Find</button>
+            </div>
+            <div id="near-results"></div>
+          </details>
+          <p class="hint">+ Memory, under a frequency you look up, adds that frequency to the list.</p>
+        </section>
+        <section>
+          <details class="mem-sub" id="mem-test">
+            <summary>Test one memory</summary>
+            <p class="hint" style="margin-top:0">Runs the store sequence with fixed pauses and marks each step in the log, to find out which keys and replies the radio really uses (memory.md §8).</p>
+            <div class="row">
+              <select id="t-band" aria-label="Band"></select>
+              <input type="text" id="t-freq" inputmode="decimal" placeholder="9580" autocomplete="off" aria-label="Frequency">
+              <input type="text" id="t-ch" inputmode="numeric" placeholder="ch" autocomplete="off" aria-label="Channel">
+            </div>
+            <div class="row" style="margin-top:8px">
+              <select id="t-confirm" aria-label="Confirm key">
+                <option value="MEMO">Confirm with MEMO</option>
+                <option value="FREQ">Confirm with FREQ (EN)</option>
+              </select>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="small" type="button" data-mem="t-step">Step</button>
+              <button class="small" type="button" data-mem="t-auto">Auto</button>
+              <button class="small" type="button" data-mem="t-recall">Recall test</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="small danger" type="button" data-mem="t-wipe">Test band wipe</button>
+            </div>
+            <p class="hint">Test band wipe holds SCAN on the band above (deleting all its memories), listens 5 s, then recalls CH 1.</p>
+            <p class="hint" id="t-status"></p>
+          </details>
+        </section>
+      </div>
       <div data-pane="display" role="tabpanel" hidden>
         <section>
           <h2 class="h">The radio's text lines</h2>
@@ -471,6 +611,18 @@ label.chk input { accent-color: var(--amber); }
             <button id="disconnect">Disconnect</button>
           </div>
           <label class="chk"><input type="checkbox" id="onlyRadio"> Only list RF919 radios when connecting</label>
+        </section>
+        <section>
+          <details id="devbox">
+            <summary>Developer: send a frame</summary>
+            <div class="row">
+              <input type="text" id="dev-cmd" placeholder="cmd: 0c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command byte, hex">
+              <input type="text" id="dev-data" placeholder="data: 2c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Data bytes, hex">
+            </div>
+            <p class="hint" id="dev-frame">Type a command byte and data bytes in hex.</p>
+            <div class="row" style="margin-top:8px"><button class="small primary" type="button" id="dev-send" disabled>Send</button></div>
+            <p class="hint">Sent on FF13, like every other command; the checksum is added. Replies show in the log. An unknown command could change a setting.</p>
+          </details>
         </section>
         <section>
           <details id="logpanel">
@@ -886,6 +1038,460 @@ class RadioMap {
 }
 </script>
 
+<script id="memories">
+"use strict";
+// ---- Memories (see memory.md) ----
+// There is no command to write a memory: each one is stored by replaying the front-panel keys
+// (tune → MEMO long → channel digits → confirm), one channel at a time.
+const MAX_CH = 200;  // per band. ✓ live: 200 accepted, 201 refused
+const MEM_BANDS = ["FM", "AM", "SW", "AIR", "CB", "UHF", "VHF", "LW"];  // WB has 7 fixed WX channels, no memories
+// Not confirmed on the radio yet (memory.md §8). Settle them with "Test one memory", then change them here
+// ✓ live (fw 1.910): MEMO long → 10 state 2 (channel blinking, n = a proposed channel); each digit → 10 state 2
+// n = the number typed so far; MEMO short → 01 (the frequency) and 10 state 0 (store mode closed).
+// "pause" skips the wait at that step and waits pauseMs instead
+const MEMO_CFG = {
+  confirmKey: "MEMO",     // MEMO short (24); fallback "FREQ" (0D, EN)
+  memoWait: "preset",     // after MEMO long: the channel number must start blinking (10 state 2)
+  channelWait: "preset",  // after the digits: the blinking number must be the channel typed, before confirming
+  confirmWait: "preset",  // after confirm: store mode must close (10 state 0)
+  stepMs: 150,            // between key presses
+  pauseMs: 800,           // a fixed pause, where nothing is awaited
+  timeoutMs: 4000,        // how long to wait for a reply
+  echoMs: 1500,           // keypad entry: how long to wait for the radio's echo of one key (✓ live: ~400 ms each)
+  // Start fresh. By hand, holding SCAN/ATS deletes every memory of the band (user report; over Bluetooth untested)
+  wipeKey: "PLAY_LONG",   // 33: what the vendor app sends for a long press on its SCAN button
+  wipeReply: null,        // a test (ev) => bool for the radio's reply once "Test band wipe" shows it; null = wait wipePauseMs
+  wipePauseMs: 2000,      // also the window in which a scan that starts by mistake gets stopped
+  stopKey: "PLAY",        // SCAN short: stops a scan
+  verifyWipe: true,       // recall a channel afterwards; it must be empty
+};
+// kHz per band, checked in order. Inferred from the RF919 spec, not measured. CB lies inside SW: never picked automatically
+const BAND_RANGES = [["LW", 150, 519], ["AM", 520, 1710], ["SW", 1711, 29999], ["FM", 64000, 108000],
+  ["AIR", 108001, 137000], ["VHF", 30000, 299999], ["UHF", 300000, 999999], ["CB", 26965, 27405]];
+const bandFor = (k) => (BAND_RANGES.find(([, lo, hi]) => k >= lo && k <= hi) || [null])[0];
+const bandRange = (band) => BAND_RANGES.find(([b]) => b === band) || null;
+const bandUnit = (band) => band === "AM" || band === "LW" ? "kHz" : "MHz";
+// How a list line writes the frequency: kHz below 30 MHz, else MHz with 3 decimals (so 150.000 never reads as 150 kHz)
+const freqText = (k) => k >= 30000 ? (k / 1000).toFixed(3) : String(k);
+const memKey = (band, ch) => `${band}:${ch}`;
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// One memory per line: [channel] [band] frequency [name…]. A line starting with "#" is a comment
+// (only whole lines, so a name may contain "#").
+// No channel = the next free one in its band; no band = the band the frequency falls in
+function parseMemList(text) {
+  const entries = [], errors = [];
+  String(text).split(/\r?\n/).forEach((raw, i) => {
+    const line = i + 1, t = raw.replace(/^\s*#.*/, "").trim().split(/\s+/).filter(Boolean);
+    if (!t.length) return;
+    const err = (msg) => errors.push({line, msg});
+    let p = 0, ch = null, band = null;
+    const isBand = (s) => s && (MEM_BANDS.includes(s.toUpperCase()) || s.toUpperCase() === "WB");
+    if (/^\d{1,4}$/.test(t[0]) && t.length > 1 && (isBand(t[1]) || parseFreqInput(t[1]) !== null)) { ch = +t[0]; p = 1; }
+    if (isBand(t[p])) { band = t[p++].toUpperCase(); }
+    if (band === "WB") return err("WB has fixed weather channels, no memories");
+    if (p >= t.length) return err("no frequency");
+    let ftext = t[p++];
+    if (/^(k|khz|m|mhz)$/i.test(t[p] || "")) ftext += t[p++];
+    const k = parseFreqInput(ftext);
+    if (k === null) return err(`"${ftext}" isn't a frequency`);
+    if (ch !== null && !(ch >= 1 && ch <= MAX_CH)) return err(`channel ${ch} is outside 1–${MAX_CH}`);
+    band = band || bandFor(k);
+    if (!band) return err(`no band covers ${fmtKHz(k)}`);
+    entries.push({line, ch, band, kHz: k, name: t.slice(p).join(" ")});
+  });
+  return {entries, errors};
+}
+
+// Adds items to a list, at most MAX_CH per band. Items with a channel go first, so the free ones are known.
+// Returns the new list (by band, then channel) and the items refused
+function addToList(list, items) {
+  const used = {}, out = [...list], errors = [];
+  for (const e of list) (used[e.band] ??= new Set()).add(e.ch);
+  const ordered = [...items.filter((e) => e.ch != null), ...items.filter((e) => e.ch == null)];
+  for (const it of ordered) {
+    const u = used[it.band] ??= new Set();
+    const err = (msg) => errors.push({line: it.line, msg: `${it.band} ${fmtKHz(it.kHz)}: ${msg}`});
+    if (!MEM_BANDS.includes(it.band)) { err("this band has no memories"); continue; }
+    let ch = it.ch;
+    if (ch == null) {
+      ch = 1;
+      while (u.has(ch)) ch++;
+      if (ch > MAX_CH) { err(`${it.band} is full (${MAX_CH}/${MAX_CH})`); continue; }
+    } else if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) { err(`channel ${ch} is outside 1–${MAX_CH}`); continue; }
+    else if (u.has(ch)) { err(`${it.band} CH ${ch} is already in the list`); continue; }
+    u.add(ch);
+    out.push({band: it.band, kHz: it.kHz, ch, name: it.name || ""});
+  }
+  out.sort((a, b) => MEM_BANDS.indexOf(a.band) - MEM_BANDS.indexOf(b.band) || a.ch - b.ch);
+  return {list: out, errors};
+}
+const listToText = (list) => list.map((e) => `${e.ch} ${e.band} ${freqText(e.kHz)}${e.name ? " " + e.name : ""}`).join("\n");
+const bandCount = (list, band) => list.filter((e) => e.band === band).length;
+const bandSummary = (rows) => MEM_BANDS.filter((b) => bandCount(rows, b)).map((b) => `${b} ${bandCount(rows, b)}`).join(", ");
+
+// ---- backup: the app's record ({"AIR:12": {kHz, name}}) as Edit as text lines ----
+function recordItems(record) {
+  const rows = [];
+  for (const [key, r] of Object.entries(record || {})) {
+    const m = /^([A-Z]+):(\d{1,3})$/.exec(key), ch = m && +m[2];
+    if (!m || !MEM_BANDS.includes(m[1]) || !(ch >= 1 && ch <= MAX_CH) || !r || !(r.kHz > 0)) continue;
+    rows.push({band: m[1], ch, kHz: r.kHz, name: r.name || ""});
+  }
+  return addToList([], rows).list;  // sorted by band and channel, at most MAX_CH per band
+}
+// when: the time to put in the header, e.g. "2026-11-02 21:40"
+function backupText(record, when) {
+  const rows = recordItems(record);
+  return [`# RF919 memories · exported ${when} · ${rows.length} channel${rows.length === 1 ? "" : "s"}: ${bandSummary(rows) || "none"}`,
+    "# one per line: channel band frequency name (kHz below 30 MHz, else MHz)", listToText(rows), ""].join("\n");
+}
+
+// Runs fn over items, n at a time; a failed item gives null. Stops starting new ones once signal aborts
+async function pool(items, n, fn, onProgress = () => {}, signal = null) {
+  const out = new Array(items.length).fill(null);
+  let next = 0, done = 0;
+  const worker = async () => {
+    while (next < items.length && !(signal && signal.aborted)) {
+      const i = next++;
+      try { out[i] = await fn(items[i]); } catch { out[i] = null; }
+      onProgress(++done, items.length);
+    }
+  };
+  await Promise.all(Array.from({length: Math.min(n, items.length)}, worker));
+  return out;
+}
+
+// ---- waiting for the radio's replies ----
+class StepErr extends Error {}
+class CancelErr extends Error {}
+
+// Every decoded event passes through feed(); expect() resolves on the first one that matches
+class Waiters {
+  constructor() { this.set = new Set(); this.freq = null; this.preset = null; }
+  feed(ev) {
+    if ((ev.kind === "freq") && !ev.data.alert) this.freq = ev.data;
+    if (ev.kind === "preset") this.preset = ev.data;
+    for (const w of [...this.set]) if (w.pred(ev)) { this.set.delete(w); clearTimeout(w.timer); w.resolve(ev); }
+  }
+  // Register before sending what triggers the reply, then await it
+  expect(pred, ms, what) {
+    const w = {pred};
+    const p = new Promise((resolve, reject) => {
+      w.resolve = resolve; w.reject = reject;
+      w.timer = setTimeout(() => { this.set.delete(w); reject(new StepErr(`no reply ${what}`)); }, ms);
+    });
+    p.catch(() => {});  // awaited later, or dropped when the send fails
+    this.set.add(w);
+    return p;
+  }
+  cancelAll(reason = "stopped") {
+    for (const w of this.set) { clearTimeout(w.timer); w.reject(new CancelErr(reason)); }
+    this.set.clear();
+  }
+}
+
+// Types a frequency on the keypad (FREQ, digits and point, FREQ), one key at a time: each key waits for the
+// radio's entry echo (0F) before the next. ✓ live: the radio takes ~400 ms per key and drops keys sent faster
+// ("433.275" sent 150 ms apart arrived as 43.275, an input error). Resolves with the radio's new frequency;
+// exact: it must be the one typed (storing), else any (manual tuning, where the radio may round to its step)
+async function typeEntry(link, w, text, cfg = MEMO_CFG, exact = true) {
+  const keys = [...String(text).trim()].filter((c) => /[0-9.]/.test(c)).map((c) => c === "." ? "POINT" : c);
+  if (!keys.length) throw new StepErr(`"${text}" isn't a frequency`);
+  const shown = (k) => k === "POINT" ? "." : k;
+  const refused = (ev) => ev.kind === "entry" && ev.data.result === 2;
+  for (const k of ["FREQ", ...keys]) {
+    const echo = w.expect((ev) => ev.kind === "entry", cfg.echoMs, `to key ${shown(k)} (the radio may have dropped it)`);
+    await link.press(k);
+    if (refused(await echo)) throw new StepErr(`the radio refused the entry at key ${shown(k)}`);
+  }
+  const want = parseFloat(text), unit = w.freq ? w.freq.unit : null;
+  const k = unit === "kHz" ? Math.round(want) : Math.round(want * 1000);
+  const done = w.expect((ev) => refused(ev) || (ev.kind === "freq" && (!exact || toKHz(ev.data) === k)), cfg.timeoutMs, `after typing ${text}`);
+  await link.press("FREQ");
+  let ev;
+  try { ev = await done; } catch (e) {
+    if (e instanceof StepErr && w.freq) throw new StepErr(`${e.message}; the radio is on ${fmtKHz(toKHz(w.freq))}`);
+    throw e;
+  }
+  if (refused(ev)) throw new StepErr(`the radio refused ${text} (input error)`);
+  return ev.data;
+}
+
+// Stores and reads back memories through a link (BleLink or ReplayLink). note(text) marks each step in the log
+class MemoryRun {
+  constructor(link, waiters, {note = () => {}, cfg = MEMO_CFG} = {}) {
+    Object.assign(this, {link, w: waiters, note, cfg, stopped: false, reason: ""});
+  }
+  stop(reason = "stopped") { this.stopped = true; this.reason = reason; this.w.cancelAll(reason); }
+  check() { if (this.stopped) throw new CancelErr(this.reason); }
+  async press(key) { this.check(); await this.link.press(key); await delay(this.cfg.stepMs); }
+  // One digit per echo, like typeEntry: sent faster, the radio drops a repeated digit (✓ live: CH 11 arrived as 1).
+  // echo(prefix) tests the reply to the digits so far; strict: no echo is an error, else carry on after echoMs
+  async digits(ch, echo = (ev) => ev.kind === "preset", strict = false) {
+    const s = String(ch);
+    for (let i = 0; i < s.length; i++) {
+      const want = +s.slice(0, i + 1);
+      const got = this.w.expect((ev) => echo(ev, want), this.cfg.echoMs, "");
+      await this.press(s[i]);
+      try { await got; } catch (e) {
+        if (e instanceof CancelErr) throw e;
+        if (strict && !echo({kind: "preset", data: this.w.preset || {}}, want)) {
+          const p = this.w.preset;  // it may not repeat a number that's already up, hence the check of the last one
+          throw new StepErr(p && p.state === 2 ? `the radio shows CH ${p.n}, not ${want}${want === ch ? "" : ` (on the way to ${ch})`}; not confirmed`
+            : `the radio isn't showing CH ${want}; not confirmed`);
+        }
+      }
+    }
+  }
+
+  async toBand(band) {
+    if (this.w.freq && this.w.freq.band === band) return;
+    const got = this.w.expect((ev) => ev.kind === "freq" && ev.data.band === band, this.cfg.timeoutMs, `switching to ${band}`);
+    this.check();
+    await this.link.tune(band, 0);
+    await got;
+  }
+
+  // Band switch with 10, then the frequency on the keypad, in the unit the band shows (the 10 units are only known for SW)
+  async tuneTo(band, k) {
+    await this.toBand(band);
+    if (toKHz(this.w.freq) === k) return;
+    const unit = this.w.freq.unit, text = unit === "MHz" ? String(k / 1000) : String(k);
+    this.check();
+    await typeEntry(this.link, this.w, text, this.cfg);
+  }
+
+  async store({band, kHz, ch}, onStep = () => {}) {
+    if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) throw new StepErr(`channel ${ch} is outside 1–${MAX_CH}`);
+    if (!MEM_BANDS.includes(band)) throw new StepErr(`${band} has no memories`);
+    const c = this.cfg, tag = `${band} ${fmtKHz(kHz)} → CH ${ch}`;
+    onStep("tune"); this.note(`── store ${tag}: tune`);
+    await this.tuneTo(band, kHz);
+    const blinking = (ev) => ev.kind === "preset" && ev.data.state === 2;
+    onStep("memo"); this.note(`── store ${tag}: MEMO long`);
+    const memo = c.memoWait === "preset" ? this.w.expect(blinking, c.timeoutMs, "after MEMO long (store mode didn't open)") : null;
+    await this.press("MEMO_LONG");
+    if (memo) await memo; else await delay(c.pauseMs);
+    onStep("channel"); this.note(`── store ${tag}: channel digits`);
+    // Each digit must show up in the blinking number (1, then 11) before the next; never confirm another channel
+    if (c.channelWait === "preset") await this.digits(ch, (ev, want) => blinking(ev) && ev.data.n === want, true);
+    else { await this.digits(ch, () => false); await delay(c.pauseMs); }
+    onStep("confirm"); this.note(`── store ${tag}: confirm (${c.confirmKey})`);
+    const done = c.confirmWait === "preset"
+      ? this.w.expect((ev) => ev.kind === "preset" && ev.data.state === 0, c.timeoutMs, "after confirm (store mode didn't close)") : null;
+    await this.press(c.confirmKey);
+    if (done) await done; else await delay(c.pauseMs);
+  }
+
+  // Stores what the radio is on, on the channel the radio proposes: ✓ live, the highest channel in use + 1
+  // (38 in use, 40 stored by hand → it proposed 41). guard(n) returns a reason to refuse, and then nothing
+  // is confirmed (the radio closes store mode by itself after ~5 s). Resolves with the channel used
+  async storeNext(band, guard = () => null, onStep = () => {}) {
+    if (!MEM_BANDS.includes(band)) throw new StepErr(`${band} has no memories`);
+    const c = this.cfg, blinking = (ev) => ev.kind === "preset" && ev.data.state === 2;
+    onStep("memo"); this.note(`── store next ${band}: MEMO long`);
+    const prop = this.w.expect(blinking, c.timeoutMs, "after MEMO long (store mode didn't open)");
+    await this.press("MEMO_LONG");
+    const n = (await prop).data.n;
+    this.note(`── store next ${band}: the radio proposes CH ${n}`);
+    const no = !(n >= 1 && n <= MAX_CH) ? `the radio proposes CH ${n}: ${band} has no channel after the last one in use (max ${MAX_CH})` : guard(n);
+    if (no) throw new StepErr(no);
+    onStep("confirm"); this.note(`── store next ${band}: confirm CH ${n} (${c.confirmKey})`);
+    const done = this.w.expect((ev) => ev.kind === "preset" && ev.data.state === 0, c.timeoutMs, "after confirm (store mode didn't close)");
+    await this.press(c.confirmKey);
+    await done;
+    return n;
+  }
+
+  // PRESET → digits → FREQ (EN). {kHz, empty}: the frequency the radio reports, or empty = it said NULL.
+  // Both unset = no reply
+  async recall(band, ch) {
+    if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) throw new StepErr(`channel ${ch} is outside 1–${MAX_CH}`);
+    this.note(`── recall ${band} CH ${ch}`);
+    await this.toBand(band);
+    await this.press("PRESET");
+    await this.digits(ch);
+    const isNull = (ev) => /\bNULL\b/.test((ev.data && (ev.data.text ?? ev.data.value)) || "");
+    const got = this.w.expect((ev) => ev.kind === "freq" || (["toast", "field", "status_text"].includes(ev.kind) && isNull(ev)),
+      this.cfg.timeoutMs, `recalling ${band} CH ${ch}`);
+    await this.press("FREQ");
+    let ev = null;
+    try { ev = await got; } catch (e) { if (e instanceof CancelErr) throw e; this.note(`(no reply recalling CH ${ch})`); }
+    await this.press("PRESET");  // leave recall mode
+    return {kHz: ev && ev.kind === "freq" ? toKHz(ev.data) : null, empty: !!ev && ev.kind !== "freq"};
+  }
+
+  // Deletes every memory of a band (SCAN/ATS held), stops a scan if one starts, then recalls channel
+  // probeCh, which must now be empty. Pick a channel known to have held something
+  async wipe(band, probeCh = 1, onStep = () => {}) {
+    const c = this.cfg;
+    onStep("band"); this.note(`── wipe ${band}: switch band`);
+    await this.toBand(band);
+    onStep("wipe"); this.note(`── wipe ${band}: ${c.wipeKey}`);
+    const seen = new Set();
+    const scanning = this.w.expect((ev) => ev.kind === "freq" && seen.add(toKHz(ev.data)).size >= 2, c.wipePauseMs, "");
+    const reply = c.wipeReply ? this.w.expect(c.wipeReply, c.timeoutMs, `after ${c.wipeKey} (the band wasn't wiped)`) : null;
+    await this.press(c.wipeKey);
+    if (reply) await reply;
+    let scan = false;
+    try { await scanning; scan = true; } catch (e) { if (e instanceof CancelErr) throw e; }  // timeout = no scan
+    if (scan) {
+      this.note(`(the radio started a scan; pressing ${c.stopKey} to stop it)`);
+      await this.press(c.stopKey);
+      await delay(c.pauseMs);
+    }
+    if (!c.verifyWipe) return;
+    onStep("verify");
+    const r = await this.recall(band, probeCh);
+    if (r.empty) return;
+    throw new StepErr(r.kHz != null ? `CH ${probeCh} still holds ${fmtKHz(r.kHz)}: the band wasn't wiped`
+      : `no reply recalling CH ${probeCh}, so the wipe can't be confirmed (set verifyWipe: false if NULL never arrives)`);
+  }
+}
+
+// Fixed steps for "Test one memory": no waiting, so every reply can be read in the log. Keys within a step
+// go TEST_KEY_MS apart, slower than the radio handles them (~400 ms), so none get dropped
+const TEST_KEY_MS = 600;
+function storeTestSteps({band, kHz, ch}, confirmKey) {
+  return [
+    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
+    {label: `type ${fmtKHz(kHz)}`, run: (link, w) => {
+      const unit = w.freq && w.freq.band === band ? w.freq.unit : bandUnit(band);
+      return link.typeFreq(unit === "MHz" ? String(kHz / 1000) : String(kHz));
+    }},
+    {label: "MEMO long", run: (link) => link.press("MEMO_LONG")},
+    {label: `channel ${ch}`, run: async (link) => { for (const d of String(ch)) { await link.press(d); await delay(TEST_KEY_MS); } }},
+    {label: `confirm (${confirmKey})`, run: (link) => link.press(confirmKey)},
+  ];
+}
+// Holds SCAN, listens, then recalls CH 1 so the log shows what an empty channel looks like
+function wipeTestSteps(band) {
+  return [
+    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
+    {label: `hold SCAN (${MEMO_CFG.wipeKey})`, run: (link) => link.press(MEMO_CFG.wipeKey)},
+    {label: "listen 5 s", run: () => delay(5000)},
+    {label: "PRESET", run: (link) => link.press("PRESET")},
+    {label: "channel 1", run: (link) => link.press("1")},
+    {label: "FREQ (EN)", run: (link) => link.press("FREQ")},
+    {label: "PRESET (leave recall)", run: (link) => link.press("PRESET")},
+  ];
+}
+function recallTestSteps(band, ch) {
+  return [
+    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
+    {label: "PRESET", run: (link) => link.press("PRESET")},
+    {label: `channel ${ch}`, run: async (link) => { for (const d of String(ch)) { await link.press(d); await delay(TEST_KEY_MS); } }},
+    {label: "FREQ (EN)", run: (link) => link.press("FREQ")},
+  ];
+}
+
+// EiBi broadcast meter bands, kHz
+const SW_METERS = [["120m", 2300, 2495], ["90m", 3200, 3400], ["75m", 3900, 4000], ["60m", 4750, 5060], ["49m", 5900, 6200],
+  ["41m", 7200, 7600], ["31m", 9400, 9900], ["25m", 11600, 12100], ["22m", 13570, 13870], ["19m", 15100, 15800],
+  ["16m", 17480, 17900], ["15m", 18900, 19020], ["13m", 21450, 21850], ["11m", 25670, 26100]];
+
+// The demo's pretend radio: answers tune (10) and key (0C) frames the way the store sequence expects,
+// with 8 banks of MAX_CH channels. emit(frame) gets the radio's replies as raw frames
+class RadioSim {
+  constructor(emit) {
+    Object.assign(this, {emit, active: false, band: "SW", kHz: 11620, last: {}, mode: null, buf: "", bank: new Map(),
+      storeTimer: 0, storeTimeoutMs: 5000});  // ✓ live: store mode left open closes after ~5 s
+  }
+  sendFreq() {
+    const raw = this.kHz, mhz = bandUnit(this.band) === "MHz";
+    const dp = mhz ? 0x10 | Math.max(1, String(raw).length - 3) : 0;  // digits from slot 1, 3 decimals
+    this.emit(frame(0x01, [BAND_CODES[this.band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24, mhz ? 0 : 1, dp, 0]));
+  }
+  preset(state, n) { this.emit(frame(0x10, [state, n])); }
+  toast(text) { const b = [...text].map((c) => c.charCodeAt(0)); this.emit(frame(0x23, [3, b.length, ...b])); }
+  receive(pkt) {
+    const cmd = pkt[2], d = pkt.slice(3, -1);
+    this.active = true;
+    if (cmd === 0x10) {
+      const band = BANDS[d[0]], raw = (d[1] | d[2] << 8 | d[3] << 16 | d[4] << 24) >>> 0;
+      if (!band || !bandRange(band)) return;
+      this.last[this.band] = this.kHz;
+      this.band = band;
+      this.kHz = raw ? (band === "SW" ? Math.round(raw / 100) : raw) : this.last[band] || bandRange(band)[1];
+      this.mode = null;
+      this.sendFreq();
+      return;
+    }
+    if (cmd !== 0x0C) return;
+    const key = d[0], digit = key >= 1 && key <= 9 ? String(key) : key === 0x0A ? "0" : null;
+    if (digit !== null) {
+      if (this.mode) this.buf += digit;
+      if (this.mode === "store") { this.shown = +this.buf; this.preset(2, this.shown & 255); }  // the blinking number follows the digits
+      if (this.mode === "entry") this.echo(1);
+      return;
+    }
+    switch (key) {
+      case 0x0C: if (this.mode === "entry") { this.buf += "."; this.echo(1); } return;
+      case 0x0B: this.buf = this.buf.slice(0, -1); return;
+      case 0x0D:  // FREQ / EN
+        if (this.mode === "entry") return this.enter();
+        if (this.mode === "store") return this.save();
+        if (this.mode === "recall") return this.recall();
+        this.mode = "entry"; this.buf = "";
+        this.echo(1);
+        return;
+      case 0x2C:                                                                 // MEMO long
+        this.mode = "store"; this.buf = ""; this.shown = this.proposal(); this.preset(2, this.shown);
+        clearTimeout(this.storeTimer);
+        this.storeTimer = setTimeout(() => { if (this.mode === "store") { this.mode = null; this.preset(0, 0); } }, this.storeTimeoutMs);
+        return;
+      case 0x24: if (this.mode === "store") this.save(); return;                // MEMO
+      case 0x33:                                                                 // SCAN long: wipe the band
+        for (const k of [...this.bank.keys()]) if (k.startsWith(this.band + ":")) this.bank.delete(k);
+        return;
+      case 0x23:                                                                 // PRESET
+        if (this.mode === "recall") { this.mode = null; this.preset(0, 0); }
+        else { this.mode = "recall"; this.buf = ""; this.preset(3, 0); }
+        return;
+    }
+  }
+  // 0F: result (0 done, 1 typing, 2 input error) and the digits so far, the point lit where typed
+  echo(result) {
+    const [int, dec] = this.buf.split("."), raw = +(this.buf.replace(".", "") || 0);
+    const dp = dec !== undefined && int ? 0x10 | int.length : 0;
+    this.emit(frame(0x0F, [result, BAND_CODES[this.band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24, bandUnit(this.band) === "MHz" ? 0 : 1, dp]));
+  }
+  enter() {
+    const v = parseFloat(this.buf), k = Math.round(bandUnit(this.band) === "MHz" ? v * 1000 : v), r = bandRange(this.band);
+    this.mode = null;
+    if (!(v > 0) || (r && (k < r[1] || k > r[2]))) { this.echo(2); this.buf = ""; this.echo(0); this.sendFreq(); return; }
+    this.buf = "";
+    this.echo(0);
+    this.kHz = k;
+    this.sendFreq();
+  }
+  // ✓ live: MEMO long proposes the highest channel in use + 1 (1 when the band is empty). Past 200: unknown
+  proposal() {
+    const used = [...this.bank.keys()].filter((k) => k.startsWith(this.band + ":")).map((k) => +k.split(":")[1]);
+    return used.length ? Math.max(...used) + 1 : 1;
+  }
+  // Saves on the number shown: the one typed, or the proposal when nothing was typed (Store here)
+  save() {
+    const ch = this.shown;
+    if (!(ch >= 1 && ch <= MAX_CH)) { this.toast("ERR"); return; }  // stays in store mode
+    this.mode = null;
+    this.bank.set(memKey(this.band, ch), this.kHz);
+    this.sendFreq();
+    this.preset(0, 0);
+  }
+  // Stays in recall (preset) mode afterwards, as the radio does, until PRESET is pressed again
+  recall() {
+    const ch = +this.buf, k = this.bank.get(memKey(this.band, ch));
+    this.buf = "";
+    if (k == null) { this.toast("NULL"); return; }
+    this.kHz = k;
+    this.sendFreq();
+    this.preset(1, ch);
+  }
+}
+</script>
+
 <script>
 "use strict";
 // ---- Links ----
@@ -903,11 +1509,8 @@ class BaseLink {
   setTime(n = new Date()) {
     return this.send(frame(0x0D, [n.getHours(), n.getMinutes(), n.getSeconds(), n.getFullYear() - 1970, n.getMonth() + 1, n.getDate()]));
   }
-  async typeFreq(text) {
-    const keys = [...text.trim()].filter(c => /[0-9.]/.test(c)).map(c => c === "." ? "POINT" : c);
-    if (!keys.length) return;
-    for (const k of ["FREQ", ...keys, "FREQ"]) { await this.press(k); await sleep(150); }
-  }
+  // One key per echo from the radio (see typeEntry)
+  typeFreq(text) { return typeEntry(this, waiters, text, MEMO_CFG, false); }
 }
 
 class BleLink extends BaseLink {
@@ -1022,8 +1625,15 @@ class BleLink extends BaseLink {
   }
 }
 
+// Replays a recorded session; a RadioSim answers what the page sends. Once the page has sent something,
+// the replay's own frequency and preset frames are skipped, so they don't undo the simulated radio
+const SIM_OWNS = new Set([0x01, 0x0F, 0x10]);
 class ReplayLink extends BaseLink {
-  constructor(onEvent, onStatus) { super(onEvent, onStatus); this.connected = false; this.timer = null; }
+  constructor(onEvent, onStatus) {
+    super(onEvent, onStatus);
+    this.connected = false; this.timer = null; this.simDecoder = new Decoder();
+    this.sim = new RadioSim((pkt) => { for (const ev of this.simDecoder.feed(pkt)) this.onEvent(ev); });
+  }
   async connect() {
     this.connected = true;
     this.onStatus("ok", "demo (replay)");
@@ -1034,14 +1644,19 @@ class ReplayLink extends BaseLink {
       const step = () => {
         if (!this.connected) return;
         if (i >= pkts.length) { this.timer = setTimeout(run, 4000); return; }
-        for (const ev of decoder.feed(pkts[i++])) this.onEvent(ev);
+        const pkt = pkts[i++];
+        if (!(this.sim.active && SIM_OWNS.has(pkt[2]))) for (const ev of decoder.feed(pkt)) this.onEvent(ev);
         this.timer = setTimeout(step, 40);
       };
       step();
     };
     run();
   }
-  async send(pkt) { this.onEvent({kind: "link", data: {}, text: `demo: would send ${hex(pkt)}`, raw: pkt}); }
+  async send(pkt) {
+    if (!this.connected) throw new Error("not connected");
+    this.onEvent({kind: "link", data: {}, text: `demo: would send ${hex(pkt)}`, raw: pkt});
+    setTimeout(() => { if (this.connected) this.sim.receive(pkt); }, 60);
+  }
   async close() { this.connected = false; clearTimeout(this.timer); this.onStatus("bad", "disconnected"); }
 }
 
@@ -1060,7 +1675,9 @@ function setStatus(kind, text) {
   $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
   $("connect").disabled = kind === "ok" || kind === "busy" || !navigator.bluetooth;
   log({kind: "link", text: "● " + text, raw: new Uint8Array()});
+  if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); }
   renderView();
+  renderMem();
 }
 
 function renderStat() {
@@ -1112,6 +1729,7 @@ const handlers = {
     setBlink($("freqbox"), d.state === 2);
     view.unit = d.unit;
     radioFreq(toKHz(d));
+    renderStoreHere(d);
   },
   field(d) {
     const v = d.value.trim();
@@ -1146,7 +1764,12 @@ const handlers = {
   },
   sleep(d) { state.sleep = d.minutes ? `${d.minutes}m` : ""; renderStat(); },
   alarm(d) { state.alarm = d.state ? `${pad2(d.hour)}:${pad2(d.minute)}` : ""; renderStat(); },
-  preset(d) { $("preset").textContent = ({1: `PRESET ${d.n}`, 2: `PRESET ${d.n}`, 3: "PRESET - -"})[d.state] || ""; },
+  preset(d) {
+    const t = ({1: `PRESET ${d.n}`, 2: `PRESET ${d.n}`, 3: "PRESET - -"})[d.state] || "";
+    // The radio can't show names; the phone shows the one this app stored on that channel
+    const r = (d.state === 1 || d.state === 2) && waiters.freq && mem.record[memKey(waiters.freq.band, d.n)];
+    $("preset").textContent = r && r.name ? `${t} · ${r.name}` : t;
+  },
   status_text(d) { state.fields.msg = d.text; statusLine(); },
   toast(d) { toast(d.text); },
   version(d) { toast(d.text.trim(), 6000); },
@@ -1165,6 +1788,11 @@ const store = {
   set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } },
 };
 const rm = new RadioMap();
+// Memories: the list to store, this app's record of what it stored per band:channel, and the running job
+const waiters = new Waiters();
+const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e) => e && e.band && e.kHz > 0)).list,
+  record: store.get("rf919.memories", {}), run: null, pos: -1, step: "", t0: 0, from: 0, fail: null, check: null,
+  job: null, picks: {sw: null, near: null}, test: null};
 // radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
 // near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
 const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
@@ -1253,6 +1881,7 @@ function fromHash() {
 
 // ---- rendering ----
 function renderView() {
+  renderStoreHere();
   const ok = state.ok, fol = following();
   $("readout").hidden = !ok;
   $("radio-k").textContent = ok && fol ? "● following" : "";
@@ -1309,8 +1938,21 @@ function introHtml() {
 }
 
 function tuneHereHtml() {
-  if (!state.ok || view.k === null || view.k === view.radioK) return "";
-  return `<div class="tune-here"><button class="primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(view.k)}</button></div>`;
+  if (view.k === null) return "";
+  const tune = state.ok && view.k !== view.radioK
+    ? `<button class="primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(view.k)}</button>` : "";
+  const band = bandFor(view.k), inList = band && mem.list.find((e) => e.band === band && e.kHz === view.k);
+  const add = !band ? "" : inList ? `<button type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
+    : `<button type="button" data-act="addmem">+ Memory</button>`;
+  return tune || add ? `<div class="tune-here">${tune}${add}</div>` : "";
+}
+// The name to keep with a memory of the frequency on show: who's on air (or next), else the first station
+function dossierName() {
+  const d = view.data;
+  if (!d) return "";
+  if (d.shortwave.length) return swPick(d.shortwave).head.e.station || "";
+  if (d.stations.length) { const {s} = stationRows()[0]; return s.nombre || s.signal || ""; }
+  return "";
 }
 
 const hhmm = (s) => `${s.slice(0, 2)}:${s.slice(2)}`;
@@ -1458,16 +2100,21 @@ function nearRow(n, fol) {
     `<span class="dot ${lamp}"></span></button></li>`;
 }
 
+// Asks for the position once more and keeps it; rejects (after a toast) when it isn't available
+function locate() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { toast("Location isn't available here", 3500, true); reject(new Error("no geolocation")); return; }
+    navigator.geolocation.getCurrentPosition((p) => {
+      // ~1 km is plenty to sort stations, and is all that gets stored
+      myPos = {lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2)};
+      store.set("rf919.pos", myPos);
+      resolve(myPos);
+    }, (e) => { toast(`Location: ${e.message || "not allowed"}`, 4000, true); reject(e); }, {maximumAge: 600000, timeout: 15000});
+  });
+}
 function toggleNearMe() {
   if (nearMe) { nearMe = false; store.set("rf919.nearme", false); renderView(); return; }
-  if (!navigator.geolocation) { toast("Location isn't available here", 3500, true); return; }
-  navigator.geolocation.getCurrentPosition((p) => {
-    // ~1 km is plenty to sort stations, and is all that gets stored
-    myPos = {lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2)};
-    nearMe = true;
-    store.set("rf919.pos", myPos); store.set("rf919.nearme", true);
-    renderView();
-  }, (e) => toast(`Location: ${e.message || "not allowed"}`, 4000, true), {maximumAge: 600000, timeout: 15000});
+  locate().then(() => { nearMe = true; store.set("rf919.nearme", true); renderView(); }, () => {});
 }
 
 $("search").addEventListener("submit", (e) => {
@@ -1486,6 +2133,7 @@ document.addEventListener("click", (e) => {
   else if (t.dataset.act === "more") { view.all = true; renderStations(); }
   else if (t.dataset.act === "nearme") toggleNearMe();
   else if (t.dataset.act === "tunehere") tuneHere();
+  else if (t.dataset.act === "addmem") addMem([{band: bandFor(view.k), kHz: view.k, ch: null, name: dossierName()}]);
   else if (t.dataset.act === "connect") startBle();
   else if (t.dataset.act === "demo") startDemo();
 });
@@ -1506,7 +2154,7 @@ tickClock();
 setInterval(tickClock, 15000);
 
 // ---- Remote sheet ----
-const TABS = ["keys", "tune", "display", "settings"];
+const TABS = ["keys", "tune", "memories", "display", "settings"];
 let sheetOpener = null;
 function selectTab(name) {
   if (!TABS.includes(name)) name = "keys";
@@ -1536,10 +2184,584 @@ $("remote").addEventListener("click", (e) => {
   if (t) selectTab(t.dataset.tab);
 });
 
+// ---- Memories tab ----
+const memNote = (text) => log({kind: "mem", text, raw: new Uint8Array()});
+const saveMem = () => store.set("rf919.memlist", mem.list);
+const saveRecord = () => store.set("rf919.memories", mem.record);
+const bandStyle = (band) => `--band:${BAND_COLORS[band] || "#b0bec5"}`;
+const memSecs = (n) => { const s = Math.round(n * 2.5); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; };
+
+// Adds to the list (never more than MAX_CH per band) and says what was added and what didn't fit
+function addMem(items) {
+  if (mem.run) { toast("Wait until the run is over", 3000, true); return; }
+  const old = mem.list, {list, errors} = addToList(old, items);
+  const fresh = list.filter((e) => !old.includes(e));
+  mem.list = list;
+  saveMem();
+  const first = fresh[0];
+  let msg = fresh.length === 1 ? `Added ${first.band} ${fmtKHz(first.kHz)} → CH ${first.ch}${first.name ? ` · ${first.name}` : ""}`
+    : fresh.length ? `Added ${fresh.length} memories` : "Nothing added";
+  if (errors.length) msg += `\n${errors.length === 1 ? errors[0].msg : `${errors.length} didn't fit: ${errors[0].msg}`}`;
+  toast(msg, errors.length ? 5000 : 3000, !fresh.length);
+  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+}
+
+function renderMem() {
+  const list = mem.list, running = !!mem.run;
+  $("mem-total").textContent = list.length ? String(list.length) : "";
+  $("mem-counts").innerHTML = MEM_BANDS.filter((b) => bandCount(list, b)).map((b) => {
+    const n = bandCount(list, b);
+    return `<span class="tag${n >= MAX_CH ? " full" : ""}">${b} ${n}/${MAX_CH}</span>`;
+  }).join("") + (list.length && !running ? `<button class="small" type="button" data-mem="clear">Clear</button>` : "");
+  const checked = mem.check && mem.check.byKey;
+  $("mem-list").innerHTML = list.length ? list.map((e, i) => {
+    const st = checked && checked.get(memKey(e.band, e.ch));
+    const cls = running && (mem.kind === "store" || mem.kind === "check") && e === (mem.jobRows || [])[mem.pos] ? "cur" : st === "ok" ? "ok" : st ? "bad" : "";
+    return `<li class="mem-row ${cls}"><span>${e.ch}</span><span class="band" style="${bandStyle(e.band)}">${e.band}</span>` +
+      `<span>${freqText(e.kHz)}</span><span class="nm"><b>${esc(e.name)}</b>${st && st !== "ok" ? ` ${esc(st)}` : ""}</span>` +
+      `<button type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${running ? " disabled" : ""}>✕</button></li>`;
+  }).join("") : `<li class="hint">No memories yet. Add some below, or with + Memory under a frequency you look up.</li>`;
+  renderMemRun();
+}
+
+// What each kind of job runs over, and how it names a step
+// Store and check run over the rows of the ticked bands, as they were when the job started (so Resume finds them)
+const JOBS = {
+  store: {verb: "Storing", noun: "row", items: () => mem.jobRows || []},
+  check: {verb: "Checking", noun: "row", items: () => mem.jobRows || []},
+  wipe: {verb: "Wiping", noun: "band", items: () => mem.wipeItems || []},
+  next: {verb: "Storing", noun: "station", items: () => mem.nextItems || []},  // Store here
+};
+// The bands Store and Check work on: every band in the list, until the user picks. A change in which
+// bands the list has resets the pick
+function storeBands() {
+  const inList = MEM_BANDS.filter((b) => bandCount(mem.list, b)), key = inList.join(" ");
+  if (mem.storeKey !== key) Object.assign(mem, {storeKey: key, storePicked: false});
+  if (!mem.storePicked) mem.storeSel = new Set(inList);
+  return inList.filter((b) => mem.storeSel.has(b));
+}
+const selRows = () => { const bands = storeBands(); return mem.list.filter((e) => bands.includes(e.band)); };
+const jobLabel = (kind, it) => kind === "wipe" ? it.band : kind === "next" ? `${it.band} ${fmtKHz(it.kHz)} → next channel` : `${it.band} ${fmtKHz(it.kHz)} → CH ${it.ch}`;
+
+function renderMemRun() {
+  const box = $("mem-run"), list = selRows(), n = list.length;
+  let h = `<h2 class="h"><span>Store on the radio</span><span>${n ? `${n} · ≈${memSecs(n)}` : ""}</span></h2>`;
+  if (mem.run) {
+    const job = JOBS[mem.kind], items = job.items(), total = items.length, i = mem.pos, e = items[i], todo = total - mem.from;
+    const avg = mem.done ? (Date.now() - mem.t0) / mem.done / 1000 : mem.kind === "wipe" ? 3 : 2.5;
+    h += `<div class="progress"><i style="width:${todo ? mem.done / todo * 100 : 0}%"></i></div>` +
+      `<p class="hint" style="margin-top:0">${job.verb} ${i + 1}/${total}` +
+      (e ? ` · ${esc(jobLabel(mem.kind, e))}` : "") + (mem.step ? ` · ${esc(mem.step)}` : "") +
+      ` · ≈${Math.max(1, Math.round(avg * (total - i)))} s left</p>` +
+      `<div class="row"><button class="small danger" type="button" data-mem="stop">Stop</button></div>` +
+      `<p class="hint">Keep this page open and don't touch the radio until it's done.</p>`;
+    box.innerHTML = h;
+    return;
+  }
+  const inList = MEM_BANDS.filter((b) => bandCount(mem.list, b));
+  if (inList.length > 1) {
+    h += `<div class="chips">` + inList.map((b) => `<button class="toggle" type="button" data-mem="store-band" data-b="${b}" ` +
+      `aria-pressed="${mem.storeSel.has(b)}">${b} · ${bandCount(mem.list, b)}</button>`).join("") + `</div>`;
+  }
+  const over = list.filter((e) => { const r = mem.record[memKey(e.band, e.ch)]; return r && r.kHz !== e.kHz; });
+  if (over.length) {
+    h += `<p class="hint" style="margin-top:0">Replaces, per this app's record: ` +
+      over.slice(0, 8).map((e) => `${e.band} CH ${e.ch} (${freqText(mem.record[memKey(e.band, e.ch)].kHz)} → ${freqText(e.kHz)})`).join(", ") +
+      (over.length > 8 ? ` and ${over.length - 8} more` : "") + `. The radio overwrites a channel without asking.</p>`;
+  }
+  const off = !state.ok || !n ? " disabled" : "";
+  h += `<div class="row" style="margin-top:8px"><button class="primary" type="button" data-mem="store"${off}>Store ${n || ""} memor${n === 1 ? "y" : "ies"}</button>` +
+    `<button type="button" data-mem="check"${off}>Check on radio</button></div>`;
+  if (mem.fail) {
+    h += `<p class="errs">${esc(mem.fail.msg)}</p><div class="row" style="margin-top:8px">` +
+      `<button class="small" type="button" data-mem="resume">Resume from ${JOBS[mem.fail.kind].noun} ${mem.fail.i + 1}</button></div>`;
+  }
+  if (mem.check && !mem.run) {
+    const c = mem.check;
+    h += `<p class="hint">Checked ${c.n}: ${c.ok} match${c.bad ? ` · ${c.bad} differ or didn't answer (marked in the list)` : ""}.</p>`;
+  }
+  if (!state.ok) h += `<p class="hint">Connect the radio (or start the Demo) to store the list. About 2–3 s per memory; keep the screen on and don't touch the radio during a run.</p>`;
+  box.innerHTML = h;
+  renderFresh();
+  renderBackup();
+}
+
+// kind "store": store rows from..end. "check": recall them and compare with the list.
+// "wipe": wipe the bands in mem.wipeItems on the radio, then forget them in the app
+async function runJob(kind, from = 0) {
+  if (mem.run || !state.ok || !link) return;
+  if (kind !== "wipe" && !from) mem.jobRows = selRows();
+  const job = JOBS[kind], list = job.items();
+  if (!list.length) return;
+  const run = mem.run = new MemoryRun(link, waiters, {note: memNote});
+  Object.assign(mem, {kind, from, pos: from, done: 0, step: "", t0: Date.now(), fail: null});
+  if (kind === "store") mem.check = null;
+  else if (kind === "check" && (!from || !mem.check)) mem.check = {n: 0, ok: 0, bad: 0, byKey: new Map()};
+  const wakeWasOn = $("wake").getAttribute("aria-pressed") === "true";
+  if (!wakeWasOn && "wakeLock" in navigator) setWake(true, true);
+  memNote(`── ${job.verb.toLowerCase()} ${job.noun}s ${from + 1}–${list.length}`);
+  renderMem();
+  try {
+    for (let i = from; i < list.length; i++) {
+      const e = list[i], key = memKey(e.band, e.ch);
+      const onStep = (step) => { mem.step = step; renderMemRun(); };
+      mem.pos = i; mem.step = "";
+      renderMem();
+      if (kind === "store") {
+        await run.store(e, onStep);
+        mem.record[key] = {kHz: e.kHz, name: e.name, at: Date.now()};
+        saveRecord();
+      } else if (kind === "check") {
+        onStep("recall");
+        const r = await run.recall(e.band, e.ch), c = mem.check;
+        c.n++;
+        if (r.kHz === e.kHz) { c.ok++; c.byKey.set(key, "ok"); }
+        else { c.bad++; c.byKey.set(key, r.empty ? "· empty" : r.kHz === null ? "· no reply" : `· radio has ${freqText(r.kHz)}`); }
+        if (r.empty) delete mem.record[key];
+        else if (r.kHz !== null) mem.record[key] = {kHz: r.kHz, name: r.kHz === e.kHz ? e.name : "", at: Date.now()};
+        saveRecord();
+      } else {
+        await run.wipe(e.band, e.probe, onStep);
+        forgetBand(e.band);  // only once the radio has done it
+        mem.freshPicked = false;
+      }
+      mem.done++;
+    }
+    toast(kind === "store" ? `Stored ${mem.done} memor${mem.done === 1 ? "y" : "ies"}`
+      : kind === "check" ? `Checked: ${mem.check.ok}/${mem.check.n} match` : `Wiped ${list.map((e) => e.band).join(", ")}`);
+  } catch (err) {
+    const e = list[mem.pos], where = `${job.noun} ${mem.pos + 1}${e ? ` (${jobLabel(kind, e)})` : ""}`;
+    const stopped = err instanceof CancelErr;
+    mem.fail = {kind, i: mem.pos, msg: `${stopped ? "Stopped" : "Failed"} at ${where}${mem.step ? `, step "${mem.step}"` : ""}` +
+      (stopped && err.message === "stopped" ? "" : `: ${err.message || err}`)};
+    memNote(`── ${mem.fail.msg}`);
+  } finally {
+    mem.run = null; mem.step = "";
+    if (!wakeWasOn && state.wake) setWake(false, true);
+    renderMem(); renderView();
+  }
+}
+
+// ---- Store here: what the radio is on, on the channel after the last one in use ----
+// f: the radio's frequency (waiters.freq; passed by the freq handler, which runs before waiters is fed)
+function renderStoreHere(f = waiters.freq) {
+  const b = $("storehere"), k = f && !f.alert ? toKHz(f) : null;
+  b.disabled = !state.ok || !!mem.run || !k || !MEM_BANDS.includes(f.band);
+}
+async function storeHere() {
+  const f = waiters.freq, k = f && toKHz(f), band = f && f.band;
+  if (mem.run || !state.ok || !link || !k || !MEM_BANDS.includes(band)) return;
+  const had = Object.entries(mem.record).find(([key, r]) => key.startsWith(band + ":") && r.kHz === k);
+  if (had && !confirm(`${fmtKHz(k)} is already on ${band} CH ${had[0].split(":")[1]}. Store it again on the next channel?`)) return;
+  const name = view.k === k && view.data ? dossierName() : "";
+  // Never overwrite a channel this app knows holds something else (a radio that wraps round when the band is full)
+  const guard = (n) => { const r = mem.record[memKey(band, n)]; return r && r.kHz !== k ? `the radio proposes CH ${n}, which holds ${fmtKHz(r.kHz)} per this app's record` : null; };
+  mem.run = new MemoryRun(link, waiters, {note: memNote});
+  Object.assign(mem, {kind: "next", nextItems: [{band, kHz: k}], from: 0, pos: 0, done: 0, step: "", t0: Date.now()});
+  renderMem(); renderStoreHere();
+  toast(`Storing ${fmtKHz(k)} on the next ${band} channel…`, 8000);
+  try {
+    const n = await mem.run.storeNext(band, guard);
+    mem.record[memKey(band, n)] = {kHz: k, name, at: Date.now()};
+    saveRecord();
+    const clash = mem.list.find((e) => e.band === band && e.ch === n && e.kHz !== k);
+    if (!clash && !mem.list.some((e) => e.band === band && e.ch === n)) { mem.list = addToList(mem.list, [{band, kHz: k, ch: n, name}]).list; saveMem(); }
+    toast(`Stored ${fmtKHz(k)} on ${band} CH ${n}${name ? ` · ${name}` : ""}` +
+      (clash ? `\nYour list plans ${freqText(clash.kHz)} on CH ${n}; storing the list would replace it` : ""), clash ? 7000 : 4000);
+  } catch (err) {
+    const msg = err instanceof CancelErr ? "Stopped" : err.message || String(err);
+    toast(`Not stored: ${msg}\nThe radio leaves store mode by itself in a few seconds.`, 7000, true);
+    memNote(`── store next ${band}: not stored: ${msg}`);
+  } finally {
+    mem.run = null;
+    renderMem(); renderView();
+  }
+}
+
+// ---- Backup: export the app's record as text, import one back ----
+const SHARE_FILES = (() => {
+  try { return !!(navigator.canShare && navigator.canShare({files: [new File(["x"], "x.txt", {type: "text/plain"})]})); }
+  catch { return false; }
+})();
+const localStamp = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+function backupFile() {
+  const when = localStamp();
+  return {name: `rf919-memories-${when.slice(0, 10)}.txt`, text: backupText(mem.record, when)};
+}
+
+function renderBackup() {
+  const rows = recordItems(mem.record), n = rows.length, off = !n ? " disabled" : "", p = mem.imported;
+  let h = `<p class="hint" style="margin-top:0">` + (n
+    ? `${n} channel${n === 1 ? "" : "s"} this app knows are on the radio: ${esc(bandSummary(rows))}.`
+    : "Nothing to export yet: the app's record fills up as you Store, use Store here or Check on radio.") + `</p>` +
+    `<div class="row">` + (SHARE_FILES ? `<button class="small primary" type="button" data-mem="bk-share"${off}>Share backup</button>` : "") +
+    `<button class="small" type="button" data-mem="bk-download"${off}>Download .txt</button></div>` +
+    `<h2 class="h" style="margin:16px 0 8px"><span>Import</span></h2>` +
+    `<div class="row"><button class="small" type="button" data-mem="bk-open"${mem.run ? " disabled" : ""}>Open backup file…</button></div>`;
+  if (p && p.errors.length) {
+    h += `<p class="errs">${esc(p.name)}: ` + p.errors.slice(0, 8).map((x) => esc(`${x.line ? `line ${x.line}: ` : ""}${x.msg}`)).join("<br>") +
+      (p.errors.length > 8 ? `<br>… and ${p.errors.length - 8} more` : "") + `</p>`;
+  } else if (p) {
+    const dis = mem.run ? " disabled" : "";
+    h += `<p class="hint">${esc(p.name)}: ${p.list.length} channel${p.list.length === 1 ? "" : "s"} · ${esc(bandSummary(p.list))}</p>` +
+      `<div class="row" style="margin-top:8px"><button class="small primary" type="button" data-mem="bk-load"${dis}>Load to store</button>` +
+      `<button class="small" type="button" data-mem="bk-mark"${dis}>Already on radio</button></div>` +
+      `<p class="hint"><b>Load to store</b>: the radio was wiped or reset; the file becomes the list, then tap Store. ` +
+      `<b>Already on radio</b>: the radio still has them (new phone or browser); the app just learns them, nothing is sent.</p>`;
+  }
+  $("backup-body").innerHTML = h;
+}
+
+async function exportBackup(share) {
+  const {name, text} = backupFile();
+  if (share) {
+    try { await navigator.share({files: [new File([text], name, {type: "text/plain"})], title: "RF919 memories"}); }
+    catch (e) { if (e.name !== "AbortError") toast(`Share failed: ${errText(e)}`, 4000, true); }
+    return;
+  }
+  const url = URL.createObjectURL(new Blob([text], {type: "text/plain"})), a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast(`Saved ${name}`);
+}
+
+async function readBackup(file) {
+  if (file.size > 1e6) { mem.imported = {name: file.name, list: [], errors: [{msg: "too big for a memory list"}]}; renderBackup(); return; }
+  let text;
+  try { text = await file.text(); } catch (e) { toast(`Couldn't read ${file.name}: ${errText(e)}`, 4000, true); return; }
+  const {entries, errors} = parseMemList(text);
+  const res = errors.length ? {list: [], errors: []} : addToList([], entries);
+  const all = [...errors, ...res.errors];
+  if (!all.length && !res.list.length) all.push({msg: "no memories in this file"});
+  mem.imported = {name: file.name, list: res.list, errors: all};
+  renderBackup();
+}
+
+// mark: the radio already holds these, so the app's record learns them; otherwise they only become the list to store
+function importBackup(mark) {
+  const p = mem.imported;
+  if (!p || p.errors.length || mem.run) return;
+  if (mark) {
+    const changed = p.list.filter((e) => { const r = mem.record[memKey(e.band, e.ch)]; return r && r.kHz !== e.kHz; });
+    if (changed.length) {
+      const e = changed[0], old = mem.record[memKey(e.band, e.ch)].kHz;
+      if (!confirm(`This changes ${changed.length} channel${changed.length === 1 ? "" : "s"} in the app's record, ` +
+        `for example ${e.band} CH ${e.ch}: ${freqText(old)} → ${freqText(e.kHz)}. Go on?`)) return;
+    }
+    const at = Date.now();
+    for (const e of p.list) mem.record[memKey(e.band, e.ch)] = {kHz: e.kHz, name: e.name, at};
+    saveRecord();
+  }
+  const n = p.list.length;
+  Object.assign(mem, {list: p.list, check: null, fail: null, storePicked: false, imported: null});
+  saveMem();
+  toast(mark ? `The app now knows ${n} channel${n === 1 ? "" : "s"} on the radio` : `${n} memor${n === 1 ? "y" : "ies"} loaded: tap Store to put them on the radio`, 4500);
+  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+}
+
+// The app's side of a wipe: the band's rows in the list, its record, and its check marks
+function forgetBand(band) {
+  const mine = (k) => k.startsWith(band + ":");
+  for (const k of Object.keys(mem.record)) if (mine(k)) delete mem.record[k];
+  if (mem.check) for (const k of [...mem.check.byKey.keys()]) if (mine(k)) mem.check.byKey.delete(k);
+  mem.list = mem.list.filter((e) => e.band !== band);
+  saveRecord(); saveMem();
+  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+}
+const recordedIn = (band) => Object.keys(mem.record).filter((k) => k.startsWith(band + ":")).map((k) => +k.split(":")[1]);
+// The channel to recall after a wipe: the lowest one known to have held something, so an empty reply means something
+function probeChannel(band) {
+  const chs = [...recordedIn(band), ...mem.list.filter((e) => e.band === band).map((e) => e.ch)];
+  return chs.length ? Math.min(...chs) : 1;
+}
+
+function renderFresh() {
+  // Ticked by default: the bands the list or the record has, until the user picks
+  if (!mem.freshPicked) mem.freshSel = new Set(MEM_BANDS.filter((b) => bandCount(mem.list, b) || recordedIn(b).length));
+  const n = mem.freshSel.size;
+  const chip = (b) => `<button class="toggle" type="button" data-mem="fresh-band" data-b="${b}" aria-pressed="${mem.freshSel.has(b)}"${mem.run ? " disabled" : ""}>${b}</button>`;
+  $("fresh-body").innerHTML =
+    `<p class="hint" style="margin-top:0">Deletes every memory (CH 1–${MAX_CH}) of the ticked bands on the radio, as holding SCAN/ATS on it does, ` +
+    `then clears this app's list and record for them. About 3 s per band.</p>` +
+    `<div class="chips">${MEM_BANDS.map(chip).join("")}</div>` +
+    `<div class="row"><button class="danger" type="button" data-mem="fresh"${!state.ok || mem.run || !n ? " disabled" : ""}>` +
+    `Wipe ${n || ""} band${n === 1 ? "" : "s"} on the radio</button></div>` +
+    (state.ok ? "" : `<p class="hint">Connect the radio (or start the Demo) first.</p>`);
+}
+function startFresh() {
+  const bands = MEM_BANDS.filter((b) => mem.freshSel.has(b));
+  if (!bands.length || mem.run || !state.ok) return;
+  const names = bands.length > 1 ? `${bands.slice(0, -1).join(", ")} and ${bands[bands.length - 1]}` : bands[0];
+  if (!confirm(`Delete ALL memories in ${names} on the radio, and this app's list and record for ${bands.length > 1 ? "them" : "it"}? This can't be undone.`)) return;
+  mem.wipeItems = bands.map((band) => ({band, probe: probeChannel(band)}));
+  runJob("wipe");
+}
+
+function applyText(replace) {
+  if (mem.run) return;
+  const show = (errs) => {
+    $("mem-errs").innerHTML = errs.slice(0, 12).map((x) => esc(`${x.line ? `line ${x.line}: ` : ""}${x.msg}`)).join("<br>") +
+      (errs.length > 12 ? `<br>… and ${errs.length - 12} more` : "");
+  };
+  const {entries, errors} = parseMemList($("mem-text").value);
+  if (errors.length) { show(errors); return; }
+  const res = addToList(replace ? [] : mem.list, entries);
+  if (res.errors.length) { show(res.errors); return; }
+  show([]);
+  Object.assign(mem, {list: res.list, check: null, fail: null});
+  saveMem();
+  $("mem-text").value = "";
+  toast(replace ? `The list now has ${mem.list.length} memories` : `Added ${entries.length} memor${entries.length === 1 ? "y" : "ies"}`);
+  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+}
+
+// ---- list builders (radiomap.cl has one file per frequency, so they fetch a few at a time) ----
+async function fetchAll(ks, box) {
+  if (mem.job) mem.job.abort();
+  const ctl = mem.job = new AbortController();
+  box.innerHTML = `<div class="progress"><i style="width:0"></i></div>` +
+    `<p class="hint" style="margin-top:0"><span></span> <button class="small" type="button" data-mem="job-stop">Cancel</button></p>`;
+  const bar = box.querySelector(".progress i"), txt = box.querySelector("p span");
+  const prog = (d, n) => { bar.style.width = `${d / n * 100}%`; txt.textContent = `Fetching ${d}/${n} from radiomap.cl…`; };
+  prog(0, ks.length);
+  // rm.get, not rm.lookup: a long list mustn't push the dossier's lookups out of the cache
+  const got = await pool(ks, 6, (k) => rm.get(`freq/${k}.json`), prog, ctl.signal);
+  if (mem.job === ctl) mem.job = null;
+  if (ctl.signal.aborted) { box.innerHTML = `<p class="hint">Cancelled.</p>`; return null; }
+  return got;
+}
+async function radiomapIndex(box) {
+  try { return await rm.index(); }
+  catch (e) { box.innerHTML = `<p class="errs">radiomap.cl unreachable (${esc(errText(e))})</p>`; return null; }
+}
+
+mem.swSel = new Set(store.get("rf919.swbands", ["49m", "41m", "31m", "25m"]));
+function renderSwChips() {
+  const chip = (id, label) => `<button class="toggle" type="button" data-mem="sw-band" data-b="${id}" aria-pressed="${mem.swSel.has(id)}">${label}</button>`;
+  $("sw-bands").innerHTML = SW_METERS.map(([m]) => chip(m, m)).join("") + chip("all", "All SW");
+}
+
+async function swFind() {
+  const box = $("sw-results"), all = mem.swSel.has("all"), meters = SW_METERS.filter(([m]) => mem.swSel.has(m));
+  if (!all && !meters.length) { toast("Pick one or more meter bands", 3000, true); return; }
+  const idx = await radiomapIndex(box);
+  if (!idx) return;
+  const ks = idx.freqs.filter((k) => bandFor(k) === "SW" && (all || meters.some(([, lo, hi]) => k >= lo && k <= hi)));
+  if (ks.length > 300 && !confirm(`That's ${ks.length} frequencies to fetch from radiomap.cl, which takes a while. Go on?`)) return;
+  const got = await fetchAll(ks, box);
+  if (!got) return;
+  const win = +$("sw-window").value, now = Date.now(), items = [];
+  got.forEach((d, i) => {
+    if (!d || !d.shortwave || !d.shortwave.length) return;
+    const rows = d.shortwave.map((e) => ({e, air: swAir(e, now)}));
+    const on = rows.find((r) => r.air.on);
+    const soon = rows.filter((r) => !r.air.on && r.air.startsIn != null && r.air.startsIn <= win)
+      .sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
+    const r = on || soon;
+    if (!r) return;
+    items.push({band: "SW", kHz: ks[i], ch: null, name: r.e.station || "", flag: flagHtml(ituFlag(r.e.itu), r.e.country),
+      note: [r.e.langLabel || r.e.lang, on ? `on air until ${minHHMM(hhmmMin(r.e.endUTC))} UTC` : `from ${hhmm(r.e.startUTC)} UTC, in ${dur(r.air.startsIn)}`]
+        .filter(Boolean).join(" · ")});
+  });
+  mem.picks.sw = {band: "SW", items, failed: got.filter((d) => d === null).length};
+  renderPicks("sw");
+}
+
+async function nearFind() {
+  const box = $("near-results"), band = $("near-band").value, kind = $("near-kind").value, radius = +$("near-radius").value;
+  if (radius && !myPos) { try { await locate(); } catch { return; } }
+  const idx = await radiomapIndex(box);
+  if (!idx) return;
+  const ks = idx.freqs.filter((k) => bandFor(k) === band);
+  if (!ks.length) { box.innerHTML = `<p class="hint">radiomap.cl has nothing on ${band}.</p>`; return; }
+  const got = await fetchAll(ks, box);
+  if (!got) return;
+  const best = new Map();  // the kHz to listen on -> nearest station there
+  got.forEach((d, i) => {
+    for (const s of (d && d.stations) || []) {
+      if (kind !== "all" && s.category !== kind) continue;
+      // A repeater is listed on its input too; it's heard on its output
+      const k = s.category === "amateur" && s.rxKHz ? Math.round(s.rxKHz) : ks[i];
+      if (bandFor(k) !== band) continue;
+      const km = myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null;
+      if (radius && (km == null || km > radius)) continue;
+      const cur = best.get(k);
+      if (!cur || (km ?? Infinity) < (cur.km ?? Infinity)) best.set(k, {s, km});
+    }
+  });
+  const items = [...best].map(([k, {s, km}]) => ({band, kHz: k, ch: null, km, name: s.nombre || s.signal || "",
+    note: [s.nombre && s.signal, isRepeater(s) && `repeater ${fmtShift(s.rxKHz, s.txKHz)}`, placeOf(s)[0],
+      km != null && `${Math.round(km).toLocaleString()} km`].filter(Boolean).join(" · ")}));
+  items.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.kHz - b.kHz);
+  mem.picks.near = {band, items, failed: got.filter((d) => d === null).length};
+  renderPicks("near");
+}
+
+// The builder's results with tick boxes; only as many are ticked as the band has free channels
+function renderPicks(kind) {
+  const p = mem.picks[kind], box = $(`${kind}-results`);
+  if (!p) return;
+  const inList = (it) => mem.list.some((e) => e.band === it.band && e.kHz === it.kHz);
+  const free = MAX_CH - bandCount(mem.list, p.band);
+  const fit = Math.min(p.items.filter((it) => !inList(it)).length, free);
+  let ticked = 0;
+  const rows = p.items.map((it, i) => {
+    const has = inList(it), on = !has && ticked < free;
+    if (on) ticked++;
+    return `<label class="${has ? "in" : ""}"><input type="checkbox" data-pick="${i}"${on ? " checked" : ""}${has ? " disabled" : ""}>` +
+      `<b>${freqText(it.kHz)}</b><span>${it.flag || ""}${esc(it.name)}<small>${esc(has ? "already in the list" : it.note || "")}</small></span></label>`;
+  }).join("");
+  const head = `${p.items.length} match · ${fit} fit (${free} free ${p.band} channel${free === 1 ? "" : "s"} of ${MAX_CH})` +
+    (p.failed ? ` · ${p.failed} couldn't be fetched` : "");
+  box.innerHTML = `<p class="hint">${esc(head)}</p>` + (p.items.length
+    ? `<div class="picks mem-box">${rows}</div><div class="row" style="margin-top:8px">` +
+      `<button class="small primary" type="button" data-mem="add-${kind}">Add ticked</button></div>` : "");
+}
+function addPicked(kind) {
+  const p = mem.picks[kind];
+  const items = [...$(`${kind}-results`).querySelectorAll("input[data-pick]:checked")].map((b) => p.items[+b.dataset.pick]);
+  if (!items.length) { toast("Tick some first", 2500, true); return; }
+  addMem(items.map(({band, kHz, name}) => ({band, kHz, ch: null, name})));
+}
+
+// ---- Test one memory: fixed pauses, every step marked in the log ----
+function testEntry() {
+  const band = $("t-band").value, k = parseFreqInput($("t-freq").value), ch = Number($("t-ch").value);
+  if (k === null) { toast("Type a frequency for the test", 3000, true); return null; }
+  if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) { toast(`Type a channel, 1–${MAX_CH}`, 3000, true); return null; }
+  return {band, kHz: k, ch};
+}
+async function testRun(kind, auto) {
+  if (!state.ok || !link) { toast("Not connected — tap Connect", 3500, true); return; }
+  if (mem.run || (mem.test && mem.test.busy)) return;
+  let e;
+  if (kind === "wipe") {
+    e = {band: $("t-band").value};
+    if (!confirm(`Hold SCAN on ${e.band}? On the RF919 this deletes ALL ${e.band} memories.`)) return;
+  } else if (!(e = testEntry())) return;
+  const confirmKey = $("t-confirm").value, sig = [kind, e.band, e.kHz, e.ch, confirmKey].join(" ");
+  if (auto || !mem.test || mem.test.sig !== sig || mem.test.i >= mem.test.steps.length) {
+    mem.test = {sig, i: 0, busy: false, steps: kind === "store" ? storeTestSteps(e, confirmKey)
+      : kind === "recall" ? recallTestSteps(e.band, e.ch) : wipeTestSteps(e.band)};
+  }
+  const t = mem.test, status = $("t-status");
+  t.busy = true;
+  try {
+    do {
+      const s = t.steps[t.i];
+      memNote(`── ${kind} test, step ${t.i + 1}/${t.steps.length}: ${s.label}`);
+      status.textContent = `Step ${t.i + 1}/${t.steps.length}: ${s.label}…`;
+      await s.run(link, waiters);
+      t.i++;
+      if (auto && t.i < t.steps.length) await delay(1500);
+    } while (auto && t.i < t.steps.length);
+    status.textContent = t.i < t.steps.length ? `Sent step ${t.i}/${t.steps.length}. Next: ${t.steps[t.i].label}`
+      : `All ${t.steps.length} steps sent. Note what the radio shows, then copy the log (Settings › Log).`;
+  } catch (err) {
+    status.textContent = `Step ${t.i + 1} failed: ${errText(err)}`;
+    mem.test = null;
+  } finally { t.busy = false; }
+}
+
+$("remote").addEventListener("click", (e) => {
+  const t = e.target.closest("[data-mem]");
+  if (!t || t.disabled) return;
+  switch (t.dataset.mem) {
+    case "del": {
+      if (mem.run) return;
+      const i = +t.dataset.i;
+      mem.list = mem.list.filter((_, j) => j !== i);
+      saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+      break;
+    }
+    case "clear":
+      if (mem.run || !confirm(`Remove all ${mem.list.length} memories from the list? The radio keeps what it has stored.`)) return;
+      Object.assign(mem, {list: [], check: null, fail: null});
+      saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+      break;
+    case "apply": applyText(true); break;
+    case "append": applyText(false); break;
+    case "sw-band": {
+      const b = t.dataset.b;
+      if (mem.swSel.has(b)) mem.swSel.delete(b); else mem.swSel.add(b);
+      store.set("rf919.swbands", [...mem.swSel]);
+      renderSwChips();
+      break;
+    }
+    case "sw-find": swFind(); break;
+    case "near-find": nearFind(); break;
+    case "job-stop": if (mem.job) mem.job.abort(); break;
+    case "add-sw": addPicked("sw"); break;
+    case "add-near": addPicked("near"); break;
+    case "store": runJob("store"); break;
+    case "check": runJob("check"); break;
+    case "resume": if (mem.fail) runJob(mem.fail.kind, mem.fail.i); break;
+    case "store-band": {
+      const b = t.dataset.b;
+      if (mem.storeSel.has(b)) mem.storeSel.delete(b); else mem.storeSel.add(b);
+      mem.storePicked = true;
+      renderMemRun();
+      break;
+    }
+    case "fresh-band": {
+      const b = t.dataset.b;
+      if (mem.freshSel.has(b)) mem.freshSel.delete(b); else mem.freshSel.add(b);
+      mem.freshPicked = true;
+      renderFresh();
+      break;
+    }
+    case "fresh": startFresh(); break;
+    case "bk-share": exportBackup(true); break;
+    case "bk-download": exportBackup(false); break;
+    case "bk-open": $("backup-file").click(); break;
+    case "bk-load": importBackup(false); break;
+    case "bk-mark": importBackup(true); break;
+    case "t-wipe": testRun("wipe", true); break;
+    case "stop": if (mem.run) mem.run.stop(); break;
+    case "t-step": testRun("store", false); break;
+    case "t-auto": testRun("store", true); break;
+    case "t-recall": testRun("recall", true); break;
+  }
+});
+for (const b of MEM_BANDS) $("t-band").add(new Option(b, b, b === "SW", b === "SW"));
+renderSwChips();
+$("mem-text").addEventListener("input", () => { $("mem-errs").textContent = ""; });
+$("backup-file").addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";  // so the same file can be opened again
+  if (f) readBackup(f);
+});
+
+// ---- Developer: send any frame (FF13 only) ----
+function parseHexBytes(s) {
+  const parts = s.trim().replace(/0x/gi, "").split(/[\s,:]+/).filter(Boolean)
+    .flatMap((p) => p.length > 2 && p.length % 2 === 0 ? p.match(/../g) : [p]);
+  return parts.every((p) => /^[0-9a-f]{1,2}$/i.test(p)) ? parts.map((p) => parseInt(p, 16)) : null;
+}
+function devFrame() {
+  const c = parseHexBytes($("dev-cmd").value), d = parseHexBytes($("dev-data").value);
+  return c && c.length === 1 && d && d.length <= MAX_FRAME - 4 ? frame(c[0], d) : null;
+}
+function renderDev() {
+  const f = devFrame();
+  $("dev-frame").textContent = f ? `Frame: ${hex(f)}` : "Command: one byte. Data: up to 16 bytes. Both in hex.";
+  $("dev-send").disabled = !f;
+}
+$("dev-cmd").addEventListener("input", renderDev);
+$("dev-data").addEventListener("input", renderDev);
+$("dev-send").addEventListener("click", () => {
+  const f = devFrame();
+  if (!f) return;
+  memNote(`── developer: send ${hex(f)}`);
+  send(() => link ? link.send(f) : Promise.reject(new Error("not connected")));
+});
+
 function debug(text) { log({kind: "debug", text, raw: new Uint8Array()}); }
 function hasGbk() { try { new TextDecoder("gbk"); return true; } catch { return false; } }
 
 function onEvent(ev) {
+  waiters.feed(ev);
   const h = handlers[ev.kind];
   if (h) h(ev.data);
   log(ev);
@@ -1618,6 +2840,7 @@ $("copylog").addEventListener("click", async () => {
   }
 });
 $("connect").addEventListener("click", startBle);
+$("storehere").addEventListener("click", storeHere);
 $("disconnect").addEventListener("click", () => link && link.close(true));
 async function startDemo() {
   if (link) await link.close();
@@ -1627,12 +2850,13 @@ async function startDemo() {
 $("demo").addEventListener("click", startDemo);
 
 // Screen wake lock
-async function setWake(on) {
+// quiet: no error toast (a run asks for it in passing)
+async function setWake(on, quiet = false) {
   try {
     if (on) { state.wake = await navigator.wakeLock.request("screen"); state.wake.addEventListener("release", () => { if (!document.hidden) syncWake(false); }); }
     else if (state.wake) { await state.wake.release(); state.wake = null; }
     syncWake(on);
-  } catch (e) { toast("Keep-screen-on isn't available here", 3500, true); syncWake(false); }
+  } catch (e) { if (!quiet) toast("Keep-screen-on isn't available here", 3500, true); syncWake(false); }
 }
 const syncWake = (on) => $("wake").setAttribute("aria-pressed", on);
 $("wake").addEventListener("click", () => setWake($("wake").getAttribute("aria-pressed") !== "true"));
