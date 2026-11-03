@@ -12,385 +12,46 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='18' width='56' height='40' rx='8' fill='%230a131d' stroke='%23ffb33f' stroke-width='4'/%3E%3Cpath d='M14 18 46 4' stroke='%23ffb33f' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='38' r='9' fill='none' stroke='%23ffb33f' stroke-width='4'/%3E%3Crect x='12' y='30' width='18' height='4' fill='%23ffb33f'/%3E%3Crect x='12' y='40' width='18' height='4' fill='%23ffb33f'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Goldman:wght@400;700&display=swap">
-<style>
-/* The Shortwave Atlas look: cold blue ink, one warm dial-lamp amber for everything "lit".
-   Information first (search, dossier, stations, nearby); the radio's keys live in the Remote sheet. */
-:root {
-  --ink: #070d15; --panel: #0c1520; --panel-bg: #0a131d; --deep: #050a11;
-  --line: rgba(140, 185, 230, .14); --line-strong: rgba(140, 185, 230, .3); --hover: rgba(140, 185, 230, .08);
-  --text: #d6e2ef; --dim: #8498ad; --faint: #4b5b6c;
-  --amber: #ffb33f; --amber-soft: rgba(255, 179, 63, .14); --amber-line: rgba(255, 179, 63, .6);
-  --cool: #7fd0ff; --cool-soft: rgba(127, 208, 255, .08); --cool-line: rgba(127, 208, 255, .4);
-  --warn: #ff8a7a; --warn-soft: rgba(255, 138, 122, .08); --warn-line: rgba(255, 138, 122, .5);
-  --radius: 14px; --hit: 32px; --key: 52px; --dock-h: 0px;
-  --font-display: 'Big Shoulders Display', 'Arial Narrow', 'Roboto Condensed', sans-serif;
-  --font-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Roboto Mono', Menlo, Consolas, monospace;
-  --font-freq: 'Goldman', var(--font-display);
-  --chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23000' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  color-scheme: dark;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; background: var(--ink); color: var(--text); overflow-x: hidden; }
-body {
-  font: 14px/1.5 var(--font-body); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
-  padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(24px + var(--dock-h) + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-}
-body.has-dock { --dock-h: 76px; }
-[hidden] { display: none !important; }
-:focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
-@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes rise-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
-@keyframes sheet-in { from { transform: translateX(100%); } to { transform: none; } }
-
-.app { max-width: 560px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-@media (min-width: 960px) {
-  .app { max-width: 1120px; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
-  .top, .banner { grid-column: 1 / -1; }
-}
-.col { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
-
-/* ---- top bar ---- */
-.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 12px 0 10px; background: var(--ink); }
-.lamp { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #3b4a5b; }
-.lamp.ok { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool); animation: blink .5s steps(2, jump-none) infinite; }
-.lamp.cool { background: var(--cool); box-shadow: 0 0 8px rgba(127, 208, 255, .65); }
-.wordmark { font: 800 26px/1 var(--font-display); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
-.status { flex: 1; min-width: 0; font: 400 11.5px/1.4 var(--font-mono); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.status b { color: var(--amber); font-weight: 500; }
-.clock { flex: none; font: 400 11px var(--font-mono); letter-spacing: .08em; color: var(--dim); white-space: nowrap; }
-.clock b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
-@media (max-width: 440px) { .wordmark { font-size: 21px; } .clock small { display: none; } }
-
-.banner { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: 6px; background: var(--warn-soft); font-size: 13px; }
-.banner b { font-weight: 500; color: var(--warn); }
-
-/* ---- buttons (base) ---- */
-button, select, input { font: inherit; color: inherit; }
-button {
-  min-height: var(--key); padding: 4px 6px; border: 1px solid var(--line-strong); border-radius: 8px; background: transparent; color: var(--text);
-  font: 500 12px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; touch-action: manipulation;
-  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: transform .06s, background-color .15s, border-color .15s;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-button:hover:not(:disabled) { background: var(--hover); border-color: rgba(140, 185, 230, .45); }
-button:active, button.pressing { transform: scale(.96); background: rgba(140, 185, 230, .14); }
-button.long-fired { background: var(--amber); border-color: var(--amber); color: var(--ink); box-shadow: 0 0 14px rgba(255, 179, 63, .55); }
-button:disabled { opacity: .35; cursor: default; }
-button.primary { background: var(--amber-soft); border-color: var(--amber-line); color: var(--amber); }
-button.danger { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
-button.fn { background: var(--cool-soft); border-color: var(--cool-line); color: var(--cool); font-size: 11.5px; }
-button.toggle { display: inline-flex; align-items: center; justify-content: center; gap: 8px; color: var(--dim); }
-button.toggle::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--dim); }
-button.toggle[aria-pressed="true"] { color: var(--text); border-color: var(--amber-line); }
-button.toggle[aria-pressed="true"]::before { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px var(--amber); }
-button.small { min-height: var(--hit); padding: 4px 12px; border-radius: 999px; font-size: 11px; }
-button.wide { grid-column: 1 / -1; }
-
-/* ---- search + what the radio shows ---- */
-.tuner { display: grid; gap: 10px; min-width: 0; }
-.search { display: flex; gap: 8px; }
-.search input {
-  flex: 1; min-width: 0; min-height: 44px; padding: 0 14px 0 38px; -webkit-appearance: none; appearance: none;
-  background: var(--panel) no-repeat 14px center / 14px 14px; border: 1px solid var(--line-strong); border-radius: 999px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6.5' cy='6.5' r='5' fill='none' stroke='%238498ad' stroke-width='1.6'/%3E%3Cpath d='M10.3 10.3 15 15' stroke='%238498ad' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
-  font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; transition: border-color .12s;
-}
-.search input::placeholder { color: var(--faint); font-size: 13.5px; }
-.search input::-webkit-search-cancel-button { display: none; }
-.search input:focus { outline: none; border-color: var(--amber-line); }
-.search button { min-height: 44px; padding: 0 16px; }
-.readout { padding: 12px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); animation: fade-in .2s both; }
-.readout .h { margin-bottom: 6px; }
-.lcd-row { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
-.band {
-  --band: var(--dim); flex: none; align-self: center; min-width: 48px; padding: 2px 9px; border-radius: 999px; text-align: center;
-  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
-  color: var(--band); border: 1px solid currentColor; background: var(--hover);
-  border-color: color-mix(in srgb, var(--band) 55%, transparent); background: color-mix(in srgb, var(--band) 12%, transparent);
-}
-.freq { flex: 1; min-width: 0; line-height: 1.05; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.freq .main { font: italic 700 clamp(28px, 8.5vw, 36px)/1.05 var(--font-freq); letter-spacing: .01em; color: #fff; text-shadow: 0 0 18px rgba(255, 255, 255, .35); }
-.freq .small { font: italic 700 clamp(15px, 4.4vw, 19px) var(--font-freq); color: #fff; opacity: .8; margin-left: 2px; }
-.unit { flex: none; font: 500 12px var(--font-mono); letter-spacing: .1em; color: var(--dim); }
-.sub { display: flex; justify-content: space-between; gap: 8px; font: 500 11px var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--amber); }
-.sub:has(span:empty + span:empty) { display: none; }
-.alert { color: var(--warn); }
-.cells { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 6px; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; }
-.cell { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
-.cell .l { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
-.cell .v { white-space: nowrap; }
-.readout-act { display: flex; justify-content: flex-end; margin-top: 8px; }
-.pinned { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 8px 8px 8px 14px; border: 1px solid var(--cool-line); border-radius: 999px; background: var(--cool-soft); font: 500 12px var(--font-mono); color: var(--dim); }
-.pinned b { color: var(--cool); font-weight: 500; }
-.pinned span:nth-child(2) { flex: 1; min-width: 0; }
-
-/* ---- panels ---- */
-.panel { min-width: 0; padding: 14px 16px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: var(--radius); }
-.panel h2, .h, summary {
-  display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 0 0 10px;
-  font: 500 11px var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
-}
-.h .hv { color: var(--amber); letter-spacing: .06em; }
-.h button.toggle, .h button.small { min-height: 28px; padding: 2px 10px; border-radius: 999px; font-size: 10.5px; letter-spacing: .08em; }
-details > summary { margin: 0; cursor: pointer; list-style: none; }
-details > summary::after {
-  content: ""; flex: none; width: 10px; height: 6px; background: currentColor; transform: rotate(-90deg); transition: transform .15s;
-  -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat;
-}
-details[open] > summary { margin-bottom: 10px; }
-details[open] > summary::after { transform: none; color: var(--amber); }
-summary::-webkit-details-marker { display: none; }
-
-/* ---- flags ---- */
-.flag { display: inline-block; flex: none; width: 1.25em; height: .94em; margin-right: .4em; vertical-align: -.1em; border-radius: 2px; object-fit: cover; box-shadow: 0 0 0 1px rgba(140, 185, 230, .25); }
-svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: none; }
-.d-name .flag { height: .62em; width: .83em; vertical-align: .06em; margin-right: .3em; }
-
-/* ---- the dossier ---- */
-.hero { animation: fade-in .15s ease-out both; }
-.of-msg { margin: 0; color: var(--dim); font: 400 12px/1.5 var(--font-mono); }
-.d-empty { padding: 6px 0 4px; }
-.empty-t { margin: 0; font: 800 28px/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; }
-.empty-d { margin: 8px 0 0; max-width: 46ch; color: var(--dim); }
-.intro-act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.intro-act button { min-height: 40px; padding: 0 16px; border-radius: 999px; }
-.d-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-.d-sub { color: var(--dim); font-size: 12.5px; }
-.pill {
-  display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
-  font: 500 11px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap;
-}
-.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-.pill.on { color: var(--amber); border-color: rgba(255, 179, 63, .5); background: var(--amber-soft); }
-.pill.on::before { box-shadow: 0 0 8px var(--amber); }
-.pill.cat { color: var(--cool); border-color: var(--cool-line); }
-.d-name {
-  margin: 10px 0 0; font: 800 34px/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-}
-.d-meta { margin: 4px 0 0; color: var(--dim); font-size: 13px; }
-.d-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 12px; margin: 12px 0 0; }
-.d-grid > div { min-width: 0; }
-.d-grid .w2 { grid-column: span 2; }
-.d-grid dt { font: 500 10px/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
-.d-grid dd { margin: 2px 0 0; font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.d-grid dd.mono { font: 500 13px var(--font-mono); }
-.tune-here { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.tune-here button { min-height: 40px; padding: 0 16px; border-radius: 999px; }
-.sched { margin-top: 16px; }
-.sched .h { margin-bottom: 8px; }
-.bar { position: relative; height: 10px; border-radius: 2px; background: rgba(140, 185, 230, .1); }
-.bar .win { position: absolute; top: 0; bottom: 0; background: rgba(255, 179, 63, .6); }
-.bar .now { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
-.axis { display: flex; justify-content: space-between; margin-top: 4px; font: 400 10px var(--font-mono); color: var(--dim); }
-.slots { margin-top: 16px; }
-.slots-box { max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.slots table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-.slots th {
-  position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--panel-bg);
-  font: 500 10px var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
-}
-.slots td { padding: 6px 6px 6px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
-.slots td:first-child { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.slots td small { display: block; color: var(--dim); font-size: 11px; }
-.slots tr.idle td, .slots tr.idle td small { color: var(--faint); }
-.slots tr.idle .flag { opacity: .5; }
-.slots tr.cur td { color: var(--amber); }
-.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.tag {
-  display: inline-flex; align-items: center; padding: 1px 8px; border: 1px solid var(--line-strong); border-radius: 999px;
-  font: 500 10.5px/1.6 var(--font-mono); letter-spacing: .04em; color: var(--dim); white-space: nowrap; text-decoration: none;
-}
-.tag.amber { color: var(--amber); border-color: rgba(255, 179, 63, .5); }
-.tag.cool { color: var(--cool); border-color: var(--cool-line); }
-a.tag:hover { color: var(--text); background: var(--hover); }
-button.tag { min-height: 30px; padding: 2px 12px; font-size: 12px; letter-spacing: .02em; text-transform: none; }
-@media (pointer: coarse) { button.tag { min-height: 38px; } }
-.note { margin: 12px 0 0; font: 400 10px/1.45 var(--font-mono); letter-spacing: .03em; color: var(--dim); }
-.note a { color: var(--amber); text-underline-offset: 3px; }
-
-/* ---- stations & nearby lists ---- */
-.list { list-style: none; margin: 0; padding: 0; }
-.st { padding: 10px 0; border-top: 1px solid var(--line); }
-.st-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
-.st-main b { flex: none; font: 500 13.5px var(--font-mono); color: var(--text); }
-.st-main span { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
-.st-main .km { flex: none; font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--amber); }
-.st-sub { margin-top: 2px; color: var(--dim); font-size: 12px; overflow-wrap: anywhere; }
-.more { width: 100%; min-height: var(--hit); margin-top: 8px; border-radius: 6px; font-size: 11px; }
-.near-row {
-  display: grid; grid-template-columns: 4.6em minmax(0, 1fr) 10px; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 6px;
-  text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0;
-  font: 14px var(--font-body); letter-spacing: 0; text-transform: none; white-space: normal;
-}
-.near-row:hover:not(:disabled) { border-color: var(--line); }
-.nf { font: 500 15px var(--font-mono); font-variant-numeric: tabular-nums; }
-.nn { min-width: 0; }
-.nn b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nn small { display: block; font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.near-row.loading .nn b { color: var(--faint); }
-.dot { width: 8px; height: 8px; flex: none; border-radius: 50%; border: 1px solid #5b6c7f; }
-.dot.on { background: var(--amber); border-color: var(--amber); box-shadow: 0 0 8px rgba(255, 179, 63, .7); }
-.dot.none { visibility: hidden; }
-
-/* ---- mini dock ---- */
-.dock {
-  position: fixed; z-index: 8; left: 50%; bottom: 0; translate: -50% 0; width: min(560px, 100%);
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 1.3fr); gap: 6px;
-  padding: 10px max(12px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-  background: rgba(7, 13, 21, .92); border-top: 1px solid var(--line-strong);
-  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: rise-in .2s ease-out both;
-}
-@media (min-width: 600px) { .dock { bottom: 12px; border: 1px solid var(--line-strong); border-radius: 16px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); padding-bottom: 10px; } }
-.dock button { min-height: 48px; }
-
-/* ---- Remote sheet ---- */
-.sheet-layer { position: fixed; inset: 0; z-index: 20; }
-.sheet-backdrop { position: absolute; inset: 0; background: rgba(3, 7, 12, .6); animation: fade-in .2s both; }
-.sheet {
-  position: absolute; left: 0; right: 0; bottom: 0; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column;
-  padding: 16px max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  background: var(--panel-bg); border-top: 1px solid var(--line-strong); border-radius: 18px 18px 0 0; box-shadow: 0 -20px 60px rgba(0, 0, 0, .45);
-  animation: sheet-up .26s cubic-bezier(.2, .8, .2, 1) both;
-}
-@media (min-width: 960px) {
-  .sheet { left: auto; top: 0; width: min(480px, 100%); max-height: none; border-top: 0; border-left: 1px solid var(--line-strong); border-radius: 0; animation-name: sheet-in; }
-}
-.sheet-head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.sheet-head h2 { margin: 0; font: 800 28px/1 var(--font-display); letter-spacing: .03em; text-transform: uppercase; color: var(--text); }
-.sheet-head button { min-height: 40px; width: 40px; padding: 0; border-radius: 999px; font-size: 15px; }
-.tabs { flex: none; display: flex; gap: 2px; margin-top: 12px; border-bottom: 1px solid var(--line); }
-.tabs button {
-  flex: 1; min-height: 40px; padding: 6px 4px; background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; margin-bottom: -1px;
-  font: 500 11px var(--font-mono); letter-spacing: .1em; color: var(--dim);
-}
-.tabs button:hover:not(:disabled) { background: none; color: var(--text); }
-.tabs button[aria-selected="true"] { color: var(--amber); border-bottom-color: var(--amber); }
-.sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 14px -4px 0; padding: 0 4px 4px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.sheet-body section + section { margin-top: 16px; }
-.grid { display: grid; gap: 8px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid.fn { grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 8px; }
-.grid.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.grid.k3 button { font-size: 18px; letter-spacing: 0; }
-.grid.k3 button.wide { font-size: 12px; letter-spacing: .08em; }
-@media (max-width: 440px) { button.fn { font-size: 10.5px; padding: 2px; letter-spacing: 0; } }
-.hint { margin: 10px 0 0; font: 400 11px/1.5 var(--font-mono); color: var(--dim); }
-.row { display: flex; gap: 8px; }
-.row > * { flex: 1; min-width: 0; }
-select, input[type=text] {
-  min-height: 48px; width: 100%; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel); transition: border-color .12s;
-}
-select:focus, input[type=text]:focus { outline: none; border-color: var(--amber-line); }
-select { font: 500 13px var(--font-mono); }
-input[type=text] { font: 500 18px var(--font-mono); font-variant-numeric: tabular-nums; }
-input[type=text]::placeholder { color: var(--faint); font-size: 14px; }
-.toggles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-label.chk { display: flex; align-items: center; gap: 8px; margin-top: 10px; font: 500 11px var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--dim); cursor: pointer; }
-label.chk input { accent-color: var(--amber); }
-.lines { font: 400 12px/1.6 var(--font-mono); color: var(--text); display: grid; gap: 4px; }
-.lines div { overflow-wrap: anywhere; }
-.lines div:empty { display: none; }
-.log { max-height: 320px; overflow: auto; padding: 8px; background: var(--deep); border: 1px solid var(--line); border-radius: 6px; font: 10.5px/1.45 var(--font-mono); color: var(--dim); scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.log div { white-space: pre-wrap; overflow-wrap: anywhere; }
-.log .t { color: var(--faint); }
-.k-freq, .k-entry { color: var(--cool); } .k-button_label { color: var(--text); } .k-unknown { color: #e0a3c8; }
-.k-bad_checksum, .k-bad_frame, .k-disconnect_req, .k-error { color: var(--warn); } .k-toast, .k-status_text { color: #ffe2a0; }
-.k-link { color: #a9c7e4; } .k-debug { color: var(--dim); } .k-radiomap, .k-mem { color: var(--amber); }
-
-/* ---- Memories tab ---- */
-textarea {
-  display: block; width: 100%; min-height: 140px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel);
-  font: 400 13px/1.55 var(--font-mono); color: var(--text); resize: vertical; transition: border-color .12s;
-}
-textarea:focus { outline: none; border-color: var(--amber-line); }
-textarea::placeholder { color: var(--faint); }
-.mem-counts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.tag.full { color: var(--warn); border-color: var(--warn-line); }
-.mem-box { max-height: 320px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
-.mem-row {
-  display: grid; grid-template-columns: 2.6em 3.6em 5.6em minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 40px; padding: 4px 0;
-  border-top: 1px solid var(--line); font: 500 12.5px var(--font-mono); font-variant-numeric: tabular-nums;
-}
-.mem-row .band { min-width: 0; padding: 1px 4px; font-size: 10px; }
-.mem-row .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 400 12.5px var(--font-body); color: var(--dim); }
-.mem-row .nm b { font-weight: 500; }
-.mem-row button { min-height: 30px; width: 30px; padding: 0; border-radius: 999px; font-size: 12px; }
-.mem-row.cur { color: var(--amber); }
-.mem-row.cur .nm { color: var(--amber); }
-.mem-row.ok .nm b::after { content: " ✓"; color: var(--cool); }
-.mem-row.bad, .mem-row.bad .nm { color: var(--warn); }
-.errs { margin: 8px 0 0; font: 400 11px/1.55 var(--font-mono); color: var(--warn); }
-.errs:empty { display: none; }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.chips button.toggle { min-height: 34px; padding: 2px 10px; border-radius: 999px; font-size: 11px; letter-spacing: .04em; }
-.picks { margin-top: 10px; }
-.picks label {
-  display: grid; grid-template-columns: auto 5.4em minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 6px 0;
-  border-top: 1px solid var(--line); font-size: 12.5px; cursor: pointer;
-}
-.picks label input { accent-color: var(--amber); }
-.picks label b { font: 500 12.5px var(--font-mono); font-variant-numeric: tabular-nums; }
-.picks label small { display: block; color: var(--dim); font-size: 11.5px; }
-.picks label.in { color: var(--faint); }
-.progress { height: 6px; margin: 10px 0 6px; border-radius: 3px; background: rgba(140, 185, 230, .1); overflow: hidden; }
-.progress i { display: block; height: 100%; background: var(--amber); transition: width .2s; }
-.mem-sub { margin-top: 12px; }
-.mem-sub > summary { padding: 6px 0; }
-.tabs button { letter-spacing: .06em; }
-
-.toast {
-  position: fixed; left: 50%; bottom: calc(20px + var(--dock-h) + env(safe-area-inset-bottom)); translate: -50% 0; z-index: 30;
-  max-width: calc(100% - 32px); padding: 9px 14px; white-space: pre-line;
-  background: rgba(8, 14, 23, .97); border: 1px solid var(--line-strong); border-radius: 10px; box-shadow: 0 12px 40px rgba(0, 0, 0, .5);
-  font: 400 12.5px/1.45 var(--font-mono); animation: rise-in .2s ease-out both;
-}
-.toast.err { background: rgba(40, 14, 12, .96); border-color: var(--warn-line); color: #ffb3a8; }
-
-@media (max-width: 440px) { .d-name { font-size: 28px; } .d-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (pointer: coarse) { :root { --hit: 44px; } .h button.toggle, .h button.small { min-height: 36px; } }
-.blink { animation: blink .5s steps(2, jump-none) infinite; }
-@keyframes blink { 0% { opacity: 1; } 100% { opacity: .15; } }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-  .blink { text-decoration: underline wavy; }
-}
-</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Goldman:wght@700&display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<div class="app" id="app">
-  <header class="top">
-    <span class="lamp" id="dot"></span>
-    <span class="wordmark">RF919</span>
-    <span class="status" id="stat">not connected</span>
-    <span class="clock" id="clock" title="Coordinated Universal Time"></span>
-    <button class="small primary" id="connect">Connect</button>
-    <button class="small" id="remote-top" aria-label="Remote and settings" aria-haspopup="dialog">☰</button>
-  </header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-radio" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2.5"/><path d="M7 8 17 3"/><circle cx="15.5" cy="14" r="3"/><path d="M6.5 12.5h3.5M6.5 15.5h3.5"/></symbol>
+  <symbol id="i-explore" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.4-4.4"/></symbol>
+  <symbol id="i-memories" viewBox="0 0 24 24"><path d="M6.5 3.5h11v17l-5.5-3.8-5.5 3.8z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+</svg>
 
-  <div class="banner" id="nobt" hidden>
-    <b>No Web Bluetooth in this browser.</b>
-    <span>You can still look up frequencies. To control the radio use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on iPhone,
-    over https (e.g. GitHub Pages) or localhost. <b>Demo</b> shows the radio side with recorded data.</span>
-  </div>
-
-  <div class="col">
-    <section class="tuner" aria-label="Frequency">
-      <form class="search" id="search" role="search">
-        <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
-               placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
-        <button class="small" type="submit">Look up</button>
-      </form>
-      <div class="readout" id="readout" hidden>
-        <h2 class="h"><span>The radio</span><span class="hv" id="radio-k"></span></h2>
-        <div class="lcd-row">
-          <div class="band" id="band">--</div>
-          <div class="freq" id="freqbox"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
-          <div class="unit" id="unit"></div>
+<main id="app">
+  <!-- ======== Radio: what the radio is on ======== -->
+  <section class="view" id="view-radio" data-view="radio" aria-labelledby="t-radio">
+    <header class="view-head">
+      <h1 id="t-radio" tabindex="-1">Radio</h1>
+      <span class="clock" id="clock" title="Coordinated Universal Time"></span>
+    </header>
+    <div class="status-line"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span></div>
+    <div class="banner" id="nobt" hidden>
+      <b>No Web Bluetooth in this browser.</b>
+      <span>You can still look up frequencies in Explore. To control the radio use <b>Chrome on Android</b>, or the <b>Bluefy</b>
+      browser on iPhone, over https. The <b>Demo</b> plays a recorded session.</span>
+    </div>
+    <div class="radio-side">
+      <div class="panel connect-card" id="connect-card">
+        <h2 class="empty-t">Connect your RF919</h2>
+        <p>Turn the radio on and connect over Bluetooth. No radio at hand? The Demo plays a recorded session, and Explore looks up any frequency.</p>
+        <div class="row">
+          <button class="primary" type="button" data-act="connect">Connect radio</button>
+          <button type="button" data-act="demo">Demo</button>
         </div>
+      </div>
+      <div class="readout" id="readout" hidden>
+        <div class="lcd-row" style="justify-content:space-between">
+          <label class="band-pick"><span class="band" id="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
+          <span class="unit" id="unit"></span>
+        </div>
+        <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
         <div class="sub"><span id="preset"></span><span class="alert" id="alert"></span></div>
         <div class="cells">
           <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
@@ -399,2494 +60,303 @@ textarea::placeholder { color: var(--faint); }
           <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
           <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
         </div>
-        <div class="readout-act">
-          <button class="small primary" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
+        <p class="swipe-hint">Swipe the frequency to step · flick to seek</p>
+      </div>
+      <div class="controls" id="radio-controls" hidden>
+        <div class="grid tune3">
+          <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
+          <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
+          <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
         </div>
+        <div class="grid">
+          <button data-key="SUBBAND" aria-label="Sub-band (the radio's MODE key)">Sub</button>
+          <button data-key="VOL-" aria-label="Volume down">Vol −</button>
+          <button data-key="VOL+" aria-label="Volume up">Vol +</button>
+          <button class="key" type="button" id="open-remote" aria-haspopup="dialog">Keys</button>
+        </div>
+        <button class="primary wide" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
       </div>
-      <div class="pinned" id="pinned" hidden>
-        <span class="lamp cool"></span>
-        <span>Looking at <b id="pin-k"></b></span>
-        <button class="small" id="back" hidden>Back to radio · <span id="back-k"></span></button>
+    </div>
+    <div class="info-host" id="host-radio">
+      <div class="info" id="info">
+        <section class="panel hero" id="dossier" aria-live="polite"></section>
+        <section class="panel" id="stations" hidden></section>
+        <section class="panel" id="nearby" hidden></section>
       </div>
+    </div>
+  </section>
+
+  <!-- ======== Explore: look up any frequency ======== -->
+  <section class="view" id="view-explore" data-view="explore" aria-labelledby="t-explore" hidden>
+    <header class="view-head"><h1 id="t-explore" tabindex="-1">Explore</h1></header>
+    <form class="search" id="search" role="search">
+      <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
+             placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
+      <button class="small primary" type="submit">Look up</button>
+    </form>
+    <div class="info-host" id="host-explore"></div>
+  </section>
+
+  <!-- ======== Memories ======== -->
+  <section class="view" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
+    <header class="view-head"><h1 id="t-memories" tabindex="-1">Memories</h1><span class="clock" id="mem-total"></span></header>
+    <section class="panel">
+      <fieldset class="seg" id="mem-counts"><legend>Band</legend></fieldset>
+      <div class="mem-box"><ul class="list" id="mem-list"></ul></div>
     </section>
+    <section class="panel" id="mem-run"></section>
+    <section class="panel">
+      <details class="mem-sub" id="mem-fresh" style="border-top:0">
+        <summary id="fresh-sum">Start fresh: wipe a band</summary>
+        <div id="fresh-body"></div>
+      </details>
+      <details class="mem-sub" id="mem-backup">
+        <summary>Backup: export / import</summary>
+        <div id="backup-body"></div>
+        <input type="file" id="backup-file" accept=".txt,.csv,text/plain" hidden>
+      </details>
+      <details class="mem-sub" id="mem-textbox">
+        <summary id="mem-text-sum">Edit as text</summary>
+        <div class="row" style="margin-bottom:var(--s2)"><button class="small" type="button" data-mem="show-text" id="mem-text-show">Show as text</button></div>
+        <textarea id="mem-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Memories, one per line"></textarea>
+        <p class="hint" id="mem-text-hint"></p>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small primary" type="button" data-mem="apply" id="mem-text-apply">Replace list</button>
+          <button class="small" type="button" data-mem="append" id="mem-text-append">Add to list</button>
+        </div>
+        <p class="errs" id="mem-errs"></p>
+      </details>
+      <details class="mem-sub" id="mem-sw">
+        <summary>Add shortwave on air (EiBi)</summary>
+        <fieldset class="seg wrap" id="sw-bands"><legend>Meter bands</legend></fieldset>
+        <div class="row">
+          <select id="sw-window" aria-label="When">
+            <option value="0">On air now</option>
+            <option value="120">Now or within 2 h</option>
+            <option value="360">Now or within 6 h</option>
+            <option value="720">Now or within 12 h</option>
+          </select>
+          <button class="small" type="button" data-mem="sw-find">Find</button>
+        </div>
+        <label class="item" id="sw-aimed-row" style="padding:var(--s2) 0" hidden><span class="label">Only aimed at <span id="sw-aimed-name"></span></span><input type="checkbox" role="switch" switch id="sw-aimed" checked></label>
+        <div id="sw-results"></div>
+      </details>
+      <details class="mem-sub" id="mem-near">
+        <summary>Add Chilean stations near me</summary>
+        <div class="row">
+          <select id="near-band" aria-label="Band"><option>FM</option><option>AM</option><option>VHF</option><option>UHF</option><option>AIR</option></select>
+          <select id="near-kind" aria-label="Kind">
+            <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
+            <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="near-radius" aria-label="Distance">
+            <option value="25">Within 25 km</option><option value="50" selected>Within 50 km</option>
+            <option value="100">Within 100 km</option><option value="250">Within 250 km</option><option value="0">Any distance</option>
+          </select>
+          <button class="small" type="button" data-mem="near-find">Find</button>
+        </div>
+        <div id="near-results"></div>
+      </details>
+      <p class="hint">+ Memory, under a frequency in Radio or Explore, adds it to the list.</p>
+    </section>
+  </section>
 
-    <section class="panel hero" id="dossier" aria-live="polite"></section>
-  </div>
+  <!-- ======== More: connection, settings, tools ======== -->
+  <section class="view" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
+    <header class="view-head"><h1 id="t-more" tabindex="-1">More</h1></header>
+    <section class="panel group" aria-labelledby="g-conn">
+      <h2 id="g-conn">Connection</h2>
+      <div class="item"><span class="lamp" data-lamp></span><span class="label" id="conn-state">Not connected</span></div>
+      <div class="item-actions">
+        <button class="primary" type="button" id="connect">Connect</button>
+        <button type="button" id="disconnect">Disconnect</button>
+        <button type="button" id="demo">Demo</button>
+      </div>
+      <label class="item"><span class="label">Only list RF919 radios<small>When connecting. Off lists every Bluetooth device, as some iPhone browsers miss the name.</small></span>
+        <input type="checkbox" role="switch" switch id="onlyRadio"></label>
+    </section>
+    <section class="panel group" aria-labelledby="g-radio">
+      <h2 id="g-radio">Radio</h2>
+      <label class="item"><span class="label">Keep screen on<small>While this page is open</small></span><input type="checkbox" role="switch" switch id="wake"></label>
+      <label class="item"><span class="label">Hold next key<small>The next key you tap is sent as a long press</small></span><input type="checkbox" role="switch" switch id="hold"></label>
+      <div class="item"><span class="label">Radio clock<small>Set it to this phone's time</small></span><button class="small" type="button" id="settime">Sync</button></div>
+    </section>
+    <section class="panel group" aria-labelledby="g-display">
+      <h2 id="g-display">The radio's display</h2>
+      <div class="lines"><div id="field11"></div><div id="field12"></div><div id="statusline"></div></div>
+    </section>
+    <section class="panel group" aria-labelledby="g-tools">
+      <h2 id="g-tools">Tools</h2>
+      <details id="capbox">
+        <summary>Key capture</summary>
+        <p class="hint" style="margin-top:0">Shows what the radio reports when you press one of its own buttons. The RF919 doesn't send
+          key codes, only what changed (a frequency, channel mode, a setting…), so each press shows a guess at the button, what
+          changed, and the raw messages. Nothing is sent to the radio.</p>
+        <div class="cap-field" id="cap-field" aria-live="polite">Off</div>
+        <div class="row">
+          <button class="small primary" type="button" id="cap-btn">Capture</button>
+          <button class="small" type="button" id="cap-clear">Clear</button>
+        </div>
+        <ol class="list caps" id="cap-list" aria-label="Captured button presses"></ol>
+      </details>
+      <details id="mem-test">
+        <summary>Test one memory</summary>
+        <p class="hint" style="margin-top:0">Runs the store sequence with fixed pauses and marks each step in the log, to find out which keys and replies the radio really uses (memory.md §8).</p>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="t-band" aria-label="Band"></select>
+          <input type="text" id="t-freq" inputmode="decimal" enterkeyhint="next" placeholder="9580" autocomplete="off" aria-label="Frequency">
+          <input type="text" id="t-ch" inputmode="numeric" enterkeyhint="done" placeholder="ch" autocomplete="off" aria-label="Channel">
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="t-confirm" aria-label="Confirm key">
+            <option value="MEMO">Confirm with MEMO</option>
+            <option value="FREQ">Confirm with FREQ (EN)</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small" type="button" data-mem="t-step">Step</button>
+          <button class="small" type="button" data-mem="t-auto">Auto</button>
+          <button class="small" type="button" data-mem="t-recall">Recall test</button>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small danger" type="button" data-mem="t-wipe">Test band wipe</button>
+        </div>
+        <p class="hint">Test band wipe holds SCAN on the band above (deleting all its memories), listens 5 s, then recalls CH 1.</p>
+        <p class="hint" id="t-status"></p>
+      </details>
+      <details id="devbox">
+        <summary>Developer: send a frame</summary>
+        <div class="row">
+          <input type="text" id="dev-cmd" placeholder="cmd: 0c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command byte, hex">
+          <input type="text" id="dev-data" placeholder="data: 2c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Data bytes, hex">
+        </div>
+        <p class="hint" id="dev-frame">Type a command byte and data bytes in hex.</p>
+        <div class="row" style="margin-top:var(--s2)"><button class="small primary" type="button" id="dev-send" disabled>Send</button></div>
+        <p class="hint">Sent on FF13, like every other command; the checksum is added. Replies show in the log. An unknown command could change a setting.</p>
+      </details>
+      <details id="logpanel">
+        <summary>Log</summary>
+        <div class="row" style="align-items:center;margin-bottom:var(--s2)">
+          <label class="item" style="padding:0;border:0;min-height:var(--hit)"><span class="label">Raw hex</span><input type="checkbox" role="switch" switch id="rawlog"></label>
+          <button class="small" type="button" id="copylog">Copy log</button>
+        </div>
+        <label class="item" style="padding:var(--s2) 0;border:0"><span class="label">Every notification<small>Logs each Bluetooth
+          notification as it arrives, before decoding (RX FF14 …), including bytes the decoder would drop</small></span>
+          <input type="checkbox" role="switch" switch id="rawrx"></label>
+        <label class="item" style="padding:var(--s2) 0;border:0;margin-bottom:var(--s2)"><span class="label">Also listen on FFF1 and battery<small>The radio's
+          other channels, which the vendor app doesn't use. Only reads them and turns their notifications on; never writes data.
+          Takes effect after Disconnect, then Connect.</small></span>
+          <input type="checkbox" role="switch" switch id="extrach"></label>
+        <div class="log" id="log" aria-live="off"></div>
+      </details>
+    </section>
+    <section class="panel group" aria-labelledby="g-about">
+      <h2 id="g-about">About</h2>
+      <div class="item"><span class="label">RF919 Companion<small>Unofficial; not affiliated with or endorsed by Raddy. Station data from
+        <a href="https://www.radiomap.cl/" target="_blank" rel="noopener">radiomap.cl</a>, shortwave schedules from EiBi, flags from flag-icons.</small></span></div>
+    </section>
+  </section>
+</main>
 
-  <div class="col">
-    <section class="panel" id="stations" hidden></section>
-    <section class="panel" id="nearby" hidden></section>
-  </div>
-</div>
-
-<nav class="dock" id="dock" hidden aria-label="Radio controls">
+<!-- ======== the radio, one tap away (every view but Radio) ======== -->
+<div class="radiobar" id="radiobar" role="region" aria-label="The radio" hidden>
+  <label class="band-pick"><span class="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
+  <button class="rb-open" type="button" id="rb-open" aria-haspopup="dialog" aria-label="Open the radio's keys" data-swipe-tune>
+    <span class="rb-freq" data-freq>---.---</span><span class="rb-sub" data-sub></span>
+  </button>
   <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
   <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
-  <button data-key="VOL-">Vol −</button>
-  <button data-key="VOL+">Vol +</button>
-  <button class="primary" id="remote-open" aria-haspopup="dialog">Remote ⌃</button>
-</nav>
-
-<div class="sheet-layer" id="remote" hidden>
-  <div class="sheet-backdrop" data-close></div>
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="remote-title">
-    <div class="sheet-head">
-      <h2 id="remote-title">Remote</h2>
-      <button data-close aria-label="Close">✕</button>
-    </div>
-    <div class="tabs" role="tablist">
-      <button role="tab" data-tab="keys" aria-selected="true">Keys</button>
-      <button role="tab" data-tab="tune" aria-selected="false">Tune</button>
-      <button role="tab" data-tab="memories" aria-selected="false">Memories</button>
-      <button role="tab" data-tab="display" aria-selected="false">Display</button>
-      <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
-    </div>
-    <div class="sheet-body">
-      <div data-pane="keys" role="tabpanel">
-        <section>
-          <div class="grid">
-            <button data-key="POWER" class="danger">⏻ Power</button>
-            <button data-key="BAND">Band</button>
-            <button data-key="DOWN">◀ Down</button>
-            <button data-key="UP">Up ▶</button>
-            <button data-key="VOL-">Vol −</button>
-            <button data-key="VOL+">Vol +</button>
-            <button data-key="SQ">SQ</button>
-            <button data-key="PRESET">Preset</button>
-            <button data-key="MEMO">Memo</button>
-            <button data-key="REC">Rec</button>
-            <button data-key="ALARM">Alarm</button>
-            <button data-key="BLUETOOTH">BT</button>
-          </div>
-          <div class="grid fn">
-            <button class="fn" data-fn="MODE">MODE</button>
-            <button class="fn" data-fn="STEP">STEP</button>
-            <button class="fn" data-fn="SCAN">SCAN</button>
-            <button class="fn" data-fn="SOS">SOS</button>
-            <button class="fn" data-fn="FUNC">FUNC</button>
-          </div>
-          <p class="hint">Hold a button ≈0.6 s for its long-press action (seek, band list, lock…).</p>
-        </section>
-        <section>
-          <h2 class="h">Keypad</h2>
-          <div class="grid k3">
-            <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
-            <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
-            <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-            <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK">⌫</button>
-            <button data-key="FREQ" class="primary wide">FREQ ⏎</button>
-          </div>
-          <div class="grid" style="margin-top:8px">
-            <button data-key="STEREO">Stereo</button>
-            <button data-key="DE">DE</button>
-            <button data-key="PLAY">Play</button>
-            <button data-key="MUSIC">Music</button>
-          </div>
-        </section>
-      </div>
-      <div data-pane="tune" role="tabpanel" hidden>
-        <section>
-          <h2 class="h">Direct tune</h2>
-          <div class="row">
-            <select id="bandsel" aria-label="Band"><option value="">Band…</option></select>
-            <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="e.g. 9.5 or 101.1" autocomplete="off">
-          </div>
-          <div class="row" style="margin-top:8px">
-            <button class="primary" id="tunebtn">Tune</button>
-            <button id="settime">Sync clock</button>
-          </div>
-          <p class="hint">Typed in the unit the radio's band shows (MHz on SW and FM).</p>
-        </section>
-      </div>
-      <div data-pane="memories" role="tabpanel" hidden>
-        <section>
-          <h2 class="h"><span>Memory list</span><span class="hv" id="mem-total"></span></h2>
-          <div class="mem-counts" id="mem-counts"></div>
-          <div class="mem-box"><ul class="list" id="mem-list"></ul></div>
-        </section>
-        <section id="mem-run"></section>
-        <section>
-          <details class="mem-sub" id="mem-fresh">
-            <summary>Start fresh: wipe bands</summary>
-            <div id="fresh-body"></div>
-          </details>
-        </section>
-        <section>
-          <details class="mem-sub" id="mem-backup">
-            <summary>Backup: export / import</summary>
-            <div id="backup-body"></div>
-            <input type="file" id="backup-file" accept=".txt,.csv,text/plain" hidden>
-          </details>
-        </section>
-        <section>
-          <details class="mem-sub" id="mem-textbox">
-            <summary>Edit as text</summary>
-            <textarea id="mem-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off"
-                      placeholder="1  SW  5025&#10;2  SW  6000  Radio Uno&#10;FM 101.3&#10;146.730"></textarea>
-            <p class="hint">One memory per line: channel, band, frequency, name. Channel and band are optional: a missing channel takes the next free one in its band, a missing band comes from the frequency. At most 200 per band.</p>
-            <div class="row" style="margin-top:8px">
-              <button class="small primary" type="button" data-mem="apply">Replace list</button>
-              <button class="small" type="button" data-mem="append">Add to list</button>
-            </div>
-            <p class="errs" id="mem-errs"></p>
-          </details>
-          <details class="mem-sub" id="mem-sw">
-            <summary>Add shortwave on air (EiBi)</summary>
-            <div class="chips" id="sw-bands"></div>
-            <div class="row">
-              <select id="sw-window" aria-label="When">
-                <option value="0">On air now</option>
-                <option value="120">Now or within 2 h</option>
-                <option value="360">Now or within 6 h</option>
-                <option value="720">Now or within 12 h</option>
-              </select>
-              <button class="small" type="button" data-mem="sw-find">Find</button>
-            </div>
-            <div id="sw-results"></div>
-          </details>
-          <details class="mem-sub" id="mem-near">
-            <summary>Add Chilean stations near me</summary>
-            <div class="row">
-              <select id="near-band" aria-label="Band"><option>FM</option><option>AM</option><option>VHF</option><option>UHF</option><option>AIR</option></select>
-              <select id="near-kind" aria-label="Kind">
-                <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
-                <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
-              </select>
-            </div>
-            <div class="row" style="margin-top:8px">
-              <select id="near-radius" aria-label="Distance">
-                <option value="25">Within 25 km</option><option value="50" selected>Within 50 km</option>
-                <option value="100">Within 100 km</option><option value="250">Within 250 km</option><option value="0">Any distance</option>
-              </select>
-              <button class="small" type="button" data-mem="near-find">Find</button>
-            </div>
-            <div id="near-results"></div>
-          </details>
-          <p class="hint">+ Memory, under a frequency you look up, adds that frequency to the list.</p>
-        </section>
-        <section>
-          <details class="mem-sub" id="mem-test">
-            <summary>Test one memory</summary>
-            <p class="hint" style="margin-top:0">Runs the store sequence with fixed pauses and marks each step in the log, to find out which keys and replies the radio really uses (memory.md §8).</p>
-            <div class="row">
-              <select id="t-band" aria-label="Band"></select>
-              <input type="text" id="t-freq" inputmode="decimal" placeholder="9580" autocomplete="off" aria-label="Frequency">
-              <input type="text" id="t-ch" inputmode="numeric" placeholder="ch" autocomplete="off" aria-label="Channel">
-            </div>
-            <div class="row" style="margin-top:8px">
-              <select id="t-confirm" aria-label="Confirm key">
-                <option value="MEMO">Confirm with MEMO</option>
-                <option value="FREQ">Confirm with FREQ (EN)</option>
-              </select>
-            </div>
-            <div class="row" style="margin-top:8px">
-              <button class="small" type="button" data-mem="t-step">Step</button>
-              <button class="small" type="button" data-mem="t-auto">Auto</button>
-              <button class="small" type="button" data-mem="t-recall">Recall test</button>
-            </div>
-            <div class="row" style="margin-top:8px">
-              <button class="small danger" type="button" data-mem="t-wipe">Test band wipe</button>
-            </div>
-            <p class="hint">Test band wipe holds SCAN on the band above (deleting all its memories), listens 5 s, then recalls CH 1.</p>
-            <p class="hint" id="t-status"></p>
-          </details>
-        </section>
-      </div>
-      <div data-pane="display" role="tabpanel" hidden>
-        <section>
-          <h2 class="h">The radio's text lines</h2>
-          <div class="lines">
-            <div id="field11"></div>
-            <div id="field12"></div>
-            <div id="statusline"></div>
-          </div>
-        </section>
-      </div>
-      <div data-pane="settings" role="tabpanel" hidden>
-        <section>
-          <div class="toggles">
-            <button class="toggle" id="hold" aria-pressed="false">HOLD next press</button>
-            <button class="toggle" id="wake" aria-pressed="false">Keep screen on</button>
-            <button id="demo">Demo (no radio)</button>
-            <button id="disconnect">Disconnect</button>
-          </div>
-          <label class="chk"><input type="checkbox" id="onlyRadio"> Only list RF919 radios when connecting</label>
-        </section>
-        <section>
-          <details id="devbox">
-            <summary>Developer: send a frame</summary>
-            <div class="row">
-              <input type="text" id="dev-cmd" placeholder="cmd: 0c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command byte, hex">
-              <input type="text" id="dev-data" placeholder="data: 2c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Data bytes, hex">
-            </div>
-            <p class="hint" id="dev-frame">Type a command byte and data bytes in hex.</p>
-            <div class="row" style="margin-top:8px"><button class="small primary" type="button" id="dev-send" disabled>Send</button></div>
-            <p class="hint">Sent on FF13, like every other command; the checksum is added. Replies show in the log. An unknown command could change a setting.</p>
-          </details>
-        </section>
-        <section>
-          <details id="logpanel">
-            <summary>Log</summary>
-            <div class="row" style="align-items:center;margin-bottom:8px">
-              <label class="chk" style="margin:0"><input type="checkbox" id="rawlog"> Raw hex</label>
-              <button class="small" id="copylog">Copy log</button>
-            </div>
-            <div class="log" id="log" aria-live="off"></div>
-          </details>
-        </section>
-      </div>
-    </div>
+  <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
+  <div class="rb-off"><span>No radio connected</span>
+    <button class="small primary" type="button" data-act="connect">Connect</button>
+    <button class="small" type="button" data-act="demo">Demo</button>
   </div>
 </div>
-<div class="toast" id="toast" hidden></div>
 
-<script id="protocol">
-"use strict";
-// ---- RF919 protocol (see PROTOCOL.md) ----
-// Full 128-bit UUID strings: some Web Bluetooth implementations (e.g. iOS browsers) mishandle 16-bit integers
-const uuid16 = (n) => `0000${n.toString(16).padStart(4, "0")}-0000-1000-8000-00805f9b34fb`;
-const SERVICE = uuid16(0xff12), WRITE_CHAR = uuid16(0xff13), NOTIFY_CHAR = uuid16(0xff14);
-// Longest frame seen: 20 bytes (one BLE notification). The radio splits text into 13–14 byte chunks to stay within it.
-const MAX_FRAME = 20;
-
-const BANDS = {0x00:"FM",0x01:"AM",0x02:"SW",0x03:"AIR",0x04:"CB",0x05:"UHF",0x06:"WB",0x07:"VHF",0x08:"LW",
-  0x09:"HAM",0x10:"RAIL",0x11:"MRN",0x12:"RACE",0x13:"POL",0x14:"FIRE",0x15:"OTHER"};
-const BAND_CODES = Object.fromEntries(Object.entries(BANDS).map(([k, v]) => [v, +k]));
-
-const KEYS = {BAND:0x00, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9, 0:0x0A, BACK:0x0B, POINT:0x0C, FREQ:0x0D,
-  UP:0x0E, UP_LONG:0x0F, DOWN:0x10, DOWN_LONG:0x11, "VOL+":0x12, "VOL-":0x13, POWER:0x14, SUBBAND:0x17,
-  PLAY:0x1A, STEP:0x1B, BLUETOOTH:0x1C, DEMOD:0x1D, BANDWIDTH:0x1E, DISPLAY:0x1F, SQ:0x20, STEREO:0x21, DE:0x22,
-  PRESET:0x23, MEMO:0x24, MUSIC:0x26, CIRCLE:0x27, BAND_LONG:0x29, SOS:0x2A, SOS_LONG:0x2B, MEMO_LONG:0x2C,
-  REC:0x2D, FUNC3:0x2E, FUNC4:0x2F, FUNC5:0x30, ALARM:0x31, ALARM_LONG:0x32, PLAY_LONG:0x33, FUNC_LONG:0x34,
-  POWER_LONG:0x45};
-// Long-press variants (key name or raw code)
-const LONG = {BAND:"BAND_LONG", UP:"UP_LONG", DOWN:"DOWN_LONG", PLAY:"PLAY_LONG", SOS:"SOS_LONG",
-  DISPLAY:"FUNC_LONG", MEMO:"MEMO_LONG", ALARM:"ALARM_LONG", POWER:"POWER_LONG", "VOL+":0x44, "VOL-":0x43,
-  1:0x35, 2:0x36, 3:0x37, 4:0x38, 5:0x39, 6:0x3A, 7:0x3B, 8:0x3C, 9:0x3D, 0:0x3E};
-// Buttons the radio relabels via opcode 21: slot name -> key sent
-const FUNC_BUTTONS = {MODE:"SUBBAND", STEP:"STEP", SCAN:"PLAY", SOS:"SOS", FUNC:"DISPLAY"};
-
-const DEMOD = ["WFM","NFM","MONO","STEREO","AM","SSB","LSB","USB"];
-const MODES = {0:"standby",1:"TF/MP3",2:"radio",3:"standby",4:"BT audio",6:"PC/USB",7:"AUX"};
-const EQ = ["normal","pop","rock","jazz","classic","country"];
-const REPEAT = ["all","one","folder","shuffle"];
-const TEXT_SLOTS = {1:"demod_label",2:"demod",3:"bw_label",4:"bw",5:"snr_label",6:"snr",7:"rssi_label",8:"rssi",
-  9:"field9",10:"field10",11:"field11",12:"field12",13:"volume",14:"track",15:"field15",16:"rec"};
-const BUTTON_SLOTS = {1:"MODE",2:"STEP",3:"SCAN",4:"SOS",5:"FUNC"};
-const BLINK_STATES = ["steady","steady","blink"];
-
-const hex = (bytes) => Array.from(bytes, b => b.toString(16).padStart(2, "0")).join(" ");
-const pad2 = (n) => String(n).padStart(2, "0");
-
-function frame(cmd, data = []) {
-  const body = [0xAB, data.length + 1, cmd, ...data];
-  return Uint8Array.from([...body, body.reduce((a, b) => a + b, 0) & 0xFF]);
-}
-
-function formatFreq(raw, dp) {
-  const lo = dp & 0x0F, hi = dp >> 4, digits = String(raw), intDigits = lo - hi + 1;
-  if (lo === 0 || !(intDigits > 0 && intDigits < digits.length)) return digits;
-  return digits.slice(0, intDigits) + "." + digits.slice(intDigits);
-}
-
-// (main, small): the app's 6 big digit slots + 1 small slot
-function splitFreq(raw, dp) {
-  const lo = dp & 0x0F, hi = dp >> 4, digits = String(raw);
-  const first = Math.max(hi - 1, 0);
-  let main = digits.slice(0, 6 - first);
-  const small = digits.slice(6 - first);
-  const intDigits = lo - hi + 1;
-  if (lo && intDigits > 0 && intDigits < main.length) main = main.slice(0, intDigits) + "." + main.slice(intDigits);
-  return [main, small];
-}
-
-class RangeErr extends Error {}
-
-class Decoder {
-  constructor() {
-    this.buf = []; this.chunks = new Map();
-    try { this.gbk = new TextDecoder("gbk"); } catch { this.gbk = new TextDecoder(); }  // labels are ASCII in English mode
-  }
-
-  *feed(data) {
-    this.buf.push(...data);
-    while (true) {
-      const start = this.buf.indexOf(0xAB);
-      if (start < 0) { this.buf = []; return; }
-      this.buf.splice(0, start);
-      if (this.buf.length < 2) return;
-      const n = this.buf[1] + 3;
-      if (n > MAX_FRAME) {
-        // A real frame always fits one notification; waiting for this one would stall the display
-        yield {kind: "bad_frame", data: {}, text: `! frame too long (${n} bytes), resyncing`, raw: Uint8Array.from(this.buf.slice(0, 2))};
-        this.buf.splice(0, 1);
-        continue;
-      }
-      if (this.buf.length < n) return;
-      const pkt = Uint8Array.from(this.buf.slice(0, n));
-      const sum = pkt.slice(0, -1).reduce((a, b) => a + b, 0) & 0xFF;
-      if (sum !== pkt[n - 1]) {
-        // Not a real frame start: skip this 0xAB only, so frames buffered after it survive
-        yield {kind: "bad_checksum", data: {}, text: "! bad checksum, resyncing " + hex(pkt), raw: pkt};
-        this.buf.splice(0, 1);
-        continue;
-      }
-      this.buf.splice(0, n);
-      const ev = this.decode(pkt[2], pkt.slice(3, -1));
-      ev.raw = pkt;
-      if (ev.kind === "unknown") ev.text = `cmd ${pad2(pkt[2].toString(16))}: ${hex(pkt)}`;
-      if (ev.kind !== "partial") yield ev;
-    }
-  }
-
-  text(key, seg, chunk) {
-    if (seg === 1 || seg === 3) this.chunks.set(key, []);
-    if (!this.chunks.has(key)) this.chunks.set(key, []);
-    this.chunks.get(key).push(...chunk);
-    if (seg === 3 || seg === 4) {
-      const t = this.gbk.decode(Uint8Array.from(this.chunks.get(key)));
-      this.chunks.delete(key);
-      return t;
-    }
-    return null;
-  }
-
-  decode(cmd, d) {
-    try { return this._decode(cmd, d); }
-    catch (e) { if (e instanceof RangeErr) return {kind: "unknown", data: {cmd}, text: ""}; throw e; }
-  }
-
-  _decode(cmd, d) {
-    const b = (i) => { if (i >= d.length) throw new RangeErr(); return d[i]; };
-    const u16 = (i) => b(i) | b(i + 1) << 8;
-    const pick = (arr, i) => { if (i >= arr.length) throw new RangeErr(); return arr[i]; };
-    const E = (kind, data = {}, text = "") => ({kind, data, text});
-    if (cmd === 0x01 || cmd === 0x0F) {
-      const off = cmd === 0x0F ? 1 : 0;
-      const band = b(off), raw = (b(off + 1) | b(off + 2) << 8 | b(off + 3) << 16 | b(off + 4) << 24) >>> 0;
-      const unit = pick(["MHz", "kHz"], b(off + 5)), dp = b(off + 6);
-      const state = d.length > off + 7 ? d[off + 7] : 0;
-      const kind = cmd === 0x0F ? "entry" : "freq";
-      const name = BANDS[band] ?? pad2(band.toString(16));
-      const alert = band === 0x06 && raw === 0xFF000000;
-      const data = {band: name, raw, dp, unit, state, text: formatFreq(raw, dp), alert};
-      if (cmd === 0x0F) data.result = d[0];
-      if (alert) return E(kind, data, "freq: WB ALERT");
-      const prefix = cmd === 0x0F ? `entry[${d[0]}] ` : "";
-      return E(kind, data, `${prefix}freq: ${name} ${data.text} ${unit} (raw=${raw}, dp=${pad2(dp.toString(16))})`);
-    }
-    switch (cmd) {
-      case 0x03: return E("rssi_snr", {rssi: b(0), snr: b(1)}, `rssi=${d[0]} snr=${d[1]}`);
-      case 0x04: { const dm = b(0) < DEMOD.length ? DEMOD[d[0]] : String(d[0]);
-        return E("demod", {demod: dm, bw: u16(6)}, `demod=${dm} bw=${u16(6)}`); }
-      case 0x05: return E("sleep", {minutes: b(0)}, d[0] ? `sleep timer: ${d[0]} min left` : "sleep timer off");
-      case 0x06: b(3); return E("alarm", {hour: d[1], minute: d[2], state: d[3]}, `alarm ${pad2(d[1])}:${pad2(d[2])} state=${d[3]}`);
-      case 0x07: { const m = MODES[b(0)] ?? String(d[0]); return E("mode", {mode: m}, `mode=${m}`); }
-      case 0x08: b(1); return E("battery", {level: d[0], charging: d[1] === 1}, `battery=${d[0]}/3${d[1] === 1 ? " charging" : ""}`);
-      case 0x09: return E("volume", {volume: b(0)}, `volume=${d[0]}`);
-      case 0x0A: { const q = b(0) < EQ.length ? EQ[d[0]] : String(d[0]); return E("eq", {eq: q}, `eq=${q}`); }
-      case 0x0C: return E("tracks", {track: u16(0), total: u16(2)}, `track ${u16(0)}/${u16(2)}`);
-      case 0x0D: { const s = u16(0), t = u16(4);
-        return E("track_time", {seconds: s, track: t}, `track #${t} ${pad2(Math.floor(s / 60))}:${pad2(s % 60)}`); }
-      case 0x0E: return E("playing", {playing: b(0) === 1}, d[0] === 1 ? "playing" : "paused");
-      case 0x10: b(1); return E("preset", {state: d[0], n: d[1]}, `preset state=${d[0]} n=${d[1]}`);
-      case 0x11: { const r = b(0) < REPEAT.length ? REPEAT[d[0]] : String(d[0]); return E("repeat", {repeat: r}, `repeat=${r}`); }
-      case 0x13: return E("power", {state: b(0)}, `power-state=${d[0]}`);
-      case 0x15: { const mask = u16(0); const bands = Object.values(BANDS).filter((_, i) => mask >> i & 1);
-        return E("bands", {bands}, "bands: " + bands.join(",")); }
-      case 0x16: return E("fw", {version: b(0)}, `fw version=${d[0]}`);
-      case 0x17: { b(2); const en = {MODE: d[0] === 1, STEP: d[1] === 1, SCAN: d[2] === 1};
-        return E("buttons_enabled", en, "buttons enabled: " + Object.entries(en).map(([k, v]) => `${k}=${+v}`).join(" ")); }
-      case 0x18: b(1); return E("limits", {sleep_max: d[0], sq_max: d[1]}, `limits: sleep_max=${d[0]} sq_max=${d[1]}`);
-      case 0x1E: { const vis = pick(["hidden", "visible", "blink"], b(1)); return E("row_vis", {row: d[0], state: vis}, `info row ${d[0]} ${vis}`); }
-      case 0x1F: b(1); return E("sq_popup", {a: d[0], b: d[1]}, `squelch popup a=${d[0]} b=${d[1]}`);
-      case 0x20: { const lang = b(0) === 0 ? "zh" : "en"; return E("language", {language: lang}, `language=${lang}`); }
-      case 0x22: { b(1); const name = {1: "SOS", 2: "FUNC"}[d[0]] ?? String(d[0]);
-        return E("button_blink", {button: name, blink: d[1] === 1}, `${name} blink ${d[1] === 1 ? "on" : "off"}`); }
-      case 0x24: return E("disconnect_req", {}, "radio requested disconnect");
-      case 0x12: case 0x19: case 0x23: {
-        const t = this.text(cmd, b(0), d.slice(2, 2 + b(1)));
-        if (t === null) return E("partial");
-        const kind = {0x12: "status_text", 0x19: "version", 0x23: "toast"}[cmd];
-        return E(kind, {text: t}, `${kind}: ${t}`);
-      }
-      case 0x1C: case 0x21: {
-        const slot = b(0);
-        const t = this.text(`${cmd}:${slot}`, b(1), d.slice(3, 3 + b(2)));
-        if (t === null) return E("partial");
-        const label = (cmd === 0x1C ? TEXT_SLOTS : BUTTON_SLOTS)[slot] ?? `slot${slot}`;
-        return E(cmd === 0x1C ? "field" : "button_label", {slot, name: label, value: t}, `${label} = '${t}'`);
-      }
-      case 0x1D: { const name = TEXT_SLOTS[b(0)] ?? `slot${d[0]}`; const st = pick(BLINK_STATES, b(1));
-        return E("blink", {slot: d[0], name, blink: st === "blink"}, `${name} ${st}`); }
-    }
-    return E("unknown", {cmd});
-  }
-}
-
-const DEMO = "ab021300c0 ab022001ce ab020702b6 ab02054bfd ab0506000c0100c3 ab03080300b9 ab0315ff01c3 ab03185a0929 ab1119010e204669726d77617265207665727321 ab1119020e696f6e3a312e3931300a204d6f64a8 ab1119020e656c3a52463931390a20436f7079f0 ab1119020e6d61696c3a737570706f7274406988 ab0c19040972616464792e636f6d5e ab101c01030c44656d6f64756c6174696f6ecc ab0d1c03030942616e64576964746858 ab071c050303534e52cc ab081c070304525353491e ab071c09030353514ccd ab071c0a03034f4646b9 ab071c09030353514ccd ab051c0603013006 ab051c080301340c ab111c0b010d564f4c3a342020535445503a3137 ab111c0b020d2e304b202044452d454d503a35e2 ab111c0b020d30555320204154543a4458202009 ab081c0b04044d4f4e4f1b ab111c0c010d4d49583a44495341424c4520204e ab111c0c020d414e543a4155544f202045513a59 ab111c0c020d4e4f524d414c202054454d505284 ab0e1c0c040a41545552453a3231a1e694 ab031d0b01d7 ab031d0c01d8 ab061c020302414d62 ab081c040304342e304bb7 ab0d1c03030942616e64576964746858 ab071c0a03034f4646b9 ab071c09030353514ccd ab111c0b010d564f4c3a342020535445503a3137 ab09010210bb1100001200a5 ab092101030542572d444d35 ab0b21020307414e542d415454dc ab0921030305562d55484646 ab0417010101c9 ab08210403044d5554451a ab08210503044c4f434b09 ab03100000be ab03220100d1 ab03220200d2";
-const fromHex = (s) => Uint8Array.from(s.match(/../g), h => parseInt(h, 16));
-</script>
-
-<script id="radiomap">
-"use strict";
-// ---- radiomap.cl lookup (contract: radiomap README, "API por frecuencia") ----
-const RADIOMAP = "https://www.radiomap.cl/api/v1/";
-const RADIOMAP_SITE = "https://www.radiomap.cl/";
-const EMPTY_FREQ = Object.freeze({stations: [], shortwave: []});
-const DAY = 86400000;
-
-// The tuned frequency as radiomap keys it: integer kHz, halves up. null = nothing to look up
-function toKHz({raw, dp, unit, alert}) {
-  if (!raw || alert) return null;
-  const v = parseFloat(formatFreq(raw, dp)) * (unit === "MHz" ? 1000 : 1);
-  return Number.isFinite(v) && v > 0 ? Math.floor(v + 0.5) : null;
-}
-const fmtKHz = (k) => k >= 30000 ? `${(k / 1000).toFixed(3)} MHz` : `${k} kHz`;
-
-// Closest kHz with data, within a window that suits the band's channel spacing; sorted ascending
-// SW ±25 (5 kHz channels), MW ±20, FM broadcast ±400 (200 kHz channels), VHF ±100, UHF ±200
-const nearWindow = (k) => k < 1800 ? 20 : k < 30000 ? 25 : k >= 87500 && k <= 108000 ? 400 : k < 300000 ? 100 : 200;
-function nearby(freqs, k, n = 4, win = nearWindow(k)) {
-  let lo = 0, hi = freqs.length;
-  while (lo < hi) { const mid = (lo + hi) >> 1; if (freqs[mid] < k) lo = mid + 1; else hi = mid; }
-  let a = lo - 1, b = freqs[lo] === k ? lo + 1 : lo;
-  const out = [];
-  while (out.length < n) {
-    const da = a >= 0 ? k - freqs[a] : Infinity, db = b < freqs.length ? freqs[b] - k : Infinity;
-    if (Math.min(da, db) > win) break;
-    out.push(da <= db ? freqs[a--] : freqs[b++]);
-  }
-  return out.sort((x, y) => x - y);
-}
-
-// ---- EiBi schedule: is it on the air? ----
-const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];  // API weekday 0 = Monday
-const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const SEASON = {4: "winter only", 5: "summer only"};
-const hhmmMin = (s) => +s.slice(0, 2) * 60 + +s.slice(2, 4);
-const minHHMM = (m) => `${pad2(Math.floor(m / 60) % 24)}:${pad2(Math.floor(m) % 60)}`;
-const utcDay = (t) => Math.floor(t / DAY) * DAY;
-const apiWeekday = (d) => (d.getUTCDay() + 6) % 7;
-
-// Start (00:00 UTC) of the last Sunday of a month
-function lastSunday(year, month) {
-  const last = new Date(Date.UTC(year, month + 1, 0));
-  return last.getTime() - last.getUTCDay() * DAY;
-}
-// Boreal summer: last Sunday of March up to the last Sunday of October
-function borealSummer(t) {
-  const y = new Date(t).getUTCFullYear();
-  return t >= lastSunday(y, 2) && t < lastSunday(y, 9);
-}
-
-function daysMatch(days, day) {
-  const d = new Date(day), wd = apiWeekday(d), dom = d.getUTCDate();
-  switch (days && days.t) {
-    case "d": return true;
-    case "w": return !!(days.m >> wd & 1);
-    case "n": return wd === days.wd && Math.ceil(dom / 7) === days.n;
-    case "l": return wd === days.wd && dom + 7 > new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
-    case "date": return dom === days.d && d.getUTCMonth() + 1 === days.m;
-    default: return false;  // "irr": no fixed days
-  }
-}
-
-// Does the entry start a broadcast on this UTC day (ms at 00:00)? Days count from the start time
-function runsOn(e, day) {
-  if (e.season === 4 && borealSummer(day)) return false;
-  if (e.season === 5 && !borealSummer(day)) return false;
-  const iso = new Date(day).toISOString().slice(0, 10);
-  if ((e.validFrom && iso < e.validFrom) || (e.validTo && iso > e.validTo)) return false;
-  return daysMatch(e.days, day);
-}
-
-// [start, end] in minutes from its start day's midnight; end > 1440 when it crosses midnight
-function span(e) {
-  const s = hhmmMin(e.startUTC);
-  let end = hhmmMin(e.endUTC);
-  if (end <= s) end += 1440;
-  return [s, end];
-}
-
-// {on, endsIn} or {on: false, startsIn}, in minutes; startsIn is null when nothing within 5 weeks
-function swAir(e, now = Date.now()) {
-  const [s, end] = span(e), today = utcDay(now), m = (now - today) / 60000;
-  for (const back of [0, 1]) {
-    const from = s - back * 1440, to = end - back * 1440;
-    if (m >= from && m < to && runsOn(e, today - back * DAY)) return {on: true, endsIn: Math.ceil(to - m)};
-  }
-  for (let i = 0; i < 36; i++) {
-    const at = i * 1440 + s;
-    if (at > m && runsOn(e, today + i * DAY)) return {on: false, startsIn: Math.ceil(at - m)};
-  }
-  return {on: false, startsIn: null};
-}
-
-// The parts of today (UTC, minutes) during which the entry is on
-function todayWindows(e, now = Date.now()) {
-  const [s, end] = span(e), today = utcDay(now), out = [];
-  if (runsOn(e, today)) out.push([s, Math.min(end, 1440)]);
-  if (end > 1440 && runsOn(e, today - DAY)) out.push([0, end - 1440]);
-  return out;
-}
-
-function daysText(e) {
-  const days = e.days || {};
-  let t;
-  switch (days.t) {
-    case "d": t = "daily"; break;
-    case "w": t = days.m === 127 ? "daily" : days.m === 31 ? "Mon–Fri" : days.m === 96 ? "Sat–Sun" : WD.filter((_, i) => days.m >> i & 1).join(" "); break;
-    case "n": t = `${["1st", "2nd", "3rd", "4th", "5th"][days.n - 1] || days.n + "th"} ${WD[days.wd]} of month`; break;
-    case "l": t = `last ${WD[days.wd]} of month`; break;
-    case "date": t = `${days.d} ${MON[days.m - 1]}`; break;
-    default: t = "irregular";
-  }
-  return SEASON[e.season] ? `${t} · ${SEASON[e.season]}` : t;
-}
-const dur = (min) => min < 60 ? `${min} min` : min < 2880 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}` : `${Math.round(min / 1440)} days`;
-
-// ---- stations ----
-function haversineKm(a, b) {
-  const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
-  return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-// Repeater shift: input (tx) relative to output (rx)
-function fmtShift(rx, tx) {
-  const d = Math.round(tx - rx);
-  if (!d) return "simplex";
-  const a = Math.abs(d);
-  return `${d < 0 ? "−" : "+"}${a >= 1000 ? +(a / 1000).toFixed(3) + " MHz" : a + " kHz"}`;
-}
-const radiomapUrl = (u) => typeof u === "string" && u.startsWith(RADIOMAP_SITE) ? u : null;
-
-// ---- search ----
-// "9580" / "720" kHz, "9.58" / "146.73" / "101.3" MHz, "101" MHz, "7" MHz, "720k", "9,58" (comma decimal), "146.73 MHz"
-function parseFreqInput(text) {
-  const m = String(text).trim().toLowerCase().replace(",", ".").match(/^(\d+(?:\.\d*)?|\.\d+)\s*(k|khz|m|mhz)?$/);
-  if (!m) return null;
-  const v = parseFloat(m[1]);
-  if (!(v > 0)) return null;
-  const mhz = m[2] ? m[2][0] === "m" : m[1].includes(".") ? v < 1000 : v < 150;
-  const k = Math.floor(v * (mhz ? 1000 : 1) + 0.5);
-  return k < 3e6 ? k : null;
-}
-
-// ---- flags ----
-// EiBi (ITU) country code -> flag-icons key (ISO 3166-1 alpha-2, or its extras: sh-ac, sh-ta, ic, xk, un, um, tf).
-// Hand-made from EiBi's README "II) Country codes"; codes with no country (CLA, IW, XUU…) get a globe
-const ITU_FLAG = new Map((
-  "ABW:aw AFG:af AFS:za AGL:ao AIA:ai ALB:al ALG:dz ALS:us AMS:tf AND:ad AOE:eh ARG:ar ARM:am ARS:sa ASC:sh-ac " +
-  "ATA:aq ATG:ag AUS:au AUT:at AZE:az AZR:pt B:br BAH:bs BDI:bi BEL:be BEN:bj BER:bm BES:bq BFA:bf BGD:bd BHR:bh " +
-  "BIH:ba BIO:io BLM:bl BLR:by BLZ:bz BOL:bo BOT:bw BRB:bb BRM:mm BRU:bn BTN:bt BUL:bg BVT:bv CAB:ao CAF:cf " +
-  "CAN:ca CBG:kh CEU:es CHL:cl CHN:cn CHR:cx CKH:ck CLM:co CLN:lk CME:cm CNR:ic COD:cd COG:cg COM:km CPT:fr " +
-  "CPV:cv CRO:tf CTI:ci CTR:cr CUB:cu CUW:cw CVA:va CYM:ky CYP:cy CZE:cz D:de DJI:dj DMA:dm DNK:dk DOM:do E:es " +
-  "EGY:eg EQA:ec ERI:er EST:ee ETH:et EUR:tf F:fr FIN:fi FJI:fj FLK:fk FRO:fo FSM:fm G:gb GAB:ga GEO:ge GHA:gh " +
-  "GIB:gi GLP:gp GMB:gm GNB:gw GNE:gq GPG:ec GRC:gr GRD:gd GRL:gl GTM:gt GUF:gf GUI:gn GUM:gu GUY:gy HKG:hk " +
-  "HMD:hm HND:hn HNG:hu HOL:nl HRV:hr HTI:ht HWA:us HWL:um I:it ICO:cc IND:in INS:id IRL:ie IRN:ir IRQ:iq ISL:is " +
-  "ISR:il IWA:jp J:jp JAR:um JDN:tf JMC:jm JMY:sj JON:um JOR:jo JUF:cl KAL:ru KAZ:kz KEN:ke KER:tf KGZ:kg KIR:ki " +
-  "KNA:kn KOR:kr KOS:xk KRE:kp KWT:kw LAO:la LBN:lb LBR:lr LBY:ly LCA:lc LIE:li LSO:ls LTU:lt LUX:lu LVA:lv " +
-  "MAC:mo MAF:mf MAU:mu MCO:mc MDA:md MDG:mg MDR:pt MDW:um MEL:es MEX:mx MHL:mh MKD:mk MLA:my MLD:mv MLI:ml " +
-  "MLT:mt MNE:me MNG:mn MOZ:mz MRA:mp MRC:ma MRN:za MRT:mq MSR:ms MTN:mr MWI:mw MYA:mm MYT:yt NCG:ni NCL:nc " +
-  "NFK:nf NGR:ne NIG:ng NIU:nu NMB:na NOR:no NPL:np NRU:nr NZL:nz OCE:pf OMA:om PAK:pk PAQ:cl PHL:ph PHX:ki " +
-  "PLM:um PLW:pw PNG:pg PNR:pa POL:pl POR:pt PRG:py PRU:pe PRV:jp PSE:ps PTC:pn PTR:pr QAT:qa REU:re ROD:mu " +
-  "ROU:ro RRW:rw RUS:ru S:se SAP:co SDN:sd SEN:sn SEY:sc SGA:gs SHN:sh SLM:sb SLV:sv SMA:as SMO:ws SMR:sm SNG:sg " +
-  "SOK:aq SOM:so SPM:pm SRB:rs SRL:sl SSD:ss SSI:gs STP:st SUI:ch SUR:sr SVB:sj SVK:sk SVN:si SWZ:sz SXM:sx " +
-  "SYR:sy TCA:tc TCD:td TGO:tg THA:th TJK:tj TKL:tk TKM:tm TLS:tl TON:to TRC:sh-ta TRD:tt TUN:tn TUR:tr TUV:tv " +
-  "TWN:tw TZA:tz UAE:ae UGA:ug UKR:ua UN:un URG:uy USA:us UZB:uz VCT:vc VEN:ve VIR:vi VRG:vg VTN:vn VUT:vu WAK:um " +
-  "WAL:wf XGZ:ps XWB:ps YEM:ye ZMB:zm ZWE:zw "
-).trim().split(" ").map((p) => p.split(":")));
-const FLAG_CDN = "https://cdn.jsdelivr.net/npm/flag-icons@7.5.0/flags/4x3/";
-const escHtml = (s) => String(s).replace(/[&<>"]/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-const ituFlag = (itu) => ITU_FLAG.get(itu) || null;
-// radiomap's stations are Chilean, except the worldwide channels (category "global")
-const stationFlag = (s) => s.category === "global" ? null : "cl";
-const globeSvg = (title) => `<svg class="flag none" viewBox="0 0 16 12" role="img" aria-label="${escHtml(title)}"><title>${escHtml(title)}</title>` +
-  `<circle cx="8" cy="6" r="4.6"/><ellipse cx="8" cy="6" rx="2" ry="4.6"/><path d="M3.4 6h9.2"/></svg>`;
-function flagHtml(key, title = "") {
-  if (!key || !/^[a-z]{2}(-[a-z]{2})?$/.test(key)) return globeSvg(title || "International");
-  return `<img class="flag" src="${FLAG_CDN}${key}.svg" alt="${escHtml(title)}" title="${escHtml(title)}" loading="lazy" decoding="async">`;
-}
-
-class RadioMap {
-  constructor(base = RADIOMAP) { this.base = base; this.cache = new Map(); this.idx = null; }
-
-  async get(path) {
-    const r = await fetch(this.base + path);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
-  }
-
-  // index.json, fetched once
-  index() {
-    if (!this.idx) this.idx = this.get("index.json").catch((e) => { this.idx = null; throw e; });
-    return this.idx;
-  }
-
-  // Everything on k kHz (404 = nothing known there). In-flight requests are shared, failures not cached
-  lookup(k) {
-    if (!this.cache.has(k)) {
-      if (this.cache.size >= 300) this.cache.delete(this.cache.keys().next().value);
-      this.cache.set(k, this.get(`freq/${k}.json`)
-        .then((d) => d || {...EMPTY_FREQ, kHz: k})
-        .catch((e) => { this.cache.delete(k); throw e; }));
-    }
-    return this.cache.get(k);
-  }
-}
-</script>
-
-<script id="memories">
-"use strict";
-// ---- Memories (see memory.md) ----
-// There is no command to write a memory: each one is stored by replaying the front-panel keys
-// (tune → MEMO long → channel digits → confirm), one channel at a time.
-const MAX_CH = 200;  // per band. ✓ live: 200 accepted, 201 refused
-const MEM_BANDS = ["FM", "AM", "SW", "AIR", "CB", "UHF", "VHF", "LW"];  // WB has 7 fixed WX channels, no memories
-// Not confirmed on the radio yet (memory.md §8). Settle them with "Test one memory", then change them here
-// ✓ live (fw 1.910): MEMO long → 10 state 2 (channel blinking, n = a proposed channel); each digit → 10 state 2
-// n = the number typed so far; MEMO short → 01 (the frequency) and 10 state 0 (store mode closed).
-// "pause" skips the wait at that step and waits pauseMs instead
-const MEMO_CFG = {
-  confirmKey: "MEMO",     // MEMO short (24); fallback "FREQ" (0D, EN)
-  memoWait: "preset",     // after MEMO long: the channel number must start blinking (10 state 2)
-  channelWait: "preset",  // after the digits: the blinking number must be the channel typed, before confirming
-  confirmWait: "preset",  // after confirm: store mode must close (10 state 0)
-  stepMs: 150,            // between key presses
-  pauseMs: 800,           // a fixed pause, where nothing is awaited
-  timeoutMs: 4000,        // how long to wait for a reply
-  echoMs: 1500,           // keypad entry: how long to wait for the radio's echo of one key (✓ live: ~400 ms each)
-  // Start fresh. By hand, holding SCAN/ATS deletes every memory of the band (user report; over Bluetooth untested)
-  wipeKey: "PLAY_LONG",   // 33: what the vendor app sends for a long press on its SCAN button
-  wipeReply: null,        // a test (ev) => bool for the radio's reply once "Test band wipe" shows it; null = wait wipePauseMs
-  wipePauseMs: 2000,      // also the window in which a scan that starts by mistake gets stopped
-  stopKey: "PLAY",        // SCAN short: stops a scan
-  verifyWipe: true,       // recall a channel afterwards; it must be empty
-};
-// kHz per band, checked in order. Inferred from the RF919 spec, not measured. CB lies inside SW: never picked automatically
-const BAND_RANGES = [["LW", 150, 519], ["AM", 520, 1710], ["SW", 1711, 29999], ["FM", 64000, 108000],
-  ["AIR", 108001, 137000], ["VHF", 30000, 299999], ["UHF", 300000, 999999], ["CB", 26965, 27405]];
-const bandFor = (k) => (BAND_RANGES.find(([, lo, hi]) => k >= lo && k <= hi) || [null])[0];
-const bandRange = (band) => BAND_RANGES.find(([b]) => b === band) || null;
-const bandUnit = (band) => band === "AM" || band === "LW" ? "kHz" : "MHz";
-// How a list line writes the frequency: kHz below 30 MHz, else MHz with 3 decimals (so 150.000 never reads as 150 kHz)
-const freqText = (k) => k >= 30000 ? (k / 1000).toFixed(3) : String(k);
-const memKey = (band, ch) => `${band}:${ch}`;
-const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// One memory per line: [channel] [band] frequency [name…]. A line starting with "#" is a comment
-// (only whole lines, so a name may contain "#").
-// No channel = the next free one in its band; no band = the band the frequency falls in
-function parseMemList(text) {
-  const entries = [], errors = [];
-  String(text).split(/\r?\n/).forEach((raw, i) => {
-    const line = i + 1, t = raw.replace(/^\s*#.*/, "").trim().split(/\s+/).filter(Boolean);
-    if (!t.length) return;
-    const err = (msg) => errors.push({line, msg});
-    let p = 0, ch = null, band = null;
-    const isBand = (s) => s && (MEM_BANDS.includes(s.toUpperCase()) || s.toUpperCase() === "WB");
-    if (/^\d{1,4}$/.test(t[0]) && t.length > 1 && (isBand(t[1]) || parseFreqInput(t[1]) !== null)) { ch = +t[0]; p = 1; }
-    if (isBand(t[p])) { band = t[p++].toUpperCase(); }
-    if (band === "WB") return err("WB has fixed weather channels, no memories");
-    if (p >= t.length) return err("no frequency");
-    let ftext = t[p++];
-    if (/^(k|khz|m|mhz)$/i.test(t[p] || "")) ftext += t[p++];
-    const k = parseFreqInput(ftext);
-    if (k === null) return err(`"${ftext}" isn't a frequency`);
-    if (ch !== null && !(ch >= 1 && ch <= MAX_CH)) return err(`channel ${ch} is outside 1–${MAX_CH}`);
-    band = band || bandFor(k);
-    if (!band) return err(`no band covers ${fmtKHz(k)}`);
-    entries.push({line, ch, band, kHz: k, name: t.slice(p).join(" ")});
-  });
-  return {entries, errors};
-}
-
-// Adds items to a list, at most MAX_CH per band. Items with a channel go first, so the free ones are known.
-// Returns the new list (by band, then channel) and the items refused
-function addToList(list, items) {
-  const used = {}, out = [...list], errors = [];
-  for (const e of list) (used[e.band] ??= new Set()).add(e.ch);
-  const ordered = [...items.filter((e) => e.ch != null), ...items.filter((e) => e.ch == null)];
-  for (const it of ordered) {
-    const u = used[it.band] ??= new Set();
-    const err = (msg) => errors.push({line: it.line, msg: `${it.band} ${fmtKHz(it.kHz)}: ${msg}`});
-    if (!MEM_BANDS.includes(it.band)) { err("this band has no memories"); continue; }
-    let ch = it.ch;
-    if (ch == null) {
-      ch = 1;
-      while (u.has(ch)) ch++;
-      if (ch > MAX_CH) { err(`${it.band} is full (${MAX_CH}/${MAX_CH})`); continue; }
-    } else if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) { err(`channel ${ch} is outside 1–${MAX_CH}`); continue; }
-    else if (u.has(ch)) { err(`${it.band} CH ${ch} is already in the list`); continue; }
-    u.add(ch);
-    out.push({band: it.band, kHz: it.kHz, ch, name: it.name || ""});
-  }
-  out.sort((a, b) => MEM_BANDS.indexOf(a.band) - MEM_BANDS.indexOf(b.band) || a.ch - b.ch);
-  return {list: out, errors};
-}
-const listToText = (list) => list.map((e) => `${e.ch} ${e.band} ${freqText(e.kHz)}${e.name ? " " + e.name : ""}`).join("\n");
-const bandCount = (list, band) => list.filter((e) => e.band === band).length;
-const bandSummary = (rows) => MEM_BANDS.filter((b) => bandCount(rows, b)).map((b) => `${b} ${bandCount(rows, b)}`).join(", ");
-
-// ---- backup: the app's record ({"AIR:12": {kHz, name}}) as Edit as text lines ----
-function recordItems(record) {
-  const rows = [];
-  for (const [key, r] of Object.entries(record || {})) {
-    const m = /^([A-Z]+):(\d{1,3})$/.exec(key), ch = m && +m[2];
-    if (!m || !MEM_BANDS.includes(m[1]) || !(ch >= 1 && ch <= MAX_CH) || !r || !(r.kHz > 0)) continue;
-    rows.push({band: m[1], ch, kHz: r.kHz, name: r.name || ""});
-  }
-  return addToList([], rows).list;  // sorted by band and channel, at most MAX_CH per band
-}
-// when: the time to put in the header, e.g. "2026-11-02 21:40"
-function backupText(record, when) {
-  const rows = recordItems(record);
-  return [`# RF919 memories · exported ${when} · ${rows.length} channel${rows.length === 1 ? "" : "s"}: ${bandSummary(rows) || "none"}`,
-    "# one per line: channel band frequency name (kHz below 30 MHz, else MHz)", listToText(rows), ""].join("\n");
-}
-
-// Runs fn over items, n at a time; a failed item gives null. Stops starting new ones once signal aborts
-async function pool(items, n, fn, onProgress = () => {}, signal = null) {
-  const out = new Array(items.length).fill(null);
-  let next = 0, done = 0;
-  const worker = async () => {
-    while (next < items.length && !(signal && signal.aborted)) {
-      const i = next++;
-      try { out[i] = await fn(items[i]); } catch { out[i] = null; }
-      onProgress(++done, items.length);
-    }
-  };
-  await Promise.all(Array.from({length: Math.min(n, items.length)}, worker));
-  return out;
-}
-
-// ---- waiting for the radio's replies ----
-class StepErr extends Error {}
-class CancelErr extends Error {}
-
-// Every decoded event passes through feed(); expect() resolves on the first one that matches
-class Waiters {
-  constructor() { this.set = new Set(); this.freq = null; this.preset = null; }
-  feed(ev) {
-    if ((ev.kind === "freq") && !ev.data.alert) this.freq = ev.data;
-    if (ev.kind === "preset") this.preset = ev.data;
-    for (const w of [...this.set]) if (w.pred(ev)) { this.set.delete(w); clearTimeout(w.timer); w.resolve(ev); }
-  }
-  // Register before sending what triggers the reply, then await it
-  expect(pred, ms, what) {
-    const w = {pred};
-    const p = new Promise((resolve, reject) => {
-      w.resolve = resolve; w.reject = reject;
-      w.timer = setTimeout(() => { this.set.delete(w); reject(new StepErr(`no reply ${what}`)); }, ms);
-    });
-    p.catch(() => {});  // awaited later, or dropped when the send fails
-    this.set.add(w);
-    return p;
-  }
-  cancelAll(reason = "stopped") {
-    for (const w of this.set) { clearTimeout(w.timer); w.reject(new CancelErr(reason)); }
-    this.set.clear();
-  }
-}
-
-// Types a frequency on the keypad (FREQ, digits and point, FREQ), one key at a time: each key waits for the
-// radio's entry echo (0F) before the next. ✓ live: the radio takes ~400 ms per key and drops keys sent faster
-// ("433.275" sent 150 ms apart arrived as 43.275, an input error). Resolves with the radio's new frequency;
-// exact: it must be the one typed (storing), else any (manual tuning, where the radio may round to its step)
-async function typeEntry(link, w, text, cfg = MEMO_CFG, exact = true) {
-  const keys = [...String(text).trim()].filter((c) => /[0-9.]/.test(c)).map((c) => c === "." ? "POINT" : c);
-  if (!keys.length) throw new StepErr(`"${text}" isn't a frequency`);
-  const shown = (k) => k === "POINT" ? "." : k;
-  const refused = (ev) => ev.kind === "entry" && ev.data.result === 2;
-  for (const k of ["FREQ", ...keys]) {
-    const echo = w.expect((ev) => ev.kind === "entry", cfg.echoMs, `to key ${shown(k)} (the radio may have dropped it)`);
-    await link.press(k);
-    if (refused(await echo)) throw new StepErr(`the radio refused the entry at key ${shown(k)}`);
-  }
-  const want = parseFloat(text), unit = w.freq ? w.freq.unit : null;
-  const k = unit === "kHz" ? Math.round(want) : Math.round(want * 1000);
-  const done = w.expect((ev) => refused(ev) || (ev.kind === "freq" && (!exact || toKHz(ev.data) === k)), cfg.timeoutMs, `after typing ${text}`);
-  await link.press("FREQ");
-  let ev;
-  try { ev = await done; } catch (e) {
-    if (e instanceof StepErr && w.freq) throw new StepErr(`${e.message}; the radio is on ${fmtKHz(toKHz(w.freq))}`);
-    throw e;
-  }
-  if (refused(ev)) throw new StepErr(`the radio refused ${text} (input error)`);
-  return ev.data;
-}
-
-// Stores and reads back memories through a link (BleLink or ReplayLink). note(text) marks each step in the log
-class MemoryRun {
-  constructor(link, waiters, {note = () => {}, cfg = MEMO_CFG} = {}) {
-    Object.assign(this, {link, w: waiters, note, cfg, stopped: false, reason: ""});
-  }
-  stop(reason = "stopped") { this.stopped = true; this.reason = reason; this.w.cancelAll(reason); }
-  check() { if (this.stopped) throw new CancelErr(this.reason); }
-  async press(key) { this.check(); await this.link.press(key); await delay(this.cfg.stepMs); }
-  // One digit per echo, like typeEntry: sent faster, the radio drops a repeated digit (✓ live: CH 11 arrived as 1).
-  // echo(prefix) tests the reply to the digits so far; strict: no echo is an error, else carry on after echoMs
-  async digits(ch, echo = (ev) => ev.kind === "preset", strict = false) {
-    const s = String(ch);
-    for (let i = 0; i < s.length; i++) {
-      const want = +s.slice(0, i + 1);
-      const got = this.w.expect((ev) => echo(ev, want), this.cfg.echoMs, "");
-      await this.press(s[i]);
-      try { await got; } catch (e) {
-        if (e instanceof CancelErr) throw e;
-        if (strict && !echo({kind: "preset", data: this.w.preset || {}}, want)) {
-          const p = this.w.preset;  // it may not repeat a number that's already up, hence the check of the last one
-          throw new StepErr(p && p.state === 2 ? `the radio shows CH ${p.n}, not ${want}${want === ch ? "" : ` (on the way to ${ch})`}; not confirmed`
-            : `the radio isn't showing CH ${want}; not confirmed`);
-        }
-      }
-    }
-  }
-
-  async toBand(band) {
-    if (this.w.freq && this.w.freq.band === band) return;
-    const got = this.w.expect((ev) => ev.kind === "freq" && ev.data.band === band, this.cfg.timeoutMs, `switching to ${band}`);
-    this.check();
-    await this.link.tune(band, 0);
-    await got;
-  }
-
-  // Band switch with 10, then the frequency on the keypad, in the unit the band shows (the 10 units are only known for SW)
-  async tuneTo(band, k) {
-    await this.toBand(band);
-    if (toKHz(this.w.freq) === k) return;
-    const unit = this.w.freq.unit, text = unit === "MHz" ? String(k / 1000) : String(k);
-    this.check();
-    await typeEntry(this.link, this.w, text, this.cfg);
-  }
-
-  async store({band, kHz, ch}, onStep = () => {}) {
-    if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) throw new StepErr(`channel ${ch} is outside 1–${MAX_CH}`);
-    if (!MEM_BANDS.includes(band)) throw new StepErr(`${band} has no memories`);
-    const c = this.cfg, tag = `${band} ${fmtKHz(kHz)} → CH ${ch}`;
-    onStep("tune"); this.note(`── store ${tag}: tune`);
-    await this.tuneTo(band, kHz);
-    const blinking = (ev) => ev.kind === "preset" && ev.data.state === 2;
-    onStep("memo"); this.note(`── store ${tag}: MEMO long`);
-    const memo = c.memoWait === "preset" ? this.w.expect(blinking, c.timeoutMs, "after MEMO long (store mode didn't open)") : null;
-    await this.press("MEMO_LONG");
-    if (memo) await memo; else await delay(c.pauseMs);
-    onStep("channel"); this.note(`── store ${tag}: channel digits`);
-    // Each digit must show up in the blinking number (1, then 11) before the next; never confirm another channel
-    if (c.channelWait === "preset") await this.digits(ch, (ev, want) => blinking(ev) && ev.data.n === want, true);
-    else { await this.digits(ch, () => false); await delay(c.pauseMs); }
-    onStep("confirm"); this.note(`── store ${tag}: confirm (${c.confirmKey})`);
-    const done = c.confirmWait === "preset"
-      ? this.w.expect((ev) => ev.kind === "preset" && ev.data.state === 0, c.timeoutMs, "after confirm (store mode didn't close)") : null;
-    await this.press(c.confirmKey);
-    if (done) await done; else await delay(c.pauseMs);
-  }
-
-  // Stores what the radio is on, on the channel the radio proposes: ✓ live, the highest channel in use + 1
-  // (38 in use, 40 stored by hand → it proposed 41). guard(n) returns a reason to refuse, and then nothing
-  // is confirmed (the radio closes store mode by itself after ~5 s). Resolves with the channel used
-  async storeNext(band, guard = () => null, onStep = () => {}) {
-    if (!MEM_BANDS.includes(band)) throw new StepErr(`${band} has no memories`);
-    const c = this.cfg, blinking = (ev) => ev.kind === "preset" && ev.data.state === 2;
-    onStep("memo"); this.note(`── store next ${band}: MEMO long`);
-    const prop = this.w.expect(blinking, c.timeoutMs, "after MEMO long (store mode didn't open)");
-    await this.press("MEMO_LONG");
-    const n = (await prop).data.n;
-    this.note(`── store next ${band}: the radio proposes CH ${n}`);
-    const no = !(n >= 1 && n <= MAX_CH) ? `the radio proposes CH ${n}: ${band} has no channel after the last one in use (max ${MAX_CH})` : guard(n);
-    if (no) throw new StepErr(no);
-    onStep("confirm"); this.note(`── store next ${band}: confirm CH ${n} (${c.confirmKey})`);
-    const done = this.w.expect((ev) => ev.kind === "preset" && ev.data.state === 0, c.timeoutMs, "after confirm (store mode didn't close)");
-    await this.press(c.confirmKey);
-    await done;
-    return n;
-  }
-
-  // PRESET → digits → FREQ (EN). {kHz, empty}: the frequency the radio reports, or empty = it said NULL.
-  // Both unset = no reply
-  async recall(band, ch) {
-    if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) throw new StepErr(`channel ${ch} is outside 1–${MAX_CH}`);
-    this.note(`── recall ${band} CH ${ch}`);
-    await this.toBand(band);
-    await this.press("PRESET");
-    await this.digits(ch);
-    const isNull = (ev) => /\bNULL\b/.test((ev.data && (ev.data.text ?? ev.data.value)) || "");
-    const got = this.w.expect((ev) => ev.kind === "freq" || (["toast", "field", "status_text"].includes(ev.kind) && isNull(ev)),
-      this.cfg.timeoutMs, `recalling ${band} CH ${ch}`);
-    await this.press("FREQ");
-    let ev = null;
-    try { ev = await got; } catch (e) { if (e instanceof CancelErr) throw e; this.note(`(no reply recalling CH ${ch})`); }
-    await this.press("PRESET");  // leave recall mode
-    return {kHz: ev && ev.kind === "freq" ? toKHz(ev.data) : null, empty: !!ev && ev.kind !== "freq"};
-  }
-
-  // Deletes every memory of a band (SCAN/ATS held), stops a scan if one starts, then recalls channel
-  // probeCh, which must now be empty. Pick a channel known to have held something
-  async wipe(band, probeCh = 1, onStep = () => {}) {
-    const c = this.cfg;
-    onStep("band"); this.note(`── wipe ${band}: switch band`);
-    await this.toBand(band);
-    onStep("wipe"); this.note(`── wipe ${band}: ${c.wipeKey}`);
-    const seen = new Set();
-    const scanning = this.w.expect((ev) => ev.kind === "freq" && seen.add(toKHz(ev.data)).size >= 2, c.wipePauseMs, "");
-    const reply = c.wipeReply ? this.w.expect(c.wipeReply, c.timeoutMs, `after ${c.wipeKey} (the band wasn't wiped)`) : null;
-    await this.press(c.wipeKey);
-    if (reply) await reply;
-    let scan = false;
-    try { await scanning; scan = true; } catch (e) { if (e instanceof CancelErr) throw e; }  // timeout = no scan
-    if (scan) {
-      this.note(`(the radio started a scan; pressing ${c.stopKey} to stop it)`);
-      await this.press(c.stopKey);
-      await delay(c.pauseMs);
-    }
-    if (!c.verifyWipe) return;
-    onStep("verify");
-    const r = await this.recall(band, probeCh);
-    if (r.empty) return;
-    throw new StepErr(r.kHz != null ? `CH ${probeCh} still holds ${fmtKHz(r.kHz)}: the band wasn't wiped`
-      : `no reply recalling CH ${probeCh}, so the wipe can't be confirmed (set verifyWipe: false if NULL never arrives)`);
-  }
-}
-
-// Fixed steps for "Test one memory": no waiting, so every reply can be read in the log. Keys within a step
-// go TEST_KEY_MS apart, slower than the radio handles them (~400 ms), so none get dropped
-const TEST_KEY_MS = 600;
-function storeTestSteps({band, kHz, ch}, confirmKey) {
-  return [
-    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
-    {label: `type ${fmtKHz(kHz)}`, run: (link, w) => {
-      const unit = w.freq && w.freq.band === band ? w.freq.unit : bandUnit(band);
-      return link.typeFreq(unit === "MHz" ? String(kHz / 1000) : String(kHz));
-    }},
-    {label: "MEMO long", run: (link) => link.press("MEMO_LONG")},
-    {label: `channel ${ch}`, run: async (link) => { for (const d of String(ch)) { await link.press(d); await delay(TEST_KEY_MS); } }},
-    {label: `confirm (${confirmKey})`, run: (link) => link.press(confirmKey)},
-  ];
-}
-// Holds SCAN, listens, then recalls CH 1 so the log shows what an empty channel looks like
-function wipeTestSteps(band) {
-  return [
-    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
-    {label: `hold SCAN (${MEMO_CFG.wipeKey})`, run: (link) => link.press(MEMO_CFG.wipeKey)},
-    {label: "listen 5 s", run: () => delay(5000)},
-    {label: "PRESET", run: (link) => link.press("PRESET")},
-    {label: "channel 1", run: (link) => link.press("1")},
-    {label: "FREQ (EN)", run: (link) => link.press("FREQ")},
-    {label: "PRESET (leave recall)", run: (link) => link.press("PRESET")},
-  ];
-}
-function recallTestSteps(band, ch) {
-  return [
-    {label: `switch to ${band}`, run: (link) => link.tune(band, 0)},
-    {label: "PRESET", run: (link) => link.press("PRESET")},
-    {label: `channel ${ch}`, run: async (link) => { for (const d of String(ch)) { await link.press(d); await delay(TEST_KEY_MS); } }},
-    {label: "FREQ (EN)", run: (link) => link.press("FREQ")},
-  ];
-}
-
-// EiBi broadcast meter bands, kHz
-const SW_METERS = [["120m", 2300, 2495], ["90m", 3200, 3400], ["75m", 3900, 4000], ["60m", 4750, 5060], ["49m", 5900, 6200],
-  ["41m", 7200, 7600], ["31m", 9400, 9900], ["25m", 11600, 12100], ["22m", 13570, 13870], ["19m", 15100, 15800],
-  ["16m", 17480, 17900], ["15m", 18900, 19020], ["13m", 21450, 21850], ["11m", 25670, 26100]];
-
-// The demo's pretend radio: answers tune (10) and key (0C) frames the way the store sequence expects,
-// with 8 banks of MAX_CH channels. emit(frame) gets the radio's replies as raw frames
-class RadioSim {
-  constructor(emit) {
-    Object.assign(this, {emit, active: false, band: "SW", kHz: 11620, last: {}, mode: null, buf: "", bank: new Map(),
-      storeTimer: 0, storeTimeoutMs: 5000});  // ✓ live: store mode left open closes after ~5 s
-  }
-  sendFreq() {
-    const raw = this.kHz, mhz = bandUnit(this.band) === "MHz";
-    const dp = mhz ? 0x10 | Math.max(1, String(raw).length - 3) : 0;  // digits from slot 1, 3 decimals
-    this.emit(frame(0x01, [BAND_CODES[this.band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24, mhz ? 0 : 1, dp, 0]));
-  }
-  preset(state, n) { this.emit(frame(0x10, [state, n])); }
-  toast(text) { const b = [...text].map((c) => c.charCodeAt(0)); this.emit(frame(0x23, [3, b.length, ...b])); }
-  receive(pkt) {
-    const cmd = pkt[2], d = pkt.slice(3, -1);
-    this.active = true;
-    if (cmd === 0x10) {
-      const band = BANDS[d[0]], raw = (d[1] | d[2] << 8 | d[3] << 16 | d[4] << 24) >>> 0;
-      if (!band || !bandRange(band)) return;
-      this.last[this.band] = this.kHz;
-      this.band = band;
-      this.kHz = raw ? (band === "SW" ? Math.round(raw / 100) : raw) : this.last[band] || bandRange(band)[1];
-      this.mode = null;
-      this.sendFreq();
-      return;
-    }
-    if (cmd !== 0x0C) return;
-    const key = d[0], digit = key >= 1 && key <= 9 ? String(key) : key === 0x0A ? "0" : null;
-    if (digit !== null) {
-      if (this.mode) this.buf += digit;
-      if (this.mode === "store") { this.shown = +this.buf; this.preset(2, this.shown & 255); }  // the blinking number follows the digits
-      if (this.mode === "entry") this.echo(1);
-      return;
-    }
-    switch (key) {
-      case 0x0C: if (this.mode === "entry") { this.buf += "."; this.echo(1); } return;
-      case 0x0B: this.buf = this.buf.slice(0, -1); return;
-      case 0x0D:  // FREQ / EN
-        if (this.mode === "entry") return this.enter();
-        if (this.mode === "store") return this.save();
-        if (this.mode === "recall") return this.recall();
-        this.mode = "entry"; this.buf = "";
-        this.echo(1);
-        return;
-      case 0x2C:                                                                 // MEMO long
-        this.mode = "store"; this.buf = ""; this.shown = this.proposal(); this.preset(2, this.shown);
-        clearTimeout(this.storeTimer);
-        this.storeTimer = setTimeout(() => { if (this.mode === "store") { this.mode = null; this.preset(0, 0); } }, this.storeTimeoutMs);
-        return;
-      case 0x24: if (this.mode === "store") this.save(); return;                // MEMO
-      case 0x33:                                                                 // SCAN long: wipe the band
-        for (const k of [...this.bank.keys()]) if (k.startsWith(this.band + ":")) this.bank.delete(k);
-        return;
-      case 0x23:                                                                 // PRESET
-        if (this.mode === "recall") { this.mode = null; this.preset(0, 0); }
-        else { this.mode = "recall"; this.buf = ""; this.preset(3, 0); }
-        return;
-    }
-  }
-  // 0F: result (0 done, 1 typing, 2 input error) and the digits so far, the point lit where typed
-  echo(result) {
-    const [int, dec] = this.buf.split("."), raw = +(this.buf.replace(".", "") || 0);
-    const dp = dec !== undefined && int ? 0x10 | int.length : 0;
-    this.emit(frame(0x0F, [result, BAND_CODES[this.band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24, bandUnit(this.band) === "MHz" ? 0 : 1, dp]));
-  }
-  enter() {
-    const v = parseFloat(this.buf), k = Math.round(bandUnit(this.band) === "MHz" ? v * 1000 : v), r = bandRange(this.band);
-    this.mode = null;
-    if (!(v > 0) || (r && (k < r[1] || k > r[2]))) { this.echo(2); this.buf = ""; this.echo(0); this.sendFreq(); return; }
-    this.buf = "";
-    this.echo(0);
-    this.kHz = k;
-    this.sendFreq();
-  }
-  // ✓ live: MEMO long proposes the highest channel in use + 1 (1 when the band is empty). Past 200: unknown
-  proposal() {
-    const used = [...this.bank.keys()].filter((k) => k.startsWith(this.band + ":")).map((k) => +k.split(":")[1]);
-    return used.length ? Math.max(...used) + 1 : 1;
-  }
-  // Saves on the number shown: the one typed, or the proposal when nothing was typed (Store here)
-  save() {
-    const ch = this.shown;
-    if (!(ch >= 1 && ch <= MAX_CH)) { this.toast("ERR"); return; }  // stays in store mode
-    this.mode = null;
-    this.bank.set(memKey(this.band, ch), this.kHz);
-    this.sendFreq();
-    this.preset(0, 0);
-  }
-  // Stays in recall (preset) mode afterwards, as the radio does, until PRESET is pressed again
-  recall() {
-    const ch = +this.buf, k = this.bank.get(memKey(this.band, ch));
-    this.buf = "";
-    if (k == null) { this.toast("NULL"); return; }
-    this.kHz = k;
-    this.sendFreq();
-    this.preset(1, ch);
-  }
-}
-</script>
-
-<script>
-"use strict";
-// ---- Links ----
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-const errText = (e) => `${e && e.name && e.name !== "Error" ? e.name + ": " : ""}${(e && e.message) || e}`;
-const charProps = (c) => ["read", "write", "writeWithoutResponse", "notify", "indicate"]
-  .filter(p => c.properties && c.properties[p]).join(", ") || "(none reported)";
-
-class BaseLink {
-  constructor(onEvent, onStatus) { this.onEvent = onEvent; this.onStatus = onStatus; }
-  debug(text) { this.onEvent({kind: "debug", data: {}, text, raw: new Uint8Array()}); }
-  press(key) { const code = typeof key === "number" ? key : KEYS[key]; return this.send(frame(0x0C, [code])); }
-  tune(band, raw = 0) { return this.send(frame(0x10, [BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); }
-  setTime(n = new Date()) {
-    return this.send(frame(0x0D, [n.getHours(), n.getMinutes(), n.getSeconds(), n.getFullYear() - 1970, n.getMonth() + 1, n.getDate()]));
-  }
-  // One key per echo from the radio (see typeEntry)
-  typeFreq(text) { return typeEntry(this, waiters, text, MEMO_CFG, false); }
-}
-
-class BleLink extends BaseLink {
-  constructor(onEvent, onStatus) {
-    super(onEvent, onStatus);
-    this.device = null; this.tx = null; this.queue = Promise.resolve(); this.userClosed = false;
-    this.onNotify = (e) => {
-      const v = e.target.value;
-      if (!this.rxCount++) this.debug(`first notification received (${v.byteLength} bytes)`);
-      for (const ev of this.decoder.feed(new Uint8Array(v.buffer, v.byteOffset, v.byteLength))) this.onEvent(ev);
-    };
-    this.onDrop = () => this.dropped();
-  }
-  get connected() { return !!(this.device && this.device.gatt.connected && this.tx); }
-
-  async pick(acceptAll) {
-    const opts = acceptAll ? {acceptAllDevices: true, optionalServices: [SERVICE]}
-                           : {filters: [{namePrefix: "RF919"}, {services: [SERVICE]}], optionalServices: [SERVICE]};
-    this.debug(`requestDevice ${JSON.stringify(opts)}`);
-    try { this.device = await navigator.bluetooth.requestDevice(opts); }
-    catch (e) { this.debug(`requestDevice failed: ${errText(e)}`); throw e; }
-    this.debug(`picked "${this.device.name}" id=${this.device.id}`);
-    this.device.addEventListener("gattserverdisconnected", this.onDrop);
-  }
-
-  async open() {
-    this.userClosed = false;
-    this.onStatus("busy", `connecting to ${this.device.name || "radio"}…`);
-    // Each step is logged with its timing, and named on failure, to see where a browser gets stuck
-    let step = "", t0 = 0;
-    const begin = (name) => {
-      if (step) this.debug(`✓ ${step} (${Date.now() - t0} ms)`);
-      step = name; t0 = Date.now();
-      this.debug(`→ ${name}…`);
-    };
-    try {
-      begin("GATT connect");
-      const server = await this.device.gatt.connect();
-      begin("get service FF12");
-      const svc = await server.getPrimaryService(SERVICE);
-      begin("get characteristic FF13 (write)");
-      this.tx = await svc.getCharacteristic(WRITE_CHAR);
-      this.debug(`FF13 properties: ${charProps(this.tx)}`);
-      begin("get characteristic FF14 (notify)");
-      const rx = await svc.getCharacteristic(NOTIFY_CHAR);
-      this.debug(`FF14 properties: ${charProps(rx)}`);
-      begin("start notifications");
-      this.decoder = new Decoder();
-      this.rxCount = 0;
-      rx.addEventListener("characteristicvaluechanged", this.onNotify);
-      await rx.startNotifications();
-      begin("handshake");
-      await this.send(frame(0xFF));
-      this.debug(`✓ ${step} (${Date.now() - t0} ms)`);
-    } catch (e) {
-      throw new Error(`${step}: ${errText(e)}`);
-    }
-    this.onStatus("ok", this.device.name || "connected");
-    // The radio answers the handshake with a state dump within ~1 s
-    const sentAt = Date.now();
-    setTimeout(() => {
-      if (this.connected && !this.rxCount) this.debug(`no data from the radio ${Date.now() - sentAt} ms after handshake; notifications may not be arriving`);
-    }, 3000);
-  }
-
-  async connect(acceptAll = false) {
-    if (!this.device) await this.pick(acceptAll);
-    this.connecting = true;
-    try {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try { await this.open(); return; }
-        catch (e) {
-          this.tx = null;
-          this.debug(`attempt ${attempt + 1} failed at ${e.message}`);
-          if (attempt === 2) throw e;
-          this.onStatus("busy", `try ${attempt + 1} failed (${e.message}), retrying…`);
-          await sleep(1000 * 2 ** attempt);
-        }
-      }
-    } finally {
-      this.connecting = false;
-    }
-  }
-
-  async dropped() {
-    this.debug(`gattserverdisconnected${this.connecting ? " (during connect)" : this.userClosed ? " (requested)" : " (unexpected)"}`);
-    this.tx = null;
-    if (this.connecting) return;  // a failed attempt dropped the link; connect() is already retrying
-    if (this.userClosed) { this.onStatus("bad", "disconnected"); return; }
-    this.onStatus("busy", "connection lost, reconnecting…");
-    try { await this.connect(); } catch { this.onStatus("bad", "disconnected (tap Reconnect)"); }
-  }
-
-  send(pkt) {
-    if (!this.connected && pkt[2] !== 0xFF) return Promise.reject(new Error("not connected"));
-    const job = this.queue.then(() => {
-      const withResponse = !!this.tx.writeValueWithResponse;
-      this.debug(`TX ${hex(pkt)}${withResponse ? "" : " (writeValue)"}`);
-      return withResponse ? this.tx.writeValueWithResponse(pkt) : this.tx.writeValue(pkt);
-    });
-    this.queue = job.catch((e) => this.debug(`TX failed: ${errText(e)}`));
-    return job;
-  }
-
-  // forget = drop the chosen device, so the next Connect opens the picker again
-  async close(forget = false) {
-    this.userClosed = true;
-    if (this.device && this.device.gatt.connected) this.device.gatt.disconnect();
-    if (forget && this.device) { this.device.removeEventListener("gattserverdisconnected", this.onDrop); this.device = null; }
-    this.tx = null;
-    this.onStatus("bad", "disconnected");
-  }
-}
-
-// Replays a recorded session; a RadioSim answers what the page sends. Once the page has sent something,
-// the replay's own frequency and preset frames are skipped, so they don't undo the simulated radio
-const SIM_OWNS = new Set([0x01, 0x0F, 0x10]);
-class ReplayLink extends BaseLink {
-  constructor(onEvent, onStatus) {
-    super(onEvent, onStatus);
-    this.connected = false; this.timer = null; this.simDecoder = new Decoder();
-    this.sim = new RadioSim((pkt) => { for (const ev of this.simDecoder.feed(pkt)) this.onEvent(ev); });
-  }
-  async connect() {
-    this.connected = true;
-    this.onStatus("ok", "demo (replay)");
-    const pkts = DEMO.split(" ").map(fromHex);
-    const run = () => {
-      const decoder = new Decoder();
-      let i = 0;
-      const step = () => {
-        if (!this.connected) return;
-        if (i >= pkts.length) { this.timer = setTimeout(run, 4000); return; }
-        const pkt = pkts[i++];
-        if (!(this.sim.active && SIM_OWNS.has(pkt[2]))) for (const ev of decoder.feed(pkt)) this.onEvent(ev);
-        this.timer = setTimeout(step, 40);
-      };
-      step();
-    };
-    run();
-  }
-  async send(pkt) {
-    if (!this.connected) throw new Error("not connected");
-    this.onEvent({kind: "link", data: {}, text: `demo: would send ${hex(pkt)}`, raw: pkt});
-    setTimeout(() => { if (this.connected) this.sim.receive(pkt); }, 60);
-  }
-  async close() { this.connected = false; clearTimeout(this.timer); this.onStatus("bad", "disconnected"); }
-}
-
-// ---- UI ----
-const $ = (id) => document.getElementById(id);
-const BAND_COLORS = {FM:"#4fc3f7", AM:"#ffb74d", SW:"#81c784", LW:"#ce93d8", AIR:"#90caf9", WB:"#ef5350",
-  HAM:"#fff176", CB:"#a1887f", VHF:"#4db6ac", UHF:"#9575cd"};
-const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null, ok: false};
-let link = null;
-
-function setStatus(kind, text) {
-  $("dot").className = "lamp " + kind;
-  state.link = text;
-  state.ok = kind === "ok";
-  renderStat();
-  $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
-  $("connect").disabled = kind === "ok" || kind === "busy" || !navigator.bluetooth;
-  log({kind: "link", text: "● " + text, raw: new Uint8Array()});
-  if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); }
-  renderView();
-  renderMem();
-}
-
-function renderStat() {
-  const parts = [esc(state.link || "")];
-  if (state.mode) parts.push(`▶ <b>${esc(state.mode)}</b>`);
-  if (state.battery) parts.push(state.battery);
-  if (state.sleep) parts.push(`☾ ${state.sleep}`);
-  if (state.alarm) parts.push(`⏰ ${state.alarm}`);
-  $("stat").innerHTML = parts.join(" · ");
-}
-
-const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
-let toastTimer;
-function toast(text, ms = 3500, err = false) {
-  const t = $("toast"); t.textContent = text; t.hidden = false; t.classList.toggle("err", err);
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
-}
-
-function log(ev) {
-  const box = $("log");
-  const line = document.createElement("div");
-  const time = new Date().toTimeString().slice(0, 8);
-  const body = state.raw && ev.raw && ev.raw.length ? hex(ev.raw) : ev.text;
-  line.innerHTML = `<span class="t">${time}</span> <span class="k-${ev.kind}">${esc(body)}</span>`;
-  const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 4;
-  box.appendChild(line);
-  while (box.childElementCount > 400) box.firstChild.remove();
-  if (atBottom) box.scrollTop = box.scrollHeight;
-}
-
-function setBlink(el, on) { if (el) el.classList.toggle("blink", !!on); }
-function cell(name, label, value) {
-  const c = $("c-" + name);
-  if (label !== undefined) c.querySelector(".l").textContent = label || " ";
-  if (value !== undefined) c.querySelector(".v").textContent = value || "–";
-}
-
-const handlers = {
-  freq(d) {
-    const band = $("band");
-    band.textContent = d.band;
-    band.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5");
-    if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); radioFreq(null); return; }
-    $("alert").textContent = ""; setBlink($("alert"), false);
-    const [main, small] = d.raw ? splitFreq(d.raw, d.dp) : ["---.---", ""];
-    $("freq").textContent = main;
-    $("small").textContent = small;
-    $("unit").textContent = d.unit;
-    setBlink($("freqbox"), d.state === 2);
-    view.unit = d.unit;
-    radioFreq(toKHz(d));
-    renderStoreHere(d);
-  },
-  field(d) {
-    const v = d.value.trim();
-    state.fields[d.name] = v;
-    const base = d.name.replace(/_label$/, "");
-    if (["demod", "bw", "snr", "rssi"].includes(base)) {
-      d.name.endsWith("_label") ? cell(base, v) : cell(base, undefined, v);
-    } else if (d.name === "field9") cell("field9", v);
-    else if (d.name === "field10") cell("field9", undefined, v);
-    else if (d.name === "field11" || d.name === "field12") $(d.name).textContent = d.value;
-    else if (d.name === "rec") statusLine();
-  },
-  button_label(d) {
-    const btn = document.querySelector(`[data-fn="${d.name}"]`);
-    if (btn) btn.textContent = d.value.trim() || d.name;
-  },
-  buttons_enabled(d) {
-    for (const [name, en] of Object.entries(d)) { const b = document.querySelector(`[data-fn="${name}"]`); if (b) b.disabled = !en; }
-  },
-  blink(d) {
-    const base = d.name.replace(/_label$/, "");
-    const el = ["demod", "bw", "snr", "rssi"].includes(base) ? $("c-" + base)
-             : d.name === "field9" || d.name === "field10" ? $("c-field9") : $(d.name);
-    setBlink(el, d.blink);
-  },
-  button_blink(d) { setBlink(document.querySelector(`[data-fn="${d.button}"]`), d.blink); },
-  mode(d) { state.mode = d.mode; renderStat(); },
-  battery(d) {
-    const color = ["var(--warn)", "var(--amber)", "var(--cool)", "var(--cool)"][Math.min(d.level, 3)];
-    state.battery = `<span style="color:${color}">${"▮".repeat(d.level)}${"▯".repeat(Math.max(0, 3 - d.level))}</span>${d.charging ? " ⚡" : ""}`;
-    renderStat();
-  },
-  sleep(d) { state.sleep = d.minutes ? `${d.minutes}m` : ""; renderStat(); },
-  alarm(d) { state.alarm = d.state ? `${pad2(d.hour)}:${pad2(d.minute)}` : ""; renderStat(); },
-  preset(d) {
-    const t = ({1: `PRESET ${d.n}`, 2: `PRESET ${d.n}`, 3: "PRESET - -"})[d.state] || "";
-    // The radio can't show names; the phone shows the one this app stored on that channel
-    const r = (d.state === 1 || d.state === 2) && waiters.freq && mem.record[memKey(waiters.freq.band, d.n)];
-    $("preset").textContent = r && r.name ? `${t} · ${r.name}` : t;
-  },
-  status_text(d) { state.fields.msg = d.text; statusLine(); },
-  toast(d) { toast(d.text); },
-  version(d) { toast(d.text.trim(), 6000); },
-  disconnect_req() { link && link.close(); },
-};
-handlers.entry = handlers.freq;
-
-function statusLine() {
-  $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
-}
-
-// ---- What's on a frequency (radiomap.cl) ----
-// Per-viewer conveniences only; the page works the same when storage is unavailable
-const store = {
-  get(key, fallback) { try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); } catch { return fallback; } },
-  set(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode */ } },
-};
-const rm = new RadioMap();
-// Memories: the list to store, this app's record of what it stored per band:channel, and the running job
-const waiters = new Waiters();
-const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e) => e && e.band && e.kHz > 0)).list,
-  record: store.get("rf919.memories", {}), run: null, pos: -1, step: "", t0: 0, from: 0, fail: null, check: null,
-  job: null, picks: {sw: null, near: null}, test: null};
-// radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
-// near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
-const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, fresh: false, timer: 0, unit: "MHz"};
-let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
-const following = () => view.follow && state.ok;
-
-// Debounced, so a SCAN or seek sweep only looks up the frequency it settles on
-function radioFreq(k) {
-  if (k === view.pendingK) return;
-  view.pendingK = k;
-  clearTimeout(view.timer);
-  view.timer = setTimeout(() => {
-    view.radioK = k;
-    if (view.follow && k !== null && k !== view.k) show(k);
-    else renderView();
-  }, 500);
-}
-
-async function show(k) {
-  Object.assign(view, {k, data: null, err: null, near: [], all: false, fresh: true});
-  renderView();
-  try {
-    const data = await rm.lookup(k);
-    if (view.k !== k) return;
-    view.data = data;
-    log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${data.stations.length} stations, ${data.shortwave.length} shortwave`});
-  } catch (e) {
-    if (view.k !== k) return;
-    view.err = e;
-    log({kind: "radiomap", text: `radiomap ${fmtKHz(k)}: ${errText(e)}`});
-  }
-  renderView();
-  loadNearby(k);
-}
-
-async function loadNearby(k) {
-  try {
-    const idx = await rm.index();
-    if (view.k !== k) return;
-    view.idx = idx;
-    const near = view.near = nearby(idx.freqs, k, 6).map((f) => ({k: f, data: null}));
-    renderNearby();
-    await Promise.all(near.map(async (n) => {
-      try { n.data = await rm.lookup(n.k); } catch { n.data = EMPTY_FREQ; }
-      if (view.near === near) renderNearby();
-    }));
-  } catch { /* nearby is optional */ }
-}
-
-// A search, a shared link or a nearby row while not following: pin the page to k
-function lookUp(k) {
-  view.follow = false;
-  setHash(k);
-  if (k !== view.k) show(k);
-  else renderView();
-}
-function backToRadio() {
-  view.follow = true;
-  setHash(null);
-  if (view.radioK !== null && view.radioK !== view.k) show(view.radioK);
-  else renderView();
-}
-// Nearby rows "go there": tune the radio while following it, otherwise just look
-function goTo(k) { if (following()) tuneKHz(k); else lookUp(k); }
-function tuneHere() {
-  tuneKHz(view.k);
-  view.follow = true;
-  setHash(null);
-  renderView();
-}
-// Type the frequency on the radio's keypad, in the unit its current band shows
-function tuneKHz(k) {
-  const text = view.unit === "MHz" ? String(k / 1000) : String(k);
-  toast(`Tuning ${fmtKHz(k)}…`, 2000);
-  send(() => link ? link.typeFreq(text) : Promise.reject(new Error("not connected")));
-}
-
-function setHash(k) {
-  try { history.replaceState(null, "", k ? `#f=${k}` : location.pathname + location.search); } catch { /* sandboxed */ }
-}
-function fromHash() {
-  const m = location.hash.match(/^#f=(\d{1,7})$/);
-  return m && +m[1] > 0 ? +m[1] : null;
-}
-
-// ---- rendering ----
-function renderView() {
-  renderStoreHere();
-  const ok = state.ok, fol = following();
-  $("readout").hidden = !ok;
-  $("radio-k").textContent = ok && fol ? "● following" : "";
-  $("pinned").hidden = fol || view.k === null;
-  $("pin-k").textContent = view.k === null ? "" : fmtKHz(view.k);
-  $("back").hidden = !ok || view.radioK === null;
-  $("back-k").textContent = view.radioK === null ? "" : fmtKHz(view.radioK);
-  $("dock").hidden = !ok;
-  document.body.classList.toggle("has-dock", ok);
-  renderDossier();
-  renderStations();
-  renderNearby();
-}
-
-function renderDossier() {
-  const box = $("dossier"), old = box.querySelector(".slots-box"), top = old ? old.scrollTop : 0;
-  box.innerHTML = dossierHtml();
-  const slots = box.querySelector(".slots-box");
-  if (!slots) return;
-  if (view.fresh) {
-    const target = slots.querySelector("tr.cur") || slots.querySelector("tr.next");
-    slots.scrollTop = target ? target.offsetTop - slots.querySelector("thead").offsetHeight : 0;
-    view.fresh = false;
-  } else slots.scrollTop = top;
-}
-
-function dossierHtml() {
-  const k = view.k;
-  if (k === null) {
-    return state.ok ? `<div class="d-empty"><p class="empty-t">Listening…</p><p class="empty-d">Waiting for the radio's frequency.</p></div>` : introHtml();
-  }
-  const near = view.data && (view.data.stations.length || view.data.shortwave.length)
-    ? `<button class="toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
-  const head = `<h2 class="h"><span>On <span class="hv">${fmtKHz(k)}</span></span>${near}</h2>`;
-  if (view.err) return head + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
-  if (!view.data) return head + `<p class="of-msg">Looking up ${fmtKHz(k)}…</p>`;
-  const {stations, shortwave} = view.data;
-  const body = shortwave.length ? swHtml(shortwave)
-    : stations.length ? stationHero(stationRows()[0])
-    : `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
-  const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
-  return head + body + tuneHereHtml() +
-    `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p>`;
-}
-
-function introHtml() {
-  const examples = [[9580, "9580"], [11620, "11620"], [146730, "146.730"], [101300, "101.3"], [118100, "118.1"]];
-  return `<div class="d-empty"><p class="empty-t">What's on the air?</p>
-    <p class="empty-d">Look up any frequency to see who transmits there, their schedule and what's nearby.
-    Connect your RF919 and the page follows the radio's dial.</p>
-    <div class="intro-act">${navigator.bluetooth ? `<button class="primary" type="button" data-act="connect">Connect radio</button>` : ""}` +
-    `<button type="button" data-act="demo">Demo</button></div>
-    <div class="tags">${examples.map(([k, t]) => `<button class="tag" type="button" data-look="${k}">${t}</button>`).join("")}</div></div>`;
-}
-
-function tuneHereHtml() {
-  if (view.k === null) return "";
-  const tune = state.ok && view.k !== view.radioK
-    ? `<button class="primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(view.k)}</button>` : "";
-  const band = bandFor(view.k), inList = band && mem.list.find((e) => e.band === band && e.kHz === view.k);
-  const add = !band ? "" : inList ? `<button type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
-    : `<button type="button" data-act="addmem">+ Memory</button>`;
-  return tune || add ? `<div class="tune-here">${tune}${add}</div>` : "";
-}
-// The name to keep with a memory of the frequency on show: who's on air (or next), else the first station
-function dossierName() {
-  const d = view.data;
-  if (!d) return "";
-  if (d.shortwave.length) return swPick(d.shortwave).head.e.station || "";
-  if (d.stations.length) { const {s} = stationRows()[0]; return s.nombre || s.signal || ""; }
-  return "";
-}
-
-const hhmm = (s) => `${s.slice(0, 2)}:${s.slice(2)}`;
-// The schedule's state now: which entries are on, the next to start, and the one to headline
-function swPick(list, now = Date.now()) {
-  const rows = list.map((e) => ({e, air: swAir(e, now), today: todayWindows(e, now)}));
-  const on = rows.filter((r) => r.air.on);
-  const next = rows.filter((r) => r.air.startsIn != null).sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
-  return {rows, on, next, head: on[0] || next || rows[0]};
-}
-
-function swHtml(list) {
-  const now = Date.now(), m = (now - utcDay(now)) / 60000;
-  const {rows, on, next, head} = swPick(list, now), e = head.e;
-  const sub = head.air.on ? `until ${minHHMM(hhmmMin(e.endUTC))} · ${dur(head.air.endsIn)} left${on.length > 1 ? ` · ${on.length - 1} more on air` : ""}`
-            : head.air.startsIn != null ? `next at ${hhmm(e.startUTC)} UTC · in ${dur(head.air.startsIn)}`
-            : "nothing scheduled in the coming weeks";
-  const meta = [e.country, [e.langLabel || e.lang, e.targetLabel || e.target].filter(Boolean).join(" → ")].filter(Boolean).join(" · ");
-  const grid = [];
-  if (e.site && e.site.name) {
-    const siteFlag = e.site.itu && e.site.itu !== e.itu ? flagHtml(ituFlag(e.site.itu), e.site.itu) : "";
-    grid.push(`<div class="w2"><dt>Transmitter</dt><dd>${siteFlag}${esc(e.site.name)}</dd></div>`);
-  }
-  grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
-  if (nearMe && myPos && e.site && e.site.lat != null) grid.push(`<div><dt>Distance</dt><dd>${Math.round(haversineKm(myPos, e.site)).toLocaleString()} km</dd></div>`);
-  if (e.lastHeard) grid.push(`<div><dt>Last heard</dt><dd>${esc(e.lastHeard.slice(0, 2))}/20${esc(e.lastHeard.slice(2))}</dd></div>`);
-  const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
-  const slots = rows.map((r) => {
-    const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
-    return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
-      `<td>${flagHtml(ituFlag(r.e.itu), r.e.country)}${esc(r.e.station)}<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}</small></td>` +
-      `<td>${esc(r.e.targetLabel || r.e.target || "")}</td></tr>`;
-  }).join("");
-  return `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
-    <h3 class="d-name">${flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
-    <p class="d-meta">${esc(meta)}</p>
-    <dl class="d-grid">${grid.join("")}</dl>
-    <div class="sched"><h4 class="h"><span>Today</span><span>UTC</span></h4>
-      <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
-      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
-    <div class="slots"><h4 class="h"><span>Schedule</span><span>${list.length}</span></h4>
-      <div class="slots-box"><table><thead><tr><th>UTC</th><th>Station</th><th>Target</th></tr></thead><tbody>${slots}</tbody></table></div></div>`;
-}
-
-// Stations with their distance; nearest first with Near me
-function stationRows(list = view.data.stations) {
-  const rows = list.map((s) => ({s, km: nearMe && myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null}));
-  if (nearMe && myPos) rows.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity));
-  return rows;
-}
-function placeOf(s) {
-  const seen = new Set();
-  return [s.ubicacion, s.comuna, s.region].filter((v) => v && !seen.has(v.toLowerCase()) && seen.add(v.toLowerCase()));
-}
-const isRepeater = (s) => s.category === "amateur" && s.rxKHz && s.txKHz && Math.round(s.rxKHz) !== Math.round(s.txKHz);
-const dmrText = (s) => { const d = s.dmr || {}; return [d.colorCode != null && `CC${d.colorCode}`, d.slot != null && `TS${d.slot}`, d.tg && `TG${d.tg}`].filter(Boolean).join(" "); };
-const CATEGORY = {amateur: "Amateur", broadcast: "Broadcast", atc: "Air traffic", global: "Channel"};
-const tag = (text, cls = "") => `<span class="tag ${cls}">${esc(text)}</span>`;
-
-// Badges; the hero shows tone, shift and DMR in its grid instead
-function stationTags(s, inGrid = false) {
-  const tags = [];
-  if (!inGrid && s.category === "amateur") {
-    if (s.tono) tags.push(tag(`Tone ${s.tono}`));
-    if (s.rxKHz && s.txKHz) tags.push(tag(fmtShift(s.rxKHz, s.txKHz)));
-  }
-  if (s.category === "amateur" && s.rxKHz && s.matchedOn && !s.matchedOn.includes("rx")) {
-    tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "amber"));
-  }
-  if (!inGrid && s.category === "atc") tags.push(tag("ATC"));
-  if (!inGrid && s.isDMR) tags.push(tag(`DMR ${dmrText(s)}`.trim(), "cool"));
-  if (s.isEcholink) tags.push(tag("EchoLink", "amber"));
-  const url = radiomapUrl(s.url);
-  if (url) tags.push(`<a class="tag" href="${esc(url)}" target="_blank" rel="noopener">radiomap ↗</a>`);
-  return tags.join("");
-}
-
-function stationHero({s, km}) {
-  const dd = (label, v, cls = "") => v ? `<div class="${cls}"><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
-  const grid = s.category === "amateur"
-    ? [dd("Output", s.rxKHz && fmtKHz(Math.round(s.rxKHz))), dd("Input", isRepeater(s) && fmtKHz(Math.round(s.txKHz))),
-       dd("Tone", s.tono), dd("Shift", isRepeater(s) && fmtShift(s.rxKHz, s.txKHz)), dd("Power", s.potencia && `${s.potencia} W`),
-       dd("DMR", s.isDMR && (dmrText(s) || "yes"))]
-    : [dd("Band", s.banda), dd("Region", s.region, "w2")];
-  if (km != null) grid.push(dd("Distance", `${Math.round(km).toLocaleString()} km`));
-  const tags = stationTags(s, true), place = placeOf(s);
-  const cat = isRepeater(s) ? "Repeater" : CATEGORY[s.category] || "Station";
-  return `<div class="d-head"><span class="pill cat">${esc(cat)}</span><span class="d-sub">${esc(s.signal || "")}</span></div>
-    <h3 class="d-name">${flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.nombre || s.signal || "")}</h3>
-    ${place.length || s.notes ? `<p class="d-meta">${esc([...place, s.notes].filter(Boolean).join(" · "))}</p>` : ""}
-    <dl class="d-grid">${grid.join("")}</dl>
-    ${tags ? `<div class="tags">${tags}</div>` : ""}`;
-}
-
-function renderStations() {
-  const box = $("stations"), d = view.data;
-  const rows = d && !view.err ? stationRows() : [];
-  // Without shortwave the first station is the dossier's hero
-  const list = d && d.shortwave.length ? rows : rows.slice(1);
-  box.hidden = !list.length;
-  if (!list.length) { box.innerHTML = ""; return; }
-  const shown = view.all ? list : list.slice(0, 6);
-  const title = d.shortwave.length ? `Stations · ${list.length}` : `Also on ${fmtKHz(view.k)} · ${list.length}`;
-  box.innerHTML = `<h2 class="h"><span>${title}</span>${nearMe && myPos ? "<span>nearest first</span>" : ""}</h2>` +
-    `<ul class="list">${shown.map(stationRow).join("")}</ul>` +
-    (list.length > shown.length ? `<button class="more" type="button" data-act="more">Show all ${list.length}</button>` : "");
-}
-
-function stationRow({s, km}) {
-  const tags = stationTags(s), place = placeOf(s);
-  return `<li class="st"><div class="st-main"><b>${flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.signal || "")}</b>` +
-    `<span>${esc(s.nombre || "")}</span>` + (km != null ? `<span class="km">${Math.round(km).toLocaleString()} km</span>` : "") + `</div>` +
-    (place.length || s.notes ? `<div class="st-sub">${esc([...place, s.notes].filter(Boolean).join(" · "))}</div>` : "") +
-    (tags ? `<div class="tags">${tags}</div>` : "") + `</li>`;
-}
-
-function renderNearby() {
-  const box = $("nearby");
-  box.hidden = !view.near.length;
-  if (!view.near.length) { box.innerHTML = ""; return; }
-  const fol = following();
-  box.innerHTML = `<h2 class="h"><span>Nearby</span><span>${fol ? "tap to tune the radio" : "tap to look up"}</span></h2>` +
-    `<ul class="list">${view.near.map((n) => nearRow(n, fol)).join("")}</ul>`;
-}
-
-// One line per nearby frequency: what's on air there now, else what's next, else its first (or nearest) station
-function nearRow(n, fol) {
-  const label = n.k >= 30000 ? (n.k / 1000).toFixed(3) : String(n.k);
-  let name = "…", sub = "", flag = "", lamp = "none";
-  const d = n.data;
-  if (d && d.shortwave.length) {
-    const {on, head} = swPick(d.shortwave), e = head.e;
-    name = e.station; flag = flagHtml(ituFlag(e.itu), e.country); lamp = head.air.on ? "on" : "";
-    sub = [e.langLabel || e.lang,
-      head.air.on ? `on air until ${minHHMM(hhmmMin(e.endUTC))}` : head.air.startsIn != null ? `next ${hhmm(e.startUTC)} UTC` : "",
-      on.length > 1 ? `+${on.length - 1} on air` : d.shortwave.length > 1 ? `${d.shortwave.length} slots` : ""].filter(Boolean).join(" · ");
-  } else if (d && d.stations.length) {
-    const {s, km} = stationRows(d.stations)[0];
-    name = s.nombre || s.signal; flag = flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile");
-    sub = [s.signal, placeOf(s)[1] || placeOf(s)[0], km != null && `${Math.round(km).toLocaleString()} km`,
-      d.stations.length > 1 && `+${d.stations.length - 1} more`].filter(Boolean).join(" · ");
-  } else if (d) name = "—";
-  return `<li><button class="near-row${d ? "" : " loading"}" type="button" data-go="${n.k}" aria-label="${fol ? "Tune to" : "Look up"} ${fmtKHz(n.k)}${d ? ": " + esc(name) : ""}">` +
-    `<span class="nf">${label}</span><span class="nn"><b>${flag}${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
-    `<span class="dot ${lamp}"></span></button></li>`;
-}
-
-// Asks for the position once more and keeps it; rejects (after a toast) when it isn't available
-function locate() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) { toast("Location isn't available here", 3500, true); reject(new Error("no geolocation")); return; }
-    navigator.geolocation.getCurrentPosition((p) => {
-      // ~1 km is plenty to sort stations, and is all that gets stored
-      myPos = {lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2)};
-      store.set("rf919.pos", myPos);
-      resolve(myPos);
-    }, (e) => { toast(`Location: ${e.message || "not allowed"}`, 4000, true); reject(e); }, {maximumAge: 600000, timeout: 15000});
-  });
-}
-function toggleNearMe() {
-  if (nearMe) { nearMe = false; store.set("rf919.nearme", false); renderView(); return; }
-  locate().then(() => { nearMe = true; store.set("rf919.nearme", true); renderView(); }, () => {});
-}
-
-$("search").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const k = parseFreqInput($("q").value);
-  if (k === null) { toast("Type a frequency: 9580 (kHz), or 9.58 / 146.73 (MHz)", 4000, true); return; }
-  $("q").value = ""; $("q").blur();
-  lookUp(k);
-});
-$("back").addEventListener("click", backToRadio);
-document.addEventListener("click", (e) => {
-  const t = e.target.closest("[data-go], [data-look], [data-act]");
-  if (!t) return;
-  if (t.dataset.go) goTo(+t.dataset.go);
-  else if (t.dataset.look) lookUp(+t.dataset.look);
-  else if (t.dataset.act === "more") { view.all = true; renderStations(); }
-  else if (t.dataset.act === "nearme") toggleNearMe();
-  else if (t.dataset.act === "tunehere") tuneHere();
-  else if (t.dataset.act === "addmem") addMem([{band: bandFor(view.k), kHz: view.k, ch: null, name: dossierName()}]);
-  else if (t.dataset.act === "connect") startBle();
-  else if (t.dataset.act === "demo") startDemo();
-});
-// A flag the CDN can't serve becomes the globe
-document.addEventListener("error", (e) => {
-  const img = e.target;
-  if (img instanceof HTMLImageElement && img.classList.contains("flag")) img.outerHTML = globeSvg(img.alt);
-}, true);
-window.addEventListener("hashchange", () => { const k = fromHash(); if (k) lookUp(k); });
-// Keep the on-air state, the "now" marker and the current slot moving
-setInterval(() => { if (!document.hidden && view.data) renderView(); }, 60000);
-document.addEventListener("visibilitychange", () => { if (!document.hidden && view.data) renderView(); });
-function tickClock() {
-  const d = new Date();
-  $("clock").innerHTML = `<b>${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}</b> <small>UTC</small>`;
-}
-tickClock();
-setInterval(tickClock, 15000);
-
-// ---- Remote sheet ----
-const TABS = ["keys", "tune", "memories", "display", "settings"];
-let sheetOpener = null;
-function selectTab(name) {
-  if (!TABS.includes(name)) name = "keys";
-  document.querySelectorAll("#remote [data-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === name));
-  document.querySelectorAll("#remote [data-pane]").forEach((p) => { p.hidden = p.dataset.pane !== name; });
-  store.set("rf919.tab", name);
-}
-function openRemote(tab) {
-  if (tab) selectTab(tab);
-  sheetOpener = document.activeElement;
-  $("remote").hidden = false;
-  $("app").inert = true; $("dock").inert = true;
-  $("remote").querySelector('[aria-selected="true"]').focus();
-}
-function closeRemote() {
-  if ($("remote").hidden) return;
-  $("remote").hidden = true;
-  $("app").inert = false; $("dock").inert = false;
-  if (sheetOpener && sheetOpener.isConnected) sheetOpener.focus();
-}
-selectTab(store.get("rf919.tab", "keys"));
-$("remote-open").addEventListener("click", () => openRemote());
-$("remote-top").addEventListener("click", () => openRemote());
-$("remote").addEventListener("click", (e) => {
-  if (e.target.closest("[data-close]")) closeRemote();
-  const t = e.target.closest("[data-tab]");
-  if (t) selectTab(t.dataset.tab);
-});
-
-// ---- Memories tab ----
-const memNote = (text) => log({kind: "mem", text, raw: new Uint8Array()});
-const saveMem = () => store.set("rf919.memlist", mem.list);
-const saveRecord = () => store.set("rf919.memories", mem.record);
-const bandStyle = (band) => `--band:${BAND_COLORS[band] || "#b0bec5"}`;
-const memSecs = (n) => { const s = Math.round(n * 2.5); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; };
-
-// Adds to the list (never more than MAX_CH per band) and says what was added and what didn't fit
-function addMem(items) {
-  if (mem.run) { toast("Wait until the run is over", 3000, true); return; }
-  const old = mem.list, {list, errors} = addToList(old, items);
-  const fresh = list.filter((e) => !old.includes(e));
-  mem.list = list;
-  saveMem();
-  const first = fresh[0];
-  let msg = fresh.length === 1 ? `Added ${first.band} ${fmtKHz(first.kHz)} → CH ${first.ch}${first.name ? ` · ${first.name}` : ""}`
-    : fresh.length ? `Added ${fresh.length} memories` : "Nothing added";
-  if (errors.length) msg += `\n${errors.length === 1 ? errors[0].msg : `${errors.length} didn't fit: ${errors[0].msg}`}`;
-  toast(msg, errors.length ? 5000 : 3000, !fresh.length);
-  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-}
-
-function renderMem() {
-  const list = mem.list, running = !!mem.run;
-  $("mem-total").textContent = list.length ? String(list.length) : "";
-  $("mem-counts").innerHTML = MEM_BANDS.filter((b) => bandCount(list, b)).map((b) => {
-    const n = bandCount(list, b);
-    return `<span class="tag${n >= MAX_CH ? " full" : ""}">${b} ${n}/${MAX_CH}</span>`;
-  }).join("") + (list.length && !running ? `<button class="small" type="button" data-mem="clear">Clear</button>` : "");
-  const checked = mem.check && mem.check.byKey;
-  $("mem-list").innerHTML = list.length ? list.map((e, i) => {
-    const st = checked && checked.get(memKey(e.band, e.ch));
-    const cls = running && (mem.kind === "store" || mem.kind === "check") && e === (mem.jobRows || [])[mem.pos] ? "cur" : st === "ok" ? "ok" : st ? "bad" : "";
-    return `<li class="mem-row ${cls}"><span>${e.ch}</span><span class="band" style="${bandStyle(e.band)}">${e.band}</span>` +
-      `<span>${freqText(e.kHz)}</span><span class="nm"><b>${esc(e.name)}</b>${st && st !== "ok" ? ` ${esc(st)}` : ""}</span>` +
-      `<button type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${running ? " disabled" : ""}>✕</button></li>`;
-  }).join("") : `<li class="hint">No memories yet. Add some below, or with + Memory under a frequency you look up.</li>`;
-  renderMemRun();
-}
-
-// What each kind of job runs over, and how it names a step
-// Store and check run over the rows of the ticked bands, as they were when the job started (so Resume finds them)
-const JOBS = {
-  store: {verb: "Storing", noun: "row", items: () => mem.jobRows || []},
-  check: {verb: "Checking", noun: "row", items: () => mem.jobRows || []},
-  wipe: {verb: "Wiping", noun: "band", items: () => mem.wipeItems || []},
-  next: {verb: "Storing", noun: "station", items: () => mem.nextItems || []},  // Store here
-};
-// The bands Store and Check work on: every band in the list, until the user picks. A change in which
-// bands the list has resets the pick
-function storeBands() {
-  const inList = MEM_BANDS.filter((b) => bandCount(mem.list, b)), key = inList.join(" ");
-  if (mem.storeKey !== key) Object.assign(mem, {storeKey: key, storePicked: false});
-  if (!mem.storePicked) mem.storeSel = new Set(inList);
-  return inList.filter((b) => mem.storeSel.has(b));
-}
-const selRows = () => { const bands = storeBands(); return mem.list.filter((e) => bands.includes(e.band)); };
-const jobLabel = (kind, it) => kind === "wipe" ? it.band : kind === "next" ? `${it.band} ${fmtKHz(it.kHz)} → next channel` : `${it.band} ${fmtKHz(it.kHz)} → CH ${it.ch}`;
-
-function renderMemRun() {
-  const box = $("mem-run"), list = selRows(), n = list.length;
-  let h = `<h2 class="h"><span>Store on the radio</span><span>${n ? `${n} · ≈${memSecs(n)}` : ""}</span></h2>`;
-  if (mem.run) {
-    const job = JOBS[mem.kind], items = job.items(), total = items.length, i = mem.pos, e = items[i], todo = total - mem.from;
-    const avg = mem.done ? (Date.now() - mem.t0) / mem.done / 1000 : mem.kind === "wipe" ? 3 : 2.5;
-    h += `<div class="progress"><i style="width:${todo ? mem.done / todo * 100 : 0}%"></i></div>` +
-      `<p class="hint" style="margin-top:0">${job.verb} ${i + 1}/${total}` +
-      (e ? ` · ${esc(jobLabel(mem.kind, e))}` : "") + (mem.step ? ` · ${esc(mem.step)}` : "") +
-      ` · ≈${Math.max(1, Math.round(avg * (total - i)))} s left</p>` +
-      `<div class="row"><button class="small danger" type="button" data-mem="stop">Stop</button></div>` +
-      `<p class="hint">Keep this page open and don't touch the radio until it's done.</p>`;
-    box.innerHTML = h;
-    return;
-  }
-  const inList = MEM_BANDS.filter((b) => bandCount(mem.list, b));
-  if (inList.length > 1) {
-    h += `<div class="chips">` + inList.map((b) => `<button class="toggle" type="button" data-mem="store-band" data-b="${b}" ` +
-      `aria-pressed="${mem.storeSel.has(b)}">${b} · ${bandCount(mem.list, b)}</button>`).join("") + `</div>`;
-  }
-  const over = list.filter((e) => { const r = mem.record[memKey(e.band, e.ch)]; return r && r.kHz !== e.kHz; });
-  if (over.length) {
-    h += `<p class="hint" style="margin-top:0">Replaces, per this app's record: ` +
-      over.slice(0, 8).map((e) => `${e.band} CH ${e.ch} (${freqText(mem.record[memKey(e.band, e.ch)].kHz)} → ${freqText(e.kHz)})`).join(", ") +
-      (over.length > 8 ? ` and ${over.length - 8} more` : "") + `. The radio overwrites a channel without asking.</p>`;
-  }
-  const off = !state.ok || !n ? " disabled" : "";
-  h += `<div class="row" style="margin-top:8px"><button class="primary" type="button" data-mem="store"${off}>Store ${n || ""} memor${n === 1 ? "y" : "ies"}</button>` +
-    `<button type="button" data-mem="check"${off}>Check on radio</button></div>`;
-  if (mem.fail) {
-    h += `<p class="errs">${esc(mem.fail.msg)}</p><div class="row" style="margin-top:8px">` +
-      `<button class="small" type="button" data-mem="resume">Resume from ${JOBS[mem.fail.kind].noun} ${mem.fail.i + 1}</button></div>`;
-  }
-  if (mem.check && !mem.run) {
-    const c = mem.check;
-    h += `<p class="hint">Checked ${c.n}: ${c.ok} match${c.bad ? ` · ${c.bad} differ or didn't answer (marked in the list)` : ""}.</p>`;
-  }
-  if (!state.ok) h += `<p class="hint">Connect the radio (or start the Demo) to store the list. About 2–3 s per memory; keep the screen on and don't touch the radio during a run.</p>`;
-  box.innerHTML = h;
-  renderFresh();
-  renderBackup();
-}
-
-// kind "store": store rows from..end. "check": recall them and compare with the list.
-// "wipe": wipe the bands in mem.wipeItems on the radio, then forget them in the app
-async function runJob(kind, from = 0) {
-  if (mem.run || !state.ok || !link) return;
-  if (kind !== "wipe" && !from) mem.jobRows = selRows();
-  const job = JOBS[kind], list = job.items();
-  if (!list.length) return;
-  const run = mem.run = new MemoryRun(link, waiters, {note: memNote});
-  Object.assign(mem, {kind, from, pos: from, done: 0, step: "", t0: Date.now(), fail: null});
-  if (kind === "store") mem.check = null;
-  else if (kind === "check" && (!from || !mem.check)) mem.check = {n: 0, ok: 0, bad: 0, byKey: new Map()};
-  const wakeWasOn = $("wake").getAttribute("aria-pressed") === "true";
-  if (!wakeWasOn && "wakeLock" in navigator) setWake(true, true);
-  memNote(`── ${job.verb.toLowerCase()} ${job.noun}s ${from + 1}–${list.length}`);
-  renderMem();
-  try {
-    for (let i = from; i < list.length; i++) {
-      const e = list[i], key = memKey(e.band, e.ch);
-      const onStep = (step) => { mem.step = step; renderMemRun(); };
-      mem.pos = i; mem.step = "";
-      renderMem();
-      if (kind === "store") {
-        await run.store(e, onStep);
-        mem.record[key] = {kHz: e.kHz, name: e.name, at: Date.now()};
-        saveRecord();
-      } else if (kind === "check") {
-        onStep("recall");
-        const r = await run.recall(e.band, e.ch), c = mem.check;
-        c.n++;
-        if (r.kHz === e.kHz) { c.ok++; c.byKey.set(key, "ok"); }
-        else { c.bad++; c.byKey.set(key, r.empty ? "· empty" : r.kHz === null ? "· no reply" : `· radio has ${freqText(r.kHz)}`); }
-        if (r.empty) delete mem.record[key];
-        else if (r.kHz !== null) mem.record[key] = {kHz: r.kHz, name: r.kHz === e.kHz ? e.name : "", at: Date.now()};
-        saveRecord();
-      } else {
-        await run.wipe(e.band, e.probe, onStep);
-        forgetBand(e.band);  // only once the radio has done it
-        mem.freshPicked = false;
-      }
-      mem.done++;
-    }
-    toast(kind === "store" ? `Stored ${mem.done} memor${mem.done === 1 ? "y" : "ies"}`
-      : kind === "check" ? `Checked: ${mem.check.ok}/${mem.check.n} match` : `Wiped ${list.map((e) => e.band).join(", ")}`);
-  } catch (err) {
-    const e = list[mem.pos], where = `${job.noun} ${mem.pos + 1}${e ? ` (${jobLabel(kind, e)})` : ""}`;
-    const stopped = err instanceof CancelErr;
-    mem.fail = {kind, i: mem.pos, msg: `${stopped ? "Stopped" : "Failed"} at ${where}${mem.step ? `, step "${mem.step}"` : ""}` +
-      (stopped && err.message === "stopped" ? "" : `: ${err.message || err}`)};
-    memNote(`── ${mem.fail.msg}`);
-  } finally {
-    mem.run = null; mem.step = "";
-    if (!wakeWasOn && state.wake) setWake(false, true);
-    renderMem(); renderView();
-  }
-}
-
-// ---- Store here: what the radio is on, on the channel after the last one in use ----
-// f: the radio's frequency (waiters.freq; passed by the freq handler, which runs before waiters is fed)
-function renderStoreHere(f = waiters.freq) {
-  const b = $("storehere"), k = f && !f.alert ? toKHz(f) : null;
-  b.disabled = !state.ok || !!mem.run || !k || !MEM_BANDS.includes(f.band);
-}
-async function storeHere() {
-  const f = waiters.freq, k = f && toKHz(f), band = f && f.band;
-  if (mem.run || !state.ok || !link || !k || !MEM_BANDS.includes(band)) return;
-  const had = Object.entries(mem.record).find(([key, r]) => key.startsWith(band + ":") && r.kHz === k);
-  if (had && !confirm(`${fmtKHz(k)} is already on ${band} CH ${had[0].split(":")[1]}. Store it again on the next channel?`)) return;
-  const name = view.k === k && view.data ? dossierName() : "";
-  // Never overwrite a channel this app knows holds something else (a radio that wraps round when the band is full)
-  const guard = (n) => { const r = mem.record[memKey(band, n)]; return r && r.kHz !== k ? `the radio proposes CH ${n}, which holds ${fmtKHz(r.kHz)} per this app's record` : null; };
-  mem.run = new MemoryRun(link, waiters, {note: memNote});
-  Object.assign(mem, {kind: "next", nextItems: [{band, kHz: k}], from: 0, pos: 0, done: 0, step: "", t0: Date.now()});
-  renderMem(); renderStoreHere();
-  toast(`Storing ${fmtKHz(k)} on the next ${band} channel…`, 8000);
-  try {
-    const n = await mem.run.storeNext(band, guard);
-    mem.record[memKey(band, n)] = {kHz: k, name, at: Date.now()};
-    saveRecord();
-    const clash = mem.list.find((e) => e.band === band && e.ch === n && e.kHz !== k);
-    if (!clash && !mem.list.some((e) => e.band === band && e.ch === n)) { mem.list = addToList(mem.list, [{band, kHz: k, ch: n, name}]).list; saveMem(); }
-    toast(`Stored ${fmtKHz(k)} on ${band} CH ${n}${name ? ` · ${name}` : ""}` +
-      (clash ? `\nYour list plans ${freqText(clash.kHz)} on CH ${n}; storing the list would replace it` : ""), clash ? 7000 : 4000);
-  } catch (err) {
-    const msg = err instanceof CancelErr ? "Stopped" : err.message || String(err);
-    toast(`Not stored: ${msg}\nThe radio leaves store mode by itself in a few seconds.`, 7000, true);
-    memNote(`── store next ${band}: not stored: ${msg}`);
-  } finally {
-    mem.run = null;
-    renderMem(); renderView();
-  }
-}
-
-// ---- Backup: export the app's record as text, import one back ----
-const SHARE_FILES = (() => {
-  try { return !!(navigator.canShare && navigator.canShare({files: [new File(["x"], "x.txt", {type: "text/plain"})]})); }
-  catch { return false; }
-})();
-const localStamp = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-function backupFile() {
-  const when = localStamp();
-  return {name: `rf919-memories-${when.slice(0, 10)}.txt`, text: backupText(mem.record, when)};
-}
-
-function renderBackup() {
-  const rows = recordItems(mem.record), n = rows.length, off = !n ? " disabled" : "", p = mem.imported;
-  let h = `<p class="hint" style="margin-top:0">` + (n
-    ? `${n} channel${n === 1 ? "" : "s"} this app knows are on the radio: ${esc(bandSummary(rows))}.`
-    : "Nothing to export yet: the app's record fills up as you Store, use Store here or Check on radio.") + `</p>` +
-    `<div class="row">` + (SHARE_FILES ? `<button class="small primary" type="button" data-mem="bk-share"${off}>Share backup</button>` : "") +
-    `<button class="small" type="button" data-mem="bk-download"${off}>Download .txt</button></div>` +
-    `<h2 class="h" style="margin:16px 0 8px"><span>Import</span></h2>` +
-    `<div class="row"><button class="small" type="button" data-mem="bk-open"${mem.run ? " disabled" : ""}>Open backup file…</button></div>`;
-  if (p && p.errors.length) {
-    h += `<p class="errs">${esc(p.name)}: ` + p.errors.slice(0, 8).map((x) => esc(`${x.line ? `line ${x.line}: ` : ""}${x.msg}`)).join("<br>") +
-      (p.errors.length > 8 ? `<br>… and ${p.errors.length - 8} more` : "") + `</p>`;
-  } else if (p) {
-    const dis = mem.run ? " disabled" : "";
-    h += `<p class="hint">${esc(p.name)}: ${p.list.length} channel${p.list.length === 1 ? "" : "s"} · ${esc(bandSummary(p.list))}</p>` +
-      `<div class="row" style="margin-top:8px"><button class="small primary" type="button" data-mem="bk-load"${dis}>Load to store</button>` +
-      `<button class="small" type="button" data-mem="bk-mark"${dis}>Already on radio</button></div>` +
-      `<p class="hint"><b>Load to store</b>: the radio was wiped or reset; the file becomes the list, then tap Store. ` +
-      `<b>Already on radio</b>: the radio still has them (new phone or browser); the app just learns them, nothing is sent.</p>`;
-  }
-  $("backup-body").innerHTML = h;
-}
-
-async function exportBackup(share) {
-  const {name, text} = backupFile();
-  if (share) {
-    try { await navigator.share({files: [new File([text], name, {type: "text/plain"})], title: "RF919 memories"}); }
-    catch (e) { if (e.name !== "AbortError") toast(`Share failed: ${errText(e)}`, 4000, true); }
-    return;
-  }
-  const url = URL.createObjectURL(new Blob([text], {type: "text/plain"})), a = document.createElement("a");
-  a.href = url; a.download = name;
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  toast(`Saved ${name}`);
-}
-
-async function readBackup(file) {
-  if (file.size > 1e6) { mem.imported = {name: file.name, list: [], errors: [{msg: "too big for a memory list"}]}; renderBackup(); return; }
-  let text;
-  try { text = await file.text(); } catch (e) { toast(`Couldn't read ${file.name}: ${errText(e)}`, 4000, true); return; }
-  const {entries, errors} = parseMemList(text);
-  const res = errors.length ? {list: [], errors: []} : addToList([], entries);
-  const all = [...errors, ...res.errors];
-  if (!all.length && !res.list.length) all.push({msg: "no memories in this file"});
-  mem.imported = {name: file.name, list: res.list, errors: all};
-  renderBackup();
-}
-
-// mark: the radio already holds these, so the app's record learns them; otherwise they only become the list to store
-function importBackup(mark) {
-  const p = mem.imported;
-  if (!p || p.errors.length || mem.run) return;
-  if (mark) {
-    const changed = p.list.filter((e) => { const r = mem.record[memKey(e.band, e.ch)]; return r && r.kHz !== e.kHz; });
-    if (changed.length) {
-      const e = changed[0], old = mem.record[memKey(e.band, e.ch)].kHz;
-      if (!confirm(`This changes ${changed.length} channel${changed.length === 1 ? "" : "s"} in the app's record, ` +
-        `for example ${e.band} CH ${e.ch}: ${freqText(old)} → ${freqText(e.kHz)}. Go on?`)) return;
-    }
-    const at = Date.now();
-    for (const e of p.list) mem.record[memKey(e.band, e.ch)] = {kHz: e.kHz, name: e.name, at};
-    saveRecord();
-  }
-  const n = p.list.length;
-  Object.assign(mem, {list: p.list, check: null, fail: null, storePicked: false, imported: null});
-  saveMem();
-  toast(mark ? `The app now knows ${n} channel${n === 1 ? "" : "s"} on the radio` : `${n} memor${n === 1 ? "y" : "ies"} loaded: tap Store to put them on the radio`, 4500);
-  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-}
-
-// The app's side of a wipe: the band's rows in the list, its record, and its check marks
-function forgetBand(band) {
-  const mine = (k) => k.startsWith(band + ":");
-  for (const k of Object.keys(mem.record)) if (mine(k)) delete mem.record[k];
-  if (mem.check) for (const k of [...mem.check.byKey.keys()]) if (mine(k)) mem.check.byKey.delete(k);
-  mem.list = mem.list.filter((e) => e.band !== band);
-  saveRecord(); saveMem();
-  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-}
-const recordedIn = (band) => Object.keys(mem.record).filter((k) => k.startsWith(band + ":")).map((k) => +k.split(":")[1]);
-// The channel to recall after a wipe: the lowest one known to have held something, so an empty reply means something
-function probeChannel(band) {
-  const chs = [...recordedIn(band), ...mem.list.filter((e) => e.band === band).map((e) => e.ch)];
-  return chs.length ? Math.min(...chs) : 1;
-}
-
-function renderFresh() {
-  // Ticked by default: the bands the list or the record has, until the user picks
-  if (!mem.freshPicked) mem.freshSel = new Set(MEM_BANDS.filter((b) => bandCount(mem.list, b) || recordedIn(b).length));
-  const n = mem.freshSel.size;
-  const chip = (b) => `<button class="toggle" type="button" data-mem="fresh-band" data-b="${b}" aria-pressed="${mem.freshSel.has(b)}"${mem.run ? " disabled" : ""}>${b}</button>`;
-  $("fresh-body").innerHTML =
-    `<p class="hint" style="margin-top:0">Deletes every memory (CH 1–${MAX_CH}) of the ticked bands on the radio, as holding SCAN/ATS on it does, ` +
-    `then clears this app's list and record for them. About 3 s per band.</p>` +
-    `<div class="chips">${MEM_BANDS.map(chip).join("")}</div>` +
-    `<div class="row"><button class="danger" type="button" data-mem="fresh"${!state.ok || mem.run || !n ? " disabled" : ""}>` +
-    `Wipe ${n || ""} band${n === 1 ? "" : "s"} on the radio</button></div>` +
-    (state.ok ? "" : `<p class="hint">Connect the radio (or start the Demo) first.</p>`);
-}
-function startFresh() {
-  const bands = MEM_BANDS.filter((b) => mem.freshSel.has(b));
-  if (!bands.length || mem.run || !state.ok) return;
-  const names = bands.length > 1 ? `${bands.slice(0, -1).join(", ")} and ${bands[bands.length - 1]}` : bands[0];
-  if (!confirm(`Delete ALL memories in ${names} on the radio, and this app's list and record for ${bands.length > 1 ? "them" : "it"}? This can't be undone.`)) return;
-  mem.wipeItems = bands.map((band) => ({band, probe: probeChannel(band)}));
-  runJob("wipe");
-}
-
-function applyText(replace) {
-  if (mem.run) return;
-  const show = (errs) => {
-    $("mem-errs").innerHTML = errs.slice(0, 12).map((x) => esc(`${x.line ? `line ${x.line}: ` : ""}${x.msg}`)).join("<br>") +
-      (errs.length > 12 ? `<br>… and ${errs.length - 12} more` : "");
-  };
-  const {entries, errors} = parseMemList($("mem-text").value);
-  if (errors.length) { show(errors); return; }
-  const res = addToList(replace ? [] : mem.list, entries);
-  if (res.errors.length) { show(res.errors); return; }
-  show([]);
-  Object.assign(mem, {list: res.list, check: null, fail: null});
-  saveMem();
-  $("mem-text").value = "";
-  toast(replace ? `The list now has ${mem.list.length} memories` : `Added ${entries.length} memor${entries.length === 1 ? "y" : "ies"}`);
-  renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-}
-
-// ---- list builders (radiomap.cl has one file per frequency, so they fetch a few at a time) ----
-async function fetchAll(ks, box) {
-  if (mem.job) mem.job.abort();
-  const ctl = mem.job = new AbortController();
-  box.innerHTML = `<div class="progress"><i style="width:0"></i></div>` +
-    `<p class="hint" style="margin-top:0"><span></span> <button class="small" type="button" data-mem="job-stop">Cancel</button></p>`;
-  const bar = box.querySelector(".progress i"), txt = box.querySelector("p span");
-  const prog = (d, n) => { bar.style.width = `${d / n * 100}%`; txt.textContent = `Fetching ${d}/${n} from radiomap.cl…`; };
-  prog(0, ks.length);
-  // rm.get, not rm.lookup: a long list mustn't push the dossier's lookups out of the cache
-  const got = await pool(ks, 6, (k) => rm.get(`freq/${k}.json`), prog, ctl.signal);
-  if (mem.job === ctl) mem.job = null;
-  if (ctl.signal.aborted) { box.innerHTML = `<p class="hint">Cancelled.</p>`; return null; }
-  return got;
-}
-async function radiomapIndex(box) {
-  try { return await rm.index(); }
-  catch (e) { box.innerHTML = `<p class="errs">radiomap.cl unreachable (${esc(errText(e))})</p>`; return null; }
-}
-
-mem.swSel = new Set(store.get("rf919.swbands", ["49m", "41m", "31m", "25m"]));
-function renderSwChips() {
-  const chip = (id, label) => `<button class="toggle" type="button" data-mem="sw-band" data-b="${id}" aria-pressed="${mem.swSel.has(id)}">${label}</button>`;
-  $("sw-bands").innerHTML = SW_METERS.map(([m]) => chip(m, m)).join("") + chip("all", "All SW");
-}
-
-async function swFind() {
-  const box = $("sw-results"), all = mem.swSel.has("all"), meters = SW_METERS.filter(([m]) => mem.swSel.has(m));
-  if (!all && !meters.length) { toast("Pick one or more meter bands", 3000, true); return; }
-  const idx = await radiomapIndex(box);
-  if (!idx) return;
-  const ks = idx.freqs.filter((k) => bandFor(k) === "SW" && (all || meters.some(([, lo, hi]) => k >= lo && k <= hi)));
-  if (ks.length > 300 && !confirm(`That's ${ks.length} frequencies to fetch from radiomap.cl, which takes a while. Go on?`)) return;
-  const got = await fetchAll(ks, box);
-  if (!got) return;
-  const win = +$("sw-window").value, now = Date.now(), items = [];
-  got.forEach((d, i) => {
-    if (!d || !d.shortwave || !d.shortwave.length) return;
-    const rows = d.shortwave.map((e) => ({e, air: swAir(e, now)}));
-    const on = rows.find((r) => r.air.on);
-    const soon = rows.filter((r) => !r.air.on && r.air.startsIn != null && r.air.startsIn <= win)
-      .sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
-    const r = on || soon;
-    if (!r) return;
-    items.push({band: "SW", kHz: ks[i], ch: null, name: r.e.station || "", flag: flagHtml(ituFlag(r.e.itu), r.e.country),
-      note: [r.e.langLabel || r.e.lang, on ? `on air until ${minHHMM(hhmmMin(r.e.endUTC))} UTC` : `from ${hhmm(r.e.startUTC)} UTC, in ${dur(r.air.startsIn)}`]
-        .filter(Boolean).join(" · ")});
-  });
-  mem.picks.sw = {band: "SW", items, failed: got.filter((d) => d === null).length};
-  renderPicks("sw");
-}
-
-async function nearFind() {
-  const box = $("near-results"), band = $("near-band").value, kind = $("near-kind").value, radius = +$("near-radius").value;
-  if (radius && !myPos) { try { await locate(); } catch { return; } }
-  const idx = await radiomapIndex(box);
-  if (!idx) return;
-  const ks = idx.freqs.filter((k) => bandFor(k) === band);
-  if (!ks.length) { box.innerHTML = `<p class="hint">radiomap.cl has nothing on ${band}.</p>`; return; }
-  const got = await fetchAll(ks, box);
-  if (!got) return;
-  const best = new Map();  // the kHz to listen on -> nearest station there
-  got.forEach((d, i) => {
-    for (const s of (d && d.stations) || []) {
-      if (kind !== "all" && s.category !== kind) continue;
-      // A repeater is listed on its input too; it's heard on its output
-      const k = s.category === "amateur" && s.rxKHz ? Math.round(s.rxKHz) : ks[i];
-      if (bandFor(k) !== band) continue;
-      const km = myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null;
-      if (radius && (km == null || km > radius)) continue;
-      const cur = best.get(k);
-      if (!cur || (km ?? Infinity) < (cur.km ?? Infinity)) best.set(k, {s, km});
-    }
-  });
-  const items = [...best].map(([k, {s, km}]) => ({band, kHz: k, ch: null, km, name: s.nombre || s.signal || "",
-    note: [s.nombre && s.signal, isRepeater(s) && `repeater ${fmtShift(s.rxKHz, s.txKHz)}`, placeOf(s)[0],
-      km != null && `${Math.round(km).toLocaleString()} km`].filter(Boolean).join(" · ")}));
-  items.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.kHz - b.kHz);
-  mem.picks.near = {band, items, failed: got.filter((d) => d === null).length};
-  renderPicks("near");
-}
-
-// The builder's results with tick boxes; only as many are ticked as the band has free channels
-function renderPicks(kind) {
-  const p = mem.picks[kind], box = $(`${kind}-results`);
-  if (!p) return;
-  const inList = (it) => mem.list.some((e) => e.band === it.band && e.kHz === it.kHz);
-  const free = MAX_CH - bandCount(mem.list, p.band);
-  const fit = Math.min(p.items.filter((it) => !inList(it)).length, free);
-  let ticked = 0;
-  const rows = p.items.map((it, i) => {
-    const has = inList(it), on = !has && ticked < free;
-    if (on) ticked++;
-    return `<label class="${has ? "in" : ""}"><input type="checkbox" data-pick="${i}"${on ? " checked" : ""}${has ? " disabled" : ""}>` +
-      `<b>${freqText(it.kHz)}</b><span>${it.flag || ""}${esc(it.name)}<small>${esc(has ? "already in the list" : it.note || "")}</small></span></label>`;
-  }).join("");
-  const head = `${p.items.length} match · ${fit} fit (${free} free ${p.band} channel${free === 1 ? "" : "s"} of ${MAX_CH})` +
-    (p.failed ? ` · ${p.failed} couldn't be fetched` : "");
-  box.innerHTML = `<p class="hint">${esc(head)}</p>` + (p.items.length
-    ? `<div class="picks mem-box">${rows}</div><div class="row" style="margin-top:8px">` +
-      `<button class="small primary" type="button" data-mem="add-${kind}">Add ticked</button></div>` : "");
-}
-function addPicked(kind) {
-  const p = mem.picks[kind];
-  const items = [...$(`${kind}-results`).querySelectorAll("input[data-pick]:checked")].map((b) => p.items[+b.dataset.pick]);
-  if (!items.length) { toast("Tick some first", 2500, true); return; }
-  addMem(items.map(({band, kHz, name}) => ({band, kHz, ch: null, name})));
-}
-
-// ---- Test one memory: fixed pauses, every step marked in the log ----
-function testEntry() {
-  const band = $("t-band").value, k = parseFreqInput($("t-freq").value), ch = Number($("t-ch").value);
-  if (k === null) { toast("Type a frequency for the test", 3000, true); return null; }
-  if (!(Number.isInteger(ch) && ch >= 1 && ch <= MAX_CH)) { toast(`Type a channel, 1–${MAX_CH}`, 3000, true); return null; }
-  return {band, kHz: k, ch};
-}
-async function testRun(kind, auto) {
-  if (!state.ok || !link) { toast("Not connected — tap Connect", 3500, true); return; }
-  if (mem.run || (mem.test && mem.test.busy)) return;
-  let e;
-  if (kind === "wipe") {
-    e = {band: $("t-band").value};
-    if (!confirm(`Hold SCAN on ${e.band}? On the RF919 this deletes ALL ${e.band} memories.`)) return;
-  } else if (!(e = testEntry())) return;
-  const confirmKey = $("t-confirm").value, sig = [kind, e.band, e.kHz, e.ch, confirmKey].join(" ");
-  if (auto || !mem.test || mem.test.sig !== sig || mem.test.i >= mem.test.steps.length) {
-    mem.test = {sig, i: 0, busy: false, steps: kind === "store" ? storeTestSteps(e, confirmKey)
-      : kind === "recall" ? recallTestSteps(e.band, e.ch) : wipeTestSteps(e.band)};
-  }
-  const t = mem.test, status = $("t-status");
-  t.busy = true;
-  try {
-    do {
-      const s = t.steps[t.i];
-      memNote(`── ${kind} test, step ${t.i + 1}/${t.steps.length}: ${s.label}`);
-      status.textContent = `Step ${t.i + 1}/${t.steps.length}: ${s.label}…`;
-      await s.run(link, waiters);
-      t.i++;
-      if (auto && t.i < t.steps.length) await delay(1500);
-    } while (auto && t.i < t.steps.length);
-    status.textContent = t.i < t.steps.length ? `Sent step ${t.i}/${t.steps.length}. Next: ${t.steps[t.i].label}`
-      : `All ${t.steps.length} steps sent. Note what the radio shows, then copy the log (Settings › Log).`;
-  } catch (err) {
-    status.textContent = `Step ${t.i + 1} failed: ${errText(err)}`;
-    mem.test = null;
-  } finally { t.busy = false; }
-}
-
-$("remote").addEventListener("click", (e) => {
-  const t = e.target.closest("[data-mem]");
-  if (!t || t.disabled) return;
-  switch (t.dataset.mem) {
-    case "del": {
-      if (mem.run) return;
-      const i = +t.dataset.i;
-      mem.list = mem.list.filter((_, j) => j !== i);
-      saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-      break;
-    }
-    case "clear":
-      if (mem.run || !confirm(`Remove all ${mem.list.length} memories from the list? The radio keeps what it has stored.`)) return;
-      Object.assign(mem, {list: [], check: null, fail: null});
-      saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
-      break;
-    case "apply": applyText(true); break;
-    case "append": applyText(false); break;
-    case "sw-band": {
-      const b = t.dataset.b;
-      if (mem.swSel.has(b)) mem.swSel.delete(b); else mem.swSel.add(b);
-      store.set("rf919.swbands", [...mem.swSel]);
-      renderSwChips();
-      break;
-    }
-    case "sw-find": swFind(); break;
-    case "near-find": nearFind(); break;
-    case "job-stop": if (mem.job) mem.job.abort(); break;
-    case "add-sw": addPicked("sw"); break;
-    case "add-near": addPicked("near"); break;
-    case "store": runJob("store"); break;
-    case "check": runJob("check"); break;
-    case "resume": if (mem.fail) runJob(mem.fail.kind, mem.fail.i); break;
-    case "store-band": {
-      const b = t.dataset.b;
-      if (mem.storeSel.has(b)) mem.storeSel.delete(b); else mem.storeSel.add(b);
-      mem.storePicked = true;
-      renderMemRun();
-      break;
-    }
-    case "fresh-band": {
-      const b = t.dataset.b;
-      if (mem.freshSel.has(b)) mem.freshSel.delete(b); else mem.freshSel.add(b);
-      mem.freshPicked = true;
-      renderFresh();
-      break;
-    }
-    case "fresh": startFresh(); break;
-    case "bk-share": exportBackup(true); break;
-    case "bk-download": exportBackup(false); break;
-    case "bk-open": $("backup-file").click(); break;
-    case "bk-load": importBackup(false); break;
-    case "bk-mark": importBackup(true); break;
-    case "t-wipe": testRun("wipe", true); break;
-    case "stop": if (mem.run) mem.run.stop(); break;
-    case "t-step": testRun("store", false); break;
-    case "t-auto": testRun("store", true); break;
-    case "t-recall": testRun("recall", true); break;
-  }
-});
-for (const b of MEM_BANDS) $("t-band").add(new Option(b, b, b === "SW", b === "SW"));
-renderSwChips();
-$("mem-text").addEventListener("input", () => { $("mem-errs").textContent = ""; });
-$("backup-file").addEventListener("change", (e) => {
-  const f = e.target.files && e.target.files[0];
-  e.target.value = "";  // so the same file can be opened again
-  if (f) readBackup(f);
-});
-
-// ---- Developer: send any frame (FF13 only) ----
-function parseHexBytes(s) {
-  const parts = s.trim().replace(/0x/gi, "").split(/[\s,:]+/).filter(Boolean)
-    .flatMap((p) => p.length > 2 && p.length % 2 === 0 ? p.match(/../g) : [p]);
-  return parts.every((p) => /^[0-9a-f]{1,2}$/i.test(p)) ? parts.map((p) => parseInt(p, 16)) : null;
-}
-function devFrame() {
-  const c = parseHexBytes($("dev-cmd").value), d = parseHexBytes($("dev-data").value);
-  return c && c.length === 1 && d && d.length <= MAX_FRAME - 4 ? frame(c[0], d) : null;
-}
-function renderDev() {
-  const f = devFrame();
-  $("dev-frame").textContent = f ? `Frame: ${hex(f)}` : "Command: one byte. Data: up to 16 bytes. Both in hex.";
-  $("dev-send").disabled = !f;
-}
-$("dev-cmd").addEventListener("input", renderDev);
-$("dev-data").addEventListener("input", renderDev);
-$("dev-send").addEventListener("click", () => {
-  const f = devFrame();
-  if (!f) return;
-  memNote(`── developer: send ${hex(f)}`);
-  send(() => link ? link.send(f) : Promise.reject(new Error("not connected")));
-});
-
-function debug(text) { log({kind: "debug", text, raw: new Uint8Array()}); }
-function hasGbk() { try { new TextDecoder("gbk"); return true; } catch { return false; } }
-
-function onEvent(ev) {
-  waiters.feed(ev);
-  const h = handlers[ev.kind];
-  if (h) h(ev.data);
-  log(ev);
-}
-
-async function send(fn) {
-  try { await fn(); }
-  catch (e) { toast(e.message === "not connected" ? "Not connected — tap Connect" : `Error: ${e.message || e}`, 3500, true); }
-}
-
-function pressKey(key, long) {
-  if (state.hold) { long = true; toggleHold(false); }
-  const k = long && LONG[key] !== undefined ? LONG[key] : key;
-  if (navigator.vibrate) navigator.vibrate(long ? 40 : 15);
-  send(() => link ? link.press(k) : Promise.reject(new Error("not connected")));
-}
-
-function toggleHold(on = !state.hold) { state.hold = on; $("hold").setAttribute("aria-pressed", on); }
-
-// Short tap = key, hold ≥ 600 ms = long-press variant
-function bindPress(btn, keyOf) {
-  let timer = null, fired = false;
-  const clear = () => { clearTimeout(timer); timer = null; btn.classList.remove("pressing"); };
-  btn.addEventListener("pointerdown", (e) => {
-    if (btn.disabled || e.button > 0) return;
-    fired = false; btn.classList.add("pressing");
-    timer = setTimeout(() => {
-      fired = true; clear(); btn.classList.add("long-fired");
-      setTimeout(() => btn.classList.remove("long-fired"), 250);
-      pressKey(keyOf(), true);
-    }, 600);
-  });
-  btn.addEventListener("pointerup", () => { if (timer && !fired) { clear(); pressKey(keyOf(), false); } else clear(); });
-  btn.addEventListener("pointerleave", clear);
-  btn.addEventListener("pointercancel", clear);
-  btn.addEventListener("contextmenu", (e) => e.preventDefault());
-  btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pressKey(keyOf(), false); } });
-}
-
-document.querySelectorAll("[data-key]").forEach(b => bindPress(b, () => b.dataset.key));
-document.querySelectorAll("[data-fn]").forEach(b => bindPress(b, () => FUNC_BUTTONS[b.dataset.fn]));
-
-for (const name of Object.values(BANDS)) $("bandsel").add(new Option(name, name));
-$("bandsel").addEventListener("change", (e) => { if (e.target.value) send(() => link.tune(e.target.value, 0)); });
-async function doTune() {
-  const v = $("freqin").value.trim();
-  if (!v) return;
-  $("freqin").blur();
-  await send(() => link.typeFreq(v));
-  $("freqin").value = "";
-}
-$("tunebtn").addEventListener("click", doTune);
-$("freqin").addEventListener("keydown", (e) => { if (e.key === "Enter") doTune(); });
-$("settime").addEventListener("click", () => send(async () => { await link.setTime(); toast("Clock synced"); }));
-$("hold").addEventListener("click", () => toggleHold());
-$("rawlog").addEventListener("change", (e) => state.raw = e.target.checked);
-
-async function startBle() {
-  if (!(link instanceof BleLink)) { if (link) await link.close(); link = new BleLink(onEvent, setStatus); }
-  // Default: list every device, since some browsers (Bluefy) don't match the name filter
-  try { await link.connect(!$("onlyRadio").checked); }
-  catch (e) {
-    if (e.name === "NotFoundError") {
-      setStatus("bad", "no device chosen");
-      if ($("onlyRadio").checked) toast("Radio not in the list? Untick \"Only list RF919 radios\" in Remote › Settings", 6000);
-    }
-    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; openRemote("settings"); }
-  }
-}
-
-$("copylog").addEventListener("click", async () => {
-  const text = [...$("log").children].map(d => d.textContent).join("\n");
-  try { await navigator.clipboard.writeText(text); toast("Log copied"); }
-  catch {  // older iOS webviews: select the text so it can be copied by hand
-    getSelection().selectAllChildren($("log")); toast("Select-all done: tap Copy");
-  }
-});
-$("connect").addEventListener("click", startBle);
-$("storehere").addEventListener("click", storeHere);
-$("disconnect").addEventListener("click", () => link && link.close(true));
-async function startDemo() {
-  if (link) await link.close();
-  link = new ReplayLink(onEvent, setStatus);
-  link.connect();
-}
-$("demo").addEventListener("click", startDemo);
-
-// Screen wake lock
-// quiet: no error toast (a run asks for it in passing)
-async function setWake(on, quiet = false) {
-  try {
-    if (on) { state.wake = await navigator.wakeLock.request("screen"); state.wake.addEventListener("release", () => { if (!document.hidden) syncWake(false); }); }
-    else if (state.wake) { await state.wake.release(); state.wake = null; }
-    syncWake(on);
-  } catch (e) { if (!quiet) toast("Keep-screen-on isn't available here", 3500, true); syncWake(false); }
-}
-const syncWake = (on) => $("wake").setAttribute("aria-pressed", on);
-$("wake").addEventListener("click", () => setWake($("wake").getAttribute("aria-pressed") !== "true"));
-document.addEventListener("visibilitychange", () => { if (!document.hidden && $("wake").getAttribute("aria-pressed") === "true") setWake(true); });
-if (!("wakeLock" in navigator)) $("wake").disabled = true;
-
-// Keyboard: / search, r Remote, and the radio's keys (typing digits searches while no radio is connected)
-const SHORTCUTS = {ArrowLeft: "DOWN", ArrowRight: "UP", "+": "VOL+", "=": "VOL+", "-": "VOL-", b: "BAND", s: "PLAY", p: "POWER", m: "MEMO",
-  ".": "POINT", Enter: "FREQ", Backspace: "BACK"};
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !$("remote").hidden) { closeRemote(); return; }
-  if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.target.matches("button") && (e.key === "Enter" || e.key === " ")) return;
-  if (e.key === "/") { e.preventDefault(); $("q").focus(); return; }
-  if (e.key === "r" && $("remote").hidden) { e.preventDefault(); openRemote(); return; }
-  if (!state.ok && /^[0-9.]$/.test(e.key)) { e.preventDefault(); $("q").focus(); $("q").value += e.key; return; }
-  const key = /^[0-9]$/.test(e.key) ? e.key : SHORTCUTS[e.key];
-  if (key) { e.preventDefault(); pressKey(key, e.shiftKey); }
-});
-
-if (!navigator.bluetooth) $("nobt").hidden = false;
-setStatus("bad", navigator.bluetooth ? "not connected" : "no Web Bluetooth");
-debug(`page ${document.lastModified} · ${navigator.userAgent}`);
-debug(`secure context: ${window.isSecureContext} · Web Bluetooth: ${!!navigator.bluetooth}` +
-  ` · requestDevice: ${typeof navigator.bluetooth?.requestDevice} · GBK decoder: ${hasGbk()}`);
-if (navigator.bluetooth?.getAvailability) {
-  navigator.bluetooth.getAvailability().then(a => debug(`Bluetooth adapter available: ${a}`), e => debug(`getAvailability failed: ${errText(e)}`));
-}
-if (fromHash()) lookUp(fromHash());
-if (new URLSearchParams(location.search).has("demo")) startDemo();
-</script>
+<nav class="tabbar" id="tabbar" aria-label="Sections">
+  <a href="#radio" data-tab="radio"><svg class="ico" aria-hidden="true"><use href="#i-radio"/></svg>Radio</a>
+  <a href="#explore" data-tab="explore"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg>Explore</a>
+  <a href="#memories" data-tab="memories"><svg class="ico" aria-hidden="true"><use href="#i-memories"/></svg>Memories</a>
+  <a href="#more" data-tab="more"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg>More</a>
+</nav>
+
+<!-- ======== the Remote: every key of the radio ======== -->
+<dialog class="sheet" id="remote" aria-labelledby="remote-title">
+  <div class="grabber" id="remote-grab" aria-hidden="true"></div>
+  <header class="sheet-head">
+    <h2 class="sr-only" id="remote-title">The radio's keys</h2>
+    <label class="band-pick"><span class="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
+    <div class="mini-freq" data-swipe-tune><span class="rb-freq" data-freq>---.---</span></div>
+    <button class="close" type="button" data-close aria-label="Close" autofocus>✕</button>
+  </header>
+  <div class="sheet-body">
+    <section>
+      <h3 class="h">Keys</h3>
+      <div class="grid">
+        <button data-key="POWER" class="danger">⏻ Power</button>
+        <button data-key="BAND">Band</button>
+        <button data-key="DOWN">◀ Down</button>
+        <button data-key="UP">Up ▶</button>
+        <button data-key="VOL-">Vol −</button>
+        <button data-key="VOL+">Vol +</button>
+        <button data-key="SQ">SQ</button>
+        <button data-key="MEMO">Memo</button>
+        <button data-key="SUBBAND">Sub</button>
+        <button data-key="REC">Rec</button>
+        <button data-key="ALARM">Alarm</button>
+        <button data-key="BLUETOOTH">BT</button>
+        <button data-key="SCAN" class="primary wide" aria-label="Scan (tap again to stop)">Scan</button>
+      </div>
+      <div class="grid k5" style="margin-top:var(--s2)">
+        <button data-fn="MODE">MODE</button>
+        <button data-fn="STEP">STEP</button>
+        <button data-fn="SCAN">SCAN</button>
+        <button data-fn="SOS">SOS</button>
+        <button data-fn="FUNC">FUNC</button>
+      </div>
+      <p class="hint">Hold a key about 0.6 s for its long press (seek, band list, lock…).</p>
+    </section>
+    <section>
+      <h3 class="h">Keypad</h3>
+      <div class="grid k3">
+        <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+        <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+        <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+        <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK" aria-label="Delete">⌫</button>
+        <button data-key="FREQ" class="primary wide">FREQ ⏎</button>
+      </div>
+      <div class="grid" style="margin-top:var(--s2)">
+        <button data-key="STEREO">Stereo</button>
+        <button data-key="DE">DE</button>
+        <button data-key="PLAY">Play</button>
+        <button data-key="MUSIC">Music</button>
+      </div>
+    </section>
+    <section>
+      <h3 class="h">Direct tune</h3>
+      <div class="row">
+        <select id="bandsel" data-band-select aria-label="Band"></select>
+        <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="9.5 or 101.1" autocomplete="off" aria-label="Frequency">
+      </div>
+      <div class="row" style="margin-top:var(--s2)"><button class="primary" type="button" id="tunebtn">Tune</button></div>
+      <p class="hint">Typed in the unit the band shows (MHz on SW and FM).</p>
+    </section>
+  </div>
+</dialog>
+
+<!-- ======== ask(): confirmations with clear verbs ======== -->
+<dialog class="ask" id="ask" aria-labelledby="ask-title" aria-describedby="ask-body">
+  <form method="dialog">
+    <h2 id="ask-title"></h2>
+    <p id="ask-body"></p>
+    <div class="row"><button value="cancel" id="ask-no">Cancel</button><button value="ok" id="ask-ok" class="primary">OK</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

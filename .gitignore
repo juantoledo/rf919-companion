@@ -2,3 +2,6 @@
 *.apk
 *.zip
 out/
+memory.md
+.DS_Store
+node_modules/

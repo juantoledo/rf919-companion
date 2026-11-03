@@ -1,0 +1,266 @@
+// End-to-end checks of the web app in its Demo (the simulated radio): tabs and links, the Remote, gestures,
+// band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me,
+// keyboard. See tests/ui/README.md.
+import {chromium} from "playwright-core";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import assert from "node:assert/strict";
+const OUT = process.argv[2] || fs.mkdtempSync(path.join(os.tmpdir(), "rf919-")), URL = process.env.APP_URL || "http://localhost:8919/";
+const b = await chromium.launch({executablePath: process.env.CHROME || "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", headless: true});
+const ctx = await b.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, acceptDownloads: true,
+  geolocation: {latitude: -33.45, longitude: -70.66}, permissions: ["geolocation"]});
+const page = await ctx.newPage();
+const errors = [];
+page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+page.on("console", (m) => { if (m.type() === "error" && !/404|ERR_FAILED|CORS/.test(m.text())) errors.push("console: " + m.text()); });
+let n = 0;
+const ok = (name) => { n++; console.log("✓", name); };
+const E = (fn, arg) => page.evaluate(fn, arg);
+const sent = () => E(() => [...document.querySelectorAll("#log div")].map((d) => d.textContent).filter((t) => /would send/.test(t)).map((t) => t.split("would send ")[1]));
+const lastSent = async () => (await sent()).pop();
+const done = () => page.waitForFunction(() => !mem.run, null, {timeout: 60000});
+const confirmAsk = async () => {
+  await page.waitForSelector("#ask[open]"); await page.click("#ask-ok");
+  await page.waitForFunction(() => !document.getElementById("ask").open); await page.waitForTimeout(150);
+};
+const tab = (t) => page.click(`#tabbar [data-tab="${t}"]`);
+const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
+
+await page.goto(URL); await E(() => localStorage.clear()); await page.goto(URL);
+
+// ---- shell & routing ----
+assert.equal(await visibleView(), "radio");
+assert.equal(await page.locator("#connect-card").isVisible(), true);
+assert.equal(await page.locator("#radiobar").isHidden(), true);
+ok("starts on Radio with the connect card; no radio bar on Radio");
+await tab("explore");
+assert.equal(await visibleView(), "explore");
+assert.equal(await E(() => location.hash), "#explore");
+assert.match(await page.textContent("#dossier"), /What's on the air/);
+assert.equal(await page.locator("#radiobar").isVisible(), true);
+assert.equal(await page.locator("#radiobar .rb-off").isVisible(), true);
+ok("Explore: intro, #explore, radio bar offers Connect/Demo");
+await page.click('#dossier [data-look="9580"]');
+await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+assert.equal(await E(() => location.hash), "#f=9580");
+ok("an example looks up 9580 in Explore (#f=9580)");
+await page.goto(URL + "#f=11620"); await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
+assert.equal(await visibleView(), "explore");
+ok("a shared #f= link opens Explore on that frequency");
+await page.goBack(); await page.waitForTimeout(300);
+ok("back button works without errors (" + await visibleView() + ")");
+
+// ---- connect the demo from the radio bar ----
+await page.goto(URL + "#explore");
+await page.click('#radiobar [data-act="demo"]');
+await page.waitForFunction(() => state.ok && waiters.freq, null, {timeout: 10000});
+assert.equal(await page.locator("#radiobar .rb-off").isHidden(), true);
+assert.equal(await page.textContent("#radiobar [data-freq]"), "11.6200");
+assert.equal(await page.textContent("#radiobar [data-band-chip]"), "SW");
+ok("Demo from the radio bar: it shows SW 11.6200");
+await tab("radio");
+await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
+assert.equal(await page.locator("#readout").isVisible(), true);
+assert.equal(await page.locator("#connect-card").isHidden(), true);
+assert.equal(await E(() => document.getElementById("host-radio").contains(document.getElementById("dossier"))), true);
+ok("Radio: readout + controls; the info panels moved to Radio and follow the dial (11620)");
+
+// ---- swipe on the readout (left = up, right = down; long = seek) ----
+const box = await page.locator("#freqbox").boundingBox();
+const swipe = async (dx, el = box) => { const y = el.y + el.height / 2, x = el.x + el.width / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x + dx / 2, y, {steps: 4}); await page.mouse.move(x + dx, y, {steps: 4}); await page.mouse.up(); await page.waitForTimeout(150); };
+await swipe(-80); assert.equal(await lastSent(), "ab 02 0c 0e c7");   // UP
+await swipe(80); assert.equal(await lastSent(), "ab 02 0c 10 c9");    // DOWN
+await swipe(-160); assert.equal(await lastSent(), "ab 02 0c 0f c8");  // UP long (seek)
+ok("swipes on the readout: left UP, right DOWN, long left seeks");
+
+// ---- band select (native) ----
+await page.selectOption("#readout [data-band-select]", "AIR");
+await page.waitForFunction(() => waiters.freq.band === "AIR");
+assert.equal(await lastSent(), "ab 06 10 03 00 00 00 00 c4");
+assert.equal(await page.textContent("#band"), "AIR");
+ok("the readout's native band select switches the radio to AIR");
+
+// ---- Remote dialog ----
+await page.click("#open-remote");
+assert.equal(await E(() => document.getElementById("remote").open), true);
+await page.keyboard.press("Escape");
+assert.equal(await E(() => document.getElementById("remote").open), false);
+assert.equal(await E(() => document.activeElement.id), "open-remote");
+ok("Keys opens the Remote; Esc closes it and focus returns");
+await tab("memories");
+const rb = await page.locator("#rb-open").boundingBox();
+{ const x = rb.x + rb.width / 2, y = rb.y + rb.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y - 60, {steps: 6}); await page.mouse.up(); }
+await page.waitForFunction(() => document.getElementById("remote").open);
+await page.screenshot({path: `${OUT}/e2e-remote.png`});
+const grab = await page.locator("#remote-grab").boundingBox();  // the handle at the top of the sheet
+{ const x = grab.x + grab.width / 2, y = grab.y + grab.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y + 140, {steps: 8}); await page.mouse.up(); }
+await page.waitForFunction(() => !document.getElementById("remote").open, null, {timeout: 3000});
+ok("swipe up on the radio bar opens the Remote; dragging its top down closes it");
+await page.click("#rb-open");
+await page.click('#remote [data-key="SQ"]'); assert.equal(await lastSent(), "ab 02 0c 20 d9");
+await page.click('#remote [data-close]');
+ok("a Remote key sends (SQ), ✕ closes");
+
+// ---- Memories: per band, store, check, store here, clear, start fresh (ask dialogs) ----
+await page.click("#mem-textbox summary");
+await page.fill("#mem-text", "1 118.1 Torre\n2 121.9");
+await page.click('[data-mem="apply"]');
+assert.equal(await E(() => mem.list.map((e) => `${e.band}:${e.ch}`).join(" ")), "AIR:1 AIR:2");
+await page.check('#mem-counts input[value="FM"]');
+await page.fill("#mem-text", "1 101.3 Radio Uno");
+await page.click('[data-mem="apply"]');
+await page.check('#mem-counts input[value="AIR"]');
+assert.equal(await page.locator("#mem-list .mem-row").count(), 2);
+ok("Memories: native band segments; text per band (AIR 2, FM 1)");
+await page.click('[data-mem="store"]'); await done();
+await page.click('[data-mem="check"]'); await done();
+assert.deepEqual(await E(() => [mem.check.n, mem.check.ok]), [2, 2]);
+ok("Store 2 + Check 2 on AIR");
+await page.click('[data-mem="clear"]'); await confirmAsk();
+assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
+ok("Clear the AIR list, confirmed in the ask dialog");
+await page.click("#mem-fresh summary");
+await page.click('[data-mem="fresh"]');
+await page.waitForSelector("#ask[open]");
+assert.match(await page.textContent("#ask-title"), /Wipe all AIR memories/);
+assert.equal(await page.getAttribute("#ask-ok", "class"), "danger");
+await page.screenshot({path: `${OUT}/e2e-ask.png`});
+await page.click("#ask-no");
+assert.equal(await E(() => mem.run), null);
+await page.click('[data-mem="fresh"]'); await confirmAsk(); await done();
+assert.equal(await E(() => [...link.sim.bank.keys()].filter((k) => k.startsWith("AIR")).length), 0);
+ok("Start fresh: Cancel does nothing; Wipe AIR (danger) wipes it");
+await tab("radio");
+await page.click("#storehere");
+await page.waitForFunction(() => !mem.run && /Stored/.test(document.getElementById("toast").textContent), null, {timeout: 15000});
+ok("Store here: " + await page.textContent("#toast"));
+
+// ---- Backup ----
+await tab("memories");
+await page.click("#mem-backup summary");
+const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-mem="bk-download"]')]);
+const file = `${OUT}/${dl.suggestedFilename()}`; await dl.saveAs(file);
+assert.match(fs.readFileSync(file, "utf8"), /# RF919 memories/);
+await E(() => { mem.record = {}; });
+await page.setInputFiles("#backup-file", file);
+await page.click('[data-mem="bk-mark"]');
+assert.ok(await E(() => Object.keys(mem.record).length) > 0);
+ok("Backup: download, then import as Already on radio");
+
+// ---- More: switches, key capture ----
+await tab("more");
+await page.click('label:has(#hold)');
+assert.equal(await E(() => state.hold), true);
+await page.click('label:has(#hold)');
+assert.equal(await E(() => state.hold), false);
+ok("Hold next key is a native switch");
+// Key capture: the test plays the radio, sending what its own buttons would make it report
+await page.click("#capbox summary");
+const caps = () => E(() => [...document.querySelectorAll("#cap-list .cap")].map((c) => c.textContent.replace(/\s+/g, " ")));
+const sentBefore = (await sent()).length;
+await page.click("#cap-btn");
+assert.match(await page.textContent("#cap-field"), /Press a button on the radio/);
+await page.waitForTimeout(6500);  // a full round of the Demo's routine status updates: none of it is a press
+assert.equal((await caps()).length, 0, (await caps()).join(" | "));
+await page.click("#cap-btn");
+// pause the recorded session, so only the test's "presses" reach the page; then a baseline for the STEP line
+await E(() => { clearTimeout(link.timer); });
+await E(() => link.sim.emit(frame(0x1C, [0x0B, 3, 10, ..."STEP:2.50K"].map((c) => typeof c === "string" ? c.charCodeAt(0) : c))));
+await page.click("#cap-btn");
+const play = async (fn) => { await E(fn); await page.waitForTimeout(1600); };
+await play(() => link.sim.emit(frame(0x10, [1, 200, 0])));
+await play(() => { let n = 0; const t = setInterval(() => { link.sim.kHz += 5; link.sim.sendFreq(); if (++n === 4) clearInterval(t); }, 120); });
+await play(() => link.sim.emit(frame(0x1C, [0x0B, 3, 7, ..."STEP:5K"].map((c) => typeof c === "string" ? c.charCodeAt(0) : c))));
+await play(() => link.sim.emit(frame(0x0B, [1])));
+const got = await caps();
+const has = (re) => assert.ok(got.some((c) => re.test(c)), `${re} not in: ${got.join(" | ")}`);
+has(/^Memo \(Preset\): channel mode on.*Channel mode on: CH 200.*ab 04 10 01 c8 00 88/);
+has(/^Scan or seek: the frequency is moving.*Frequency moving: 4 changes/);
+has(/^A setting: STEP: 2\.50K → 5K/);
+has(/^Unknown message: perhaps the key itself.*cmd 0b.*ab 02 0b 01 b9/);
+assert.equal(got.length, 4, got.join(" | "));
+assert.equal((await sent()).length, sentBefore);  // the capture never sends anything
+await page.click("#cap-btn");
+assert.equal(await page.textContent("#cap-field"), "Off");
+await page.locator("#capbox").scrollIntoViewIfNeeded();
+await page.screenshot({path: `${OUT}/e2e-capture.png`});
+ok("Key capture: channel mode, a running frequency, STEP 2.50K → 5K and an unknown message, each with its raw frames; routine updates ignored; nothing sent")
+
+// ---- Log diagnostics: every notification; other channels in the capture ----
+await page.click("#logpanel summary");
+await page.click('label:has(#rawrx)');
+await E(() => { link.connected = true; link.connect(); });  // restart the recorded session (paused by the capture check)
+await page.waitForFunction(() => [...document.querySelectorAll("#log .k-rx")].length > 3, null, {timeout: 10000});
+assert.match(await page.textContent("#log .k-rx"), /^RX FF14 ab [0-9a-f ]+\(demo\)$/);
+await page.click("#cap-btn");
+await page.waitForTimeout(1500);
+const capsBefore = (await caps()).length;
+await E(() => link.onEvent({kind: "rx2", data: {ch: "FFF1", hex: "01 02"}, text: "RX FFF1 01 02 (notify)", raw: new Uint8Array()}));
+await page.waitForTimeout(1100);
+const capsNow = await caps();
+assert.equal(capsNow.length, capsBefore + 1, capsNow.join(" | "));
+assert.match(capsNow[0], /^A message on another channel \(FFF1\).*RX FFF1 01 02/);
+await page.click("#cap-btn");
+await page.click('label:has(#extrach)');
+// remembered: a second tab (same storage) opens with both on; this tab stays connected for the checks after
+const p2 = await ctx.newPage();
+await p2.goto(URL + "#more"); await p2.waitForFunction(() => document.getElementById("rawrx"));
+assert.deepEqual(await p2.evaluate(() => [document.getElementById("rawrx").checked, document.getElementById("extrach").checked]), [true, true]);
+await p2.close();
+await E(() => { document.getElementById("rawrx").click(); document.getElementById("extrach").click(); });
+ok("Log: every notification as RX FF14 lines (not counted by the capture); a message on another channel gets a capture card; both switches are remembered");
+
+// ---- Near me filters on Radio ----
+await page.goto(URL + "#f=90300");
+await page.waitForFunction(() => view.k === 90300 && view.data, null, {timeout: 15000});
+await page.click('#dossier [data-act="nearme"]');
+await page.waitForSelector('select[data-act="radius"]');
+assert.match(await page.textContent("#stations"), /farther than 100 km/);
+ok("Near me filters in Explore (90.3 MHz, 100 km)");
+
+// ---- Scan, and the guard on SCAN long (33: wipes the band) ----
+await tab("radio");
+const hold = async (loc) => { await loc.hover(); await page.mouse.down(); await page.waitForTimeout(900); await page.mouse.up(); await page.waitForTimeout(200); };
+// Start fresh sent 33 earlier on purpose; count only what's sent from here on
+const count33 = async () => (await sent()).filter((f) => f === "ab 02 0c 33 ec").length;
+const base33 = await count33();
+const has33 = async () => (await count33()) > base33;
+assert.equal(await page.locator('#radio-controls [data-key="SCAN"]').count(), 0);  // not in the Radio tab's controls
+await page.click("#open-remote");
+await page.click('#remote [data-key="SCAN"]');
+assert.equal(await lastSent(), "ab 02 0c 1a d3");
+await hold(page.locator('#remote [data-key="SCAN"]'));
+assert.equal(await lastSent(), "ab 02 0c 1a d3");
+assert.equal(await has33(), false);
+ok("Scan: only in the Remote; tap and hold both send 1A, never SCAN long");
+await hold(page.locator('#remote [data-key="PLAY"]'));
+await page.waitForSelector("#ask[open]");
+assert.match(await page.textContent("#ask-title"), /Hold SCAN on/);
+await page.click("#ask-no"); await page.waitForTimeout(200);
+assert.equal(await has33(), false);
+await hold(page.locator('#remote [data-fn="SCAN"]'));
+await confirmAsk();
+assert.equal(await has33(), true);
+ok("Remote: Scan sends 1A; holding Play or the SCAN-slot key asks first (Cancel sends nothing, Hold SCAN sends 33)");
+await page.keyboard.press("Escape");
+const before = (await sent()).length;
+await page.keyboard.press("s"); await page.waitForTimeout(200);
+assert.equal(await lastSent(), "ab 02 0c 1a d3");
+await page.keyboard.press("Shift+S"); await page.waitForTimeout(200);
+assert.equal((await sent()).length, before + 1);  // Shift+S ("S") isn't a shortcut: nothing more sent
+ok("keyboard: s scans (1A); Shift+S sends nothing");
+
+// ---- keyboard ----
+await tab("radio");
+await page.keyboard.press("r");
+assert.equal(await E(() => document.getElementById("remote").open), true);
+await page.keyboard.press("Escape");
+await page.keyboard.press("/");
+assert.equal(await visibleView(), "explore");
+assert.equal(await E(() => document.activeElement.id), "q");
+ok("keyboard: r opens the Remote, / goes to the search");
+
+console.log(`\n${n} checks passed`, "| page errors:", errors.length ? errors : "none");
+await b.close();
+if (errors.length) process.exit(1);

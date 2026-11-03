@@ -1,0 +1,55 @@
+/* Design tokens: the "Shortwave Atlas" identity, modernised.
+   Cold blue ink; one warm dial-lamp amber for everything "lit"; cool blue for information; warm red for danger.
+   Sizes are in rem so the phone's text-size setting carries through. */
+:root {
+  color-scheme: dark;
+
+  /* colour */
+  --ink: #070d15;          /* page */
+  --surface: #0b141f;      /* cards, bars */
+  --surface-2: #101b28;    /* raised: fields, pressed rows */
+  --deep: #050a11;         /* wells: logs */
+  --line: rgba(140, 185, 230, .14);
+  --line-strong: rgba(140, 185, 230, .3);
+  --hover: rgba(140, 185, 230, .08);
+  --press: rgba(140, 185, 230, .16);
+  --text: #dbe6f2;         /* 14.9:1 on ink */
+  --dim: #8fa3b8;          /* 7.4:1 on ink */
+  --faint: #56677a;        /* decoration only, never body text */
+  --amber: #ffb33f;        /* 10.6:1 on ink */
+  --amber-soft: rgba(255, 179, 63, .14);
+  --amber-line: rgba(255, 179, 63, .6);
+  --cool: #7fd0ff;         /* 11.3:1 on ink */
+  --cool-soft: rgba(127, 208, 255, .1);
+  --cool-line: rgba(127, 208, 255, .4);
+  --warn: #ff8a7a;         /* 7.9:1 on ink */
+  --warn-soft: rgba(255, 138, 122, .1);
+  --warn-line: rgba(255, 138, 122, .5);
+  --backdrop: rgba(3, 7, 12, .66);
+
+  /* type */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --font-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --font-freq: "Goldman", var(--font-display);
+  --fs-caption: .75rem;    /* 12px: labels, eyebrows */
+  --fs-small: .8125rem;    /* 13px: hints, secondary */
+  --fs-body: 1rem;         /* 16px */
+  --fs-lead: 1.125rem;     /* 18px */
+  --fs-title: 2rem;        /* view titles */
+
+  /* space, shape */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --r1: 8px; --r2: 12px; --r3: 20px; --round: 999px;
+  --hit: 44px;             /* minimum touch target */
+  --key: 52px;             /* radio keys */
+
+  /* motion */
+  --fast: .12s; --med: .22s; --ease: cubic-bezier(.2, .8, .2, 1);
+
+  /* layout: heights of the fixed bars, used to pad the page and place toasts */
+  --tabbar-h: 58px;
+  --radiobar-h: 0px;
+  --rail-w: 0px;
+}
+@media (prefers-reduced-motion: reduce) { :root { --fast: 0s; --med: 0s; } }

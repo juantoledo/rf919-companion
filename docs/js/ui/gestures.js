@@ -1,0 +1,95 @@
+// Swipe gestures. Each one only speeds up something a button also does (◀ ▶, the radio bar, ✕), so none is required.
+// Pointer events cover touch, pen and mouse; the elements set touch-action in CSS so the browser leaves the
+// gesture to us (pan-y: vertical scrolling still works on the frequency readout).
+
+const STEP_PX = 40;     // a swipe this long steps the frequency
+const SEEK_PX = 120;    // this long seeks to the next station
+const CLOSE_PX = 80;    // a sheet dragged down this far closes
+const haptic = (ms = 10) => { if (navigator.vibrate) navigator.vibrate(ms); };
+
+// Swallow the click that follows a recognised swipe, so a swipe on a button doesn't also press it
+function eatNextClick(el) {
+  const eat = (e) => { e.stopPropagation(); e.preventDefault(); };
+  el.addEventListener("click", eat, {capture: true, once: true});
+  setTimeout(() => el.removeEventListener("click", eat, {capture: true}), 400);
+}
+
+// Horizontal swipe on a frequency: left = up, right = down (like turning a dial: the scale moves with the finger).
+// onStep(direction: 1 | -1, seek: boolean)
+export function swipeTune(el, onStep) {
+  let x0 = 0, y0 = 0, id = null;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button > 0 || e.target.closest("select")) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+    el.setPointerCapture(id);  // the swipe ends here even if the finger leaves the element
+  });
+  el.addEventListener("pointerup", (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    const dx = e.clientX - x0, dy = e.clientY - y0;
+    if (Math.abs(dx) < STEP_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    const dir = dx < 0 ? 1 : -1;
+    eatNextClick(el);
+    haptic(Math.abs(dx) >= SEEK_PX ? 30 : 10);
+    const nudge = el.querySelector(".freq, .rb-freq") || el;
+    nudge.classList.add(dir > 0 ? "nudge-l" : "nudge-r");
+    setTimeout(() => nudge.classList.remove("nudge-l", "nudge-r"), 160);
+    onStep(dir, Math.abs(dx) >= SEEK_PX);
+  });
+  el.addEventListener("pointercancel", () => { id = null; });
+}
+
+// Upward swipe (the radio bar opens the Remote)
+export function swipeUp(el, onUp) {
+  let y0 = 0, x0 = 0, id = null;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button > 0) return;
+    id = e.pointerId; x0 = e.clientX; y0 = e.clientY;
+    el.setPointerCapture(id);
+  });
+  el.addEventListener("pointerup", (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    const dy = e.clientY - y0, dx = e.clientX - x0;
+    if (dy > -STEP_PX || Math.abs(dy) < Math.abs(dx) * 1.5) return;
+    eatNextClick(el);
+    haptic();
+    onUp();
+  });
+  el.addEventListener("pointercancel", () => { id = null; });
+}
+
+// Drag a bottom sheet down by its handles to close it; it follows the finger and snaps back if let go early
+export function swipeToClose(sheet, handles, onClose) {
+  let y0 = 0, dy = 0, id = null;
+  const start = (e) => {
+    if (e.button > 0 || e.target.closest("button, select, input")) return;
+    if (matchMedia("(min-width: 900px)").matches) return;  // a side panel there: nothing to drag down
+    id = e.pointerId; y0 = e.clientY; dy = 0;
+    e.currentTarget.setPointerCapture(id);
+    sheet.style.transition = "none";
+  };
+  const move = (e) => {
+    if (e.pointerId !== id) return;
+    dy = Math.max(0, e.clientY - y0);
+    sheet.style.transform = `translateY(${dy}px)`;
+  };
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    sheet.style.transition = "transform var(--med) var(--ease)";
+    if (dy >= CLOSE_PX) {
+      haptic();
+      sheet.style.transform = "translateY(100%)";
+      setTimeout(() => { onClose(); sheet.style.transform = ""; sheet.style.transition = ""; }, 180);
+    } else {
+      sheet.style.transform = "";
+    }
+  };
+  for (const h of handles) {
+    h.addEventListener("pointerdown", start);
+    h.addEventListener("pointermove", move);
+    h.addEventListener("pointerup", end);
+    h.addEventListener("pointercancel", end);
+  }
+}

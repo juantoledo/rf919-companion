@@ -1,0 +1,401 @@
+// Logic checks for the RF919 Companion: protocol frames, memory lists, the store/recall sequences against the
+// simulated radio, backup text, EiBi targets. Run: npm test (or node --test tests/)
+import assert from "node:assert/strict";
+import * as protocol from "../docs/js/protocol.js";
+import * as radiomap from "../docs/js/radiomap.js";
+import * as memories from "../docs/js/memories.js";
+
+const T = {...protocol, ...radiomap, ...memories};
+const H = (b) => T.hex(b).toUpperCase();
+let n = 0;
+const deq = (a, b) => assert.deepEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
+const ok = (name, fn) => { fn(); n++; console.log("✓", name); };
+
+ok("frames match memory.md §5", () => {
+  assert.equal(H(T.frame(0x0C, [0x2C])), "AB 02 0C 2C E5");
+  assert.equal(H(T.frame(0x0C, [0x24])), "AB 02 0C 24 DD");
+  assert.equal(H(T.frame(0x0C, [0x23])), "AB 02 0C 23 DC");
+  assert.equal(H(T.frame(0x0C, [0x0D])), "AB 02 0C 0D C6");
+  const tune = (k) => { const r = k * 100; return H(T.frame(0x10, [2, r & 255, r >> 8 & 255, r >> 16 & 255, r >>> 24])); };
+  assert.equal(tune(5025), "AB 06 10 02 E4 AA 07 00 58");
+  assert.equal(tune(6000), "AB 06 10 02 C0 27 09 00 B3");
+  assert.equal(tune(9580), "AB 06 10 02 30 9E 0E 00 9F");
+  assert.equal(tune(11620), "AB 06 10 02 10 BB 11 00 9F");
+  assert.equal(tune(15140), "AB 06 10 02 10 1A 17 00 04");
+  for (let ch = 1; ch <= 5; ch++) assert.equal(H(T.frame(0x0C, [T.KEYS[String(ch)]])), `AB 02 0C 0${ch} ${(0xB9 + ch).toString(16).toUpperCase()}`);
+  deq([..."200"].map((d) => T.KEYS[d]), [0x02, 0x0A, 0x0A]);
+});
+
+ok("parser: memory.md §6 example", () => {
+  const {entries, errors} = T.parseMemList("1  SW  5025\n2  SW  6000\n3  FM  101.3\n4  VHF 146.730\n");
+  assert.equal(errors.length, 0);
+  deq(entries.map((e) => [e.ch, e.band, e.kHz]), [[1, "SW", 5025], [2, "SW", 6000], [3, "FM", 101300], [4, "VHF", 146730]]);
+});
+
+ok("parser: optional channel, band, names, units, comments", () => {
+  const {entries, errors} = T.parseMemList("# list\n9580 China Radio Int.\nFM 101.3 Radio Bio Bio\n12 9580\n146.73 MHz rep\n720 k\n");
+  assert.equal(errors.length, 0);
+  deq(entries.map((e) => [e.ch, e.band, e.kHz, e.name]), [
+    [null, "SW", 9580, "China Radio Int."], [null, "FM", 101300, "Radio Bio Bio"], [12, "SW", 9580, ""],
+    [null, "VHF", 146730, "rep"], [null, "AM", 720, ""]]);
+});
+
+ok("parser: channel 0 and 201 refused, WB refused, junk refused", () => {
+  const {entries, errors} = T.parseMemList("201 SW 5025\n0 SW 5025\n200 SW 5025\nWB 162.55\nhello\n");
+  deq(entries.map((e) => e.ch), [200]);
+  deq(errors.map((e) => e.line), [1, 2, 4, 5]);
+});
+
+ok("list text round-trips (150.000 MHz stays MHz)", () => {
+  const list = T.addToList([], [{band: "VHF", kHz: 150000, ch: 1}, {band: "SW", kHz: 9580, ch: 2, name: "CRI"}, {band: "FM", kHz: 101300, ch: 3}]).list;
+  const back = T.parseMemList(T.listToText(list)).entries;
+  deq(back.map((e) => [e.ch, e.band, e.kHz, e.name]), list.map((e) => [e.ch, e.band, e.kHz, e.name]));
+});
+
+ok("200 per band: auto-numbering per band, full band refuses the 201st", () => {
+  const sw = Array.from({length: 201}, (_, i) => ({band: "SW", kHz: 5000 + i * 5, ch: null}));
+  const fm = [{band: "FM", kHz: 101300, ch: null}];
+  const {list, errors} = T.addToList([], [...sw, ...fm]);
+  assert.equal(list.filter((e) => e.band === "SW").length, 200);
+  assert.equal(Math.max(...list.filter((e) => e.band === "SW").map((e) => e.ch)), 200);
+  assert.equal(list.find((e) => e.band === "FM").ch, 1);  // numbering restarts in each band
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].msg, /SW is full \(200\/200\)/);
+});
+
+ok("explicit channels are kept; duplicates and 201 refused; autos fill the gaps", () => {
+  const {list, errors} = T.addToList([], [{band: "SW", kHz: 1, ch: null}, {band: "SW", kHz: 2, ch: 1}, {band: "SW", kHz: 3, ch: 1},
+    {band: "SW", kHz: 4, ch: 201}, {band: "SW", kHz: 5, ch: 2.5}]);
+  deq(list.map((e) => [e.ch, e.kHz]), [[1, 2], [2, 1]]);
+  assert.equal(errors.length, 3);
+});
+
+ok("bandFor", () => {
+  deq([153, 720, 9580, 27185, 101300, 118100, 146730, 433000].map(T.bandFor), ["LW", "AM", "SW", "SW", "FM", "AIR", "VHF", "UHF"]);
+});
+
+ok("pool keeps order, turns failures into null", async () => {});
+const got = await T.pool([1, 2, 3, 4, 5], 2, async (x) => { if (x === 3) throw new Error(); return x * 10; });
+deq([...got], [10, 20, null, 40, 50]);
+
+// ---- end to end: MemoryRun against the simulator, through a fake link and the real decoder ----
+function rig() {
+  const w = new T.Waiters(), dec = new T.Decoder(), sent = [];
+  const sim = new T.RadioSim((pkt) => { for (const ev of dec.feed(pkt)) w.feed(ev); });
+  const link = {
+    async send(pkt) { sent.push(pkt); setTimeout(() => sim.receive(pkt), 5); },
+    press(k) { return this.send(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]])); },
+    tune(band, raw = 0) { return this.send(T.frame(0x10, [T.BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); },
+    async typeFreq(text) { for (const k of ["FREQ", ...[...text].map((c) => c === "." ? "POINT" : c), "FREQ"]) { await this.press(k); await new Promise((r) => setTimeout(r, 2)); } },
+  };
+  sim.storeTimeoutMs = 300;
+  sim.sendFreq();  // the radio's state dump
+  const cfg = {...T.MEMO_CFG, stepMs: 2, pauseMs: 5, timeoutMs: 300, echoMs: 150};
+  return {w, sim, link, sent, run: new T.MemoryRun(link, w, {cfg})};
+}
+await new Promise((r) => setTimeout(r, 20));
+{
+  const {sim, run, sent} = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  const list = [{band: "SW", kHz: 5025, ch: 1}, {band: "SW", kHz: 9580, ch: 12}, {band: "FM", kHz: 101300, ch: 1}, {band: "VHF", kHz: 146730, ch: 200}];
+  for (const e of list) await run.store(e);
+  assert.equal(sim.bank.get("SW:1"), 5025);
+  assert.equal(sim.bank.get("SW:12"), 9580);
+  assert.equal(sim.bank.get("FM:1"), 101300);
+  assert.equal(sim.bank.get("VHF:200"), 146730);
+  // Channel 200 is typed as 02 0A 0A, then the confirm key
+  const keys = sent.filter((p) => p[2] === 0x0C).map((p) => p[3]);
+  assert.ok(T.hex(keys).includes("2c 02 0a 0a 24"));
+  for (const e of list) deq(await run.recall(e.band, e.ch), {kHz: e.kHz, empty: false});
+  deq(await run.recall("SW", 2), {kHz: null, empty: true});  // empty: the sim shows NULL
+  n++; console.log("✓ store + recall against the simulator (SW, FM, VHF, channel 200, empty channel)");
+}
+{
+  const {run, sent} = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  const before = sent.length;
+  await assert.rejects(run.store({band: "SW", kHz: 5025, ch: 201}), /outside 1–200/);
+  await assert.rejects(run.recall("SW", 201), /outside 1–200/);
+  assert.equal(sent.length, before);  // nothing was sent for 201
+  n++; console.log("✓ the sequencer refuses channel 201 without sending anything");
+}
+{
+  const {run, w} = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  const p = run.store({band: "FM", kHz: 99900, ch: 3});
+  setTimeout(() => run.stop(), 3);
+  await assert.rejects(p, (e) => e instanceof T.CancelErr);
+  assert.equal(w.set.size, 0);
+  n++; console.log("✓ stop() cancels a run mid-step");
+}
+{
+  // A radio that never confirms: the run fails with a named step instead of hanging
+  const {run, sim} = rig();
+  sim.save = function () { this.mode = null; };
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(run.store({band: "SW", kHz: 6000, ch: 4}), /no reply after confirm/);
+  n++; console.log("✓ a missing confirm reply fails with \"no reply after confirm\"");
+}
+{
+  // The live capture (fw 1.910, 2026-11-02): FM 87.50, MEMO long → 10 02 03, "1" → 10 02 01, MEMO → 01 FM 8750 + 10 00 00
+  const w = new T.Waiters(), dec = new T.Decoder(), sent = [];
+  const feed = (cmd, data) => { for (const ev of dec.feed(T.frame(cmd, data))) w.feed(ev); };
+  const later = (f) => setTimeout(f, 30);
+  const fm8750 = [0x00, 8750 & 255, 8750 >> 8, 0, 0, 0, 0x34, 0];
+  const link = {
+    async send(pkt) {
+      sent.push(pkt);
+      const key = pkt[3];
+      if (key === 0x2C) later(() => feed(0x10, [2, 3]));
+      else if (key === 0x01) later(() => feed(0x10, [2, 1]));
+      else if (key === 0x24) later(() => { feed(0x01, fm8750); feed(0x10, [0, 0]); });
+    },
+    press(k) { return this.send(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]])); },
+  };
+  feed(0x01, fm8750);
+  assert.equal(T.toKHz(w.freq), 87500);
+  const run = new T.MemoryRun(link, w, {cfg: {...T.MEMO_CFG, stepMs: 2, timeoutMs: 300}});
+  await run.store({band: "FM", kHz: 87500, ch: 1});
+  deq(sent.map((p) => T.hex(p)), ["ab 02 0c 2c e5", "ab 02 0c 01 ba", "ab 02 0c 24 dd"]);
+  n++; console.log("✓ the live capture passes: MEMO long, 1, MEMO (no tuning needed, already on 87.5)");
+}
+{
+  // The radio shows another channel than typed: stop before confirming
+  const {run, sim, sent} = rig();
+  sim.receive = ((orig) => function (pkt) {
+    if (pkt[2] === 0x0C && pkt[3] === 0x05 && this.mode === "store") { this.buf += "5"; this.preset(2, 9); return; }
+    orig.call(this, pkt);
+  })(sim.receive);
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(run.store({band: "SW", kHz: 11620, ch: 5}), /shows CH 9, not 5; not confirmed/);
+  assert.ok(!sent.some((p) => p[2] === 0x0C && p[3] === 0x24));  // MEMO short never sent
+  n++; console.log("✓ a wrong channel on the display stops the run before confirming");
+}
+{
+  // The radio doesn't repeat a number that's already up (MEMO long proposes 1, user wants 1): still fine
+  const {run, sim} = rig();
+  sim.receive = ((orig) => function (pkt) {
+    if (pkt[2] === 0x0C && pkt[3] === 0x01 && this.mode === "store") { this.buf += "1"; return; }
+    orig.call(this, pkt);
+  })(sim.receive);
+  await new Promise((r) => setTimeout(r, 20));
+  await run.store({band: "SW", kHz: 11620, ch: 1});
+  assert.equal(sim.bank.get("SW:1"), 11620);
+  n++; console.log("✓ a channel already shown (no repeat message) still stores");
+}
+{
+  // recall: no reply at all is neither a frequency nor empty
+  const {run, sim} = rig();
+  sim.recall = function () { this.buf = ""; };
+  await new Promise((r) => setTimeout(r, 20));
+  deq(await run.recall("SW", 3), {kHz: null, empty: false});
+  n++; console.log("✓ recall tells an empty channel apart from no reply");
+}
+{
+  // Start fresh: wipe SW, keep FM; the check recalls the lowest stored SW channel
+  const {run, sim, sent} = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  for (const e of [{band: "SW", kHz: 5025, ch: 4}, {band: "SW", kHz: 6000, ch: 7}, {band: "FM", kHz: 101300, ch: 1}]) await run.store(e);
+  await run.wipe("SW", 4);
+  deq([...sim.bank.keys()], ["FM:1"]);
+  assert.ok(sent.some((p) => T.hex(p) === "ab 02 0c 33 ec"));  // SCAN long
+  assert.ok(!sent.some((p) => T.hex(p) === "ab 02 0c 1a d3"));  // no scan, so no stop
+  n++; console.log("✓ wipe(\"SW\") sends 33, empties SW, keeps FM, confirms CH 4 is empty");
+}
+{
+  // A radio that ignores 33: the check catches it
+  const {run, sim} = rig();
+  sim.receive = ((orig) => function (pkt) { if (pkt[2] === 0x0C && pkt[3] === 0x33) return; orig.call(this, pkt); })(sim.receive);
+  await new Promise((r) => setTimeout(r, 20));
+  await run.store({band: "SW", kHz: 9580, ch: 1});
+  await assert.rejects(run.wipe("SW", 1), /CH 1 still holds 9580 kHz: the band wasn't wiped/);
+  n++; console.log("✓ a wipe that didn't happen fails with \"still holds\"");
+}
+{
+  // A radio that starts scanning after 33: the guard presses SCAN short (1A) to stop it
+  const {run, sim, sent} = rig();
+  let timer = null;
+  sim.receive = ((orig) => function (pkt) {
+    orig.call(this, pkt);
+    if (pkt[2] !== 0x0C) return;
+    if (pkt[3] === 0x33) timer = setInterval(() => { this.kHz += 5; this.sendFreq(); }, 40);
+    if (pkt[3] === 0x1A) clearInterval(timer);
+  })(sim.receive);
+  await new Promise((r) => setTimeout(r, 20));
+  await run.wipe("SW", 1);
+  clearInterval(timer);
+  assert.ok(sent.some((p) => T.hex(p) === "ab 02 0c 1a d3"));
+  n++; console.log("✓ a scan that starts after the wipe is stopped with SCAN short");
+}
+{
+  // The live failure, 2026-11-02: the radio works through keys ~400 ms each and loses a repeated key sent
+  // before the previous one is handled ("433.275" became 43.275). Here: 40 ms per key, same rule
+  const w = new T.Waiters(), dec = new T.Decoder(), queue = [];
+  const sim = new T.RadioSim((pkt) => { for (const ev of dec.feed(pkt)) w.feed(ev); });
+  sim.band = "UHF"; sim.kHz = 430450;
+  const tick = setInterval(() => { const pkt = queue.shift(); if (pkt) sim.receive(pkt); }, 40);
+  const link = {
+    async send(pkt) {
+      const last = queue[queue.length - 1];
+      if (last && last[2] === 0x0C && pkt[2] === 0x0C && last[3] === pkt[3]) return;  // dropped
+      queue.push(pkt);
+    },
+    press(k) { return this.send(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]])); },
+    tune(band, raw = 0) { return this.send(T.frame(0x10, [T.BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); },
+  };
+  sim.sendFreq();
+  await new Promise((r) => setTimeout(r, 20));
+  const cfg = {...T.MEMO_CFG, stepMs: 2, timeoutMs: 1000, echoMs: 300};
+  // The old way: all keys 150 ms → here 5 ms apart, no waiting: the second 3 is lost and the radio refuses 43.275
+  for (const k of ["FREQ", "4", "3", "3", "POINT", "2", "7", "5", "FREQ"]) { await link.press(k); await new Promise((r) => setTimeout(r, 5)); }
+  await new Promise((r) => setTimeout(r, 600));
+  assert.equal(T.toKHz(w.freq), 430450);  // still where it was
+  // The new way: one key per echo
+  const run = new T.MemoryRun(link, w, {cfg});
+  await run.store({band: "UHF", kHz: 433275, ch: 2});
+  assert.equal(sim.bank.get("UHF:2"), 433275);
+  clearInterval(tick);
+  n++; console.log("✓ a slow radio that drops repeated keys: blind typing fails, echo-paced typing stores 433.275");
+}
+{
+  // An entry the radio refuses stops at once with "refused", not after a timeout
+  const {w, link, sim} = rig();
+  sim.band = "UHF"; sim.kHz = 430450; sim.sendFreq();
+  await new Promise((r) => setTimeout(r, 20));
+  const t0 = Date.now();
+  await assert.rejects(T.typeEntry(link, w, "43.275", {...T.MEMO_CFG, timeoutMs: 2000}), /refused 43\.275 \(input error\)/);
+  assert.ok(Date.now() - t0 < 1000);
+  n++; console.log("✓ an input error (0F result 2) fails at once");
+}
+{
+  // The live UHF and AIR formats read right
+  const dec = new T.Decoder(), evs = [...dec.feed(T.frame(0x01, [0x05, ...[4304500 & 255, 4304500 >> 8 & 255, 4304500 >> 16 & 255, 0], 0, 0x13, 0])),
+    ...dec.feed(T.frame(0x01, [0x03, ...[1181000 & 255, 1181000 >> 8 & 255, 1181000 >> 16 & 255, 0], 0, 0x13, 0]))];
+  deq(evs.map((e) => [e.data.band, e.data.text, T.toKHz(e.data)]), [["UHF", "430.4500", 430450], ["AIR", "118.1000", 118100]]);
+  n++; console.log("✓ live UHF (raw 4304500, dp 13) and AIR (raw 1181000, dp 13) read as 430.450 and 118.100 MHz");
+}
+{
+  // The live failure, 2026-11-02 21:55: CH 11's two 1s went 150 ms apart and the radio showed CH 1.
+  // Same slow radio as above (40 ms per key, drops a repeated key still queued)
+  const w = new T.Waiters(), dec = new T.Decoder(), queue = [];
+  const sim = new T.RadioSim((pkt) => { for (const ev of dec.feed(pkt)) w.feed(ev); });
+  sim.band = "AIR"; sim.kHz = 129700;
+  const tick = setInterval(() => { const pkt = queue.shift(); if (pkt) sim.receive(pkt); }, 40);
+  const link = {
+    async send(pkt) {
+      const last = queue[queue.length - 1];
+      if (last && last[2] === 0x0C && pkt[2] === 0x0C && last[3] === pkt[3]) return;
+      queue.push(pkt);
+    },
+    press(k) { return this.send(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]])); },
+    tune(band, raw = 0) { return this.send(T.frame(0x10, [T.BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); },
+  };
+  sim.sendFreq();
+  await new Promise((r) => setTimeout(r, 20));
+  const run = new T.MemoryRun(link, w, {cfg: {...T.MEMO_CFG, stepMs: 2, timeoutMs: 1000, echoMs: 300}});
+  for (const ch of [11, 100, 111, 200]) await run.store({band: "AIR", kHz: 129700, ch});
+  deq([...sim.bank.keys()].sort(), ["AIR:100", "AIR:11", "AIR:111", "AIR:200"]);
+  // and recall paces its digits too
+  deq(await run.recall("AIR", 111), {kHz: 129700, empty: false});
+  clearInterval(tick);
+  n++; console.log("✓ a slow radio that drops repeated digits: CH 11, 100, 111, 200 all store, and 111 recalls");
+}
+{
+  // A digit the radio really loses (no echo ever) stops before confirming, naming where it got to
+  const {run, sim, sent} = rig();
+  sim.receive = ((orig) => function (pkt) {
+    if (pkt[2] === 0x0C && pkt[3] === 0x01 && this.mode === "store" && this.buf === "1") return;  // 2nd "1" lost
+    orig.call(this, pkt);
+  })(sim.receive);
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(run.store({band: "SW", kHz: 11620, ch: 11}), /shows CH 1, not 11; not confirmed/);
+  assert.ok(!sent.some((p) => p[2] === 0x0C && p[3] === 0x24));
+  n++; console.log("✓ a lost digit stops the run before confirming");
+}
+{
+  // Store here: the radio proposes the highest channel in use + 1 (✓ live: 38, 40 → 41) and the app confirms it
+  const {run, sim, sent} = rig();
+  sim.band = "AIR"; sim.kHz = 127500; sim.bank.set("AIR:38", 118100); sim.bank.set("AIR:40", 119100); sim.bank.set("FM:90", 99900);
+  sim.sendFreq();
+  await new Promise((r) => setTimeout(r, 20));
+  const before = sent.length;
+  assert.equal(await run.storeNext("AIR"), 41);
+  assert.equal(sim.bank.get("AIR:41"), 127500);
+  assert.equal(sim.bank.has("AIR:39"), false);
+  deq(sent.slice(before).map((p) => T.hex(p)), ["ab 02 0c 2c e5", "ab 02 0c 24 dd"]);  // MEMO long, MEMO: no digits typed
+  assert.equal(await run.storeNext("AIR"), 42);
+  n++; console.log("✓ storeNext: AIR 38 and 40 in use → stores on 41, then 42, with no digits typed");
+}
+{
+  // CH 200 in use: the proposal (201 here) is refused and nothing is confirmed
+  const {run, sim, sent} = rig();
+  sim.bank.set("SW:200", 9580);
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(run.storeNext("SW"), /proposes CH 201: SW has no channel after the last one in use \(max 200\)/);
+  assert.ok(!sent.some((p) => p[2] === 0x0C && p[3] === 0x24));
+  deq([...sim.bank.keys()], ["SW:200"]);
+  n++; console.log("✓ storeNext refuses a proposal past 200 without confirming");
+}
+{
+  // The caller's guard (this app's record says CH n holds something else): refused, nothing confirmed
+  const {run, sim, sent} = rig();
+  sim.bank.set("SW:4", 6000);
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(run.storeNext("SW", (n) => n === 5 ? "CH 5 holds 7300 kHz per this app's record" : null), /CH 5 holds 7300/);
+  assert.ok(!sent.some((p) => p[2] === 0x0C && p[3] === 0x24));
+  assert.equal(sim.bank.has("SW:5"), false);
+  await new Promise((r) => setTimeout(r, 350));
+  assert.equal(sim.mode, null);  // store mode closed by itself, like the radio
+  n++; console.log("✓ storeNext's guard refuses a channel without confirming; store mode then times out");
+}
+{
+  // Backup: the record as text, and back through the parser
+  const record = {"FM:1": {kHz: 101300, name: "Radio Bio Bio"}, "FM:3": {kHz: 99900, name: ""}, "AIR:12": {kHz: 127500, name: "Torre Santiago"},
+    "UHF:41": {kHz: 433275, name: "Canal #1 repetidor"}, "SW:2": {kHz: 9580, name: "China Radio Int."},
+    "bogus": {kHz: 1}, "WB:1": {kHz: 162550}, "SW:201": {kHz: 9580}, "SW:0": {kHz: 9580}, "FM:9": {kHz: 0}};
+  const text = T.backupText(record, "2026-11-02 21:40");
+  const lines = text.split("\n");
+  assert.equal(lines[0], "# RF919 memories · exported 2026-11-02 21:40 · 5 channels: FM 2, SW 1, AIR 1, UHF 1");
+  const {entries, errors} = T.parseMemList(text);
+  assert.equal(errors.length, 0);
+  deq(entries.map((e) => [e.band, e.ch, e.kHz, e.name]), T.recordItems(record).map((e) => [e.band, e.ch, e.kHz, e.name]));
+  deq(entries.map((e) => `${e.band}:${e.ch}`), ["FM:1", "FM:3", "SW:2", "AIR:12", "UHF:41"]);  // malformed keys skipped
+  assert.equal(entries.find((e) => e.band === "UHF").name, "Canal #1 repetidor");  // "#" inside a name survives
+  n++; console.log("✓ backup text round-trips (names, an empty name, \"#\" in a name), malformed record keys skipped");
+}
+{
+  // Importing 201 SW lines: the 201st is refused
+  const text = Array.from({length: 201}, (_, i) => `SW ${3000 + i * 5}`).join("\n");
+  const {entries, errors} = T.parseMemList(text);
+  assert.equal(errors.length, 0);
+  const res = T.addToList([], entries);
+  assert.equal(res.list.length, 200);
+  assert.match(res.errors[0].msg, /SW is full \(200\/200\)/);
+  n++; console.log("✓ an import of 201 SW lines refuses the 201st");
+}
+{
+  const has = (pos, codes, not = []) => { const t = T.targetsAt(pos); for (const c of codes) assert.ok(t.has(c), `${c} missing for ${JSON.stringify(pos)}: ${[...t]}`); for (const c of not) assert.ok(!t.has(c), `${c} unexpected`); return t; };
+  const scl = has({lat: -33.45, lon: -70.66}, ["SAm", "LAm", "Am", "CHL"], ["NAm", "Eu", "ARG", "CAm"]);
+  assert.equal(T.targetsName(scl), "South America");
+  has({lat: -32.89, lon: -68.84}, ["SAm", "ARG"], ["CHL"]);            // Mendoza
+  has({lat: -23.65, lon: -70.4}, ["CHL"], ["ARG", "BOL"]);              // Antofagasta
+  has({lat: 40.42, lon: -3.7}, ["Eu", "WEu", "SEu"], ["SAm", "Am"]);    // Madrid
+  has({lat: 35.68, lon: 139.69}, ["FE", "As"], ["SEA"]);                // Tokyo
+  has({lat: 38.9, lon: -77.04}, ["ENA", "NAm", "Am", "USA"], ["LAm"]);  // Washington
+  assert.equal(T.targetsAt(null).size, 0);
+  assert.equal(T.aimedAt({target: "SAm"}, scl), true);
+  assert.equal(T.aimedAt({target: "FE"}, scl), false);
+  assert.equal(T.aimedAt({target: "CHL"}, scl), true);
+  assert.equal(T.aimedAt({target: "Eu,SAm"}, scl), true);
+  assert.equal(T.aimedAt({}, scl), false);
+  n++; console.log("✓ EiBi targets: Santiago = SAm/LAm/Am/CHL (South America); Mendoza ARG not CHL; Madrid, Tokyo, Washington");
+}
+{
+  // Edit as text on one band: lines without a band take it; a named band is kept (and refused by the UI)
+  const {entries, errors} = T.parseMemList("12 127.5\n1 FM 99.9\n5 146.73 Repetidor", "AIR");
+  assert.equal(errors.length, 0);
+  deq(entries.map((e) => [e.ch, e.band, e.kHz, e.named, e.name]), [[12, "AIR", 127500, false, ""], [1, "FM", 99900, true, ""], [5, "AIR", 146730, false, "Repetidor"]]);
+  deq(T.parseMemList("146.73").entries.map((e) => e.band), ["VHF"]);  // no default: the frequency's band, as before
+  n++; console.log("✓ parseMemList with a default band (lines without a band take it; named bands are kept)");
+}
+console.log(`\n${n} checks passed`);
