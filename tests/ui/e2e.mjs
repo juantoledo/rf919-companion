@@ -1,5 +1,5 @@
 // End-to-end checks of the web app in its Demo (the simulated radio): tabs and links, the Remote, gestures,
-// band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me,
+// band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me, Explore (dial, strip, pins, Share, Discover, reminders),
 // keyboard. See tests/ui/README.md.
 import {chromium} from "playwright-core";
 import fs from "node:fs";
@@ -29,6 +29,8 @@ const tab = (t) => page.click(`#tabbar [data-tab="${t}"]`);
 const toolsOpen = () => E(() => document.getElementById("tools").open);
 const closeTool = async () => { if (await toolsOpen()) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open); } };
 const tool = async (id) => { await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction(() => document.getElementById("tools").open); };
+const mode = () => E(() => document.getElementById("view-explore").dataset.mode);
+const atHome = () => page.waitForFunction(() => location.hash === "#explore" && document.getElementById("view-explore").dataset.mode === "home");
 const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
 
 await page.goto(URL); await E(() => localStorage.clear()); await page.goto(URL);
@@ -41,17 +43,32 @@ ok("starts on Radio with the connect card; no radio bar on Radio");
 await tab("explore");
 assert.equal(await visibleView(), "explore");
 assert.equal(await E(() => location.hash), "#explore");
-assert.match(await page.textContent("#dossier"), /What's on the air/);
+assert.equal(await mode(), "home");
+await page.waitForSelector('#bands .chip[data-act="dial"]', {timeout: 15000});
+const fold = 844 - 140;  // the tab bar and the mini player
+for (const s of ["#search", "#bands", "#discover"]) { const r = await page.locator(s).boundingBox(); assert.ok(r && r.y < fold, `${s} at ${r && r.y}`); }
 assert.equal(await page.locator("#radiobar").isVisible(), true);
 assert.equal(await page.locator("#radiobar .rb-off").isVisible(), true);
-ok("Explore: intro, #explore, radio bar offers Connect/Demo");
-await page.click('#dossier [data-look="9580"]');
+{ const r = await page.locator("#radiobar").boundingBox(); assert.ok(r.width < 260, `idle mini player ${r.width}px wide`); }
+ok("Explore home: search, bands and Discover above the fold; with no radio the mini player is a pill (Connect radio · Demo)");
+await page.fill("#q", "9580"); await page.press("#q", "Enter");
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 assert.equal(await E(() => location.hash), "#f=9580");
-ok("an example looks up 9580 in Explore (#f=9580)");
+assert.equal(await mode(), "detail");
+assert.equal(await page.locator("#search").isHidden(), true);
+{ const r = await page.locator("#dossier .d-actions").boundingBox(); assert.ok(r.y + r.height < fold, `actions at ${r.y}`); }
+ok("a search opens 9580 as Explore's detail (#f=9580), its actions on the first screen");
+await page.goBack(); await atHome();
+assert.equal(await E(() => document.activeElement.dataset.look), "9580");
+ok("system Back returns to Explore's home, the focus on 9580's chip");
+await page.click('#recent [data-look="9580"]'); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+await page.click("#x-back"); await atHome();
+ok("the bar's ← does the same");
 await page.goto(URL + "#f=11620"); await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await visibleView(), "explore");
-ok("a shared #f= link opens Explore on that frequency");
+assert.equal(await mode(), "detail");
+await page.click("#x-back"); await atHome();
+ok("a shared #f= link opens the detail; ← goes home without leaving the page");
 await page.goBack(); await page.waitForTimeout(300);
 ok("back button works without errors (" + await visibleView() + ")");
 
@@ -75,8 +92,10 @@ assert.equal(await page.locator("#dossier .d-freq").count(), 0);  // the readout
 ok("Radio: readout + controls; one card holds the readout and what's on the dial (11620), the station's flag behind");
 await tab("explore");
 assert.equal(await page.locator("#readout").isHidden(), true);
-await page.waitForFunction(() => view.k !== null && view.data, null, {timeout: 15000});
-assert.equal((await page.textContent("#dossier .d-freq")).replace(/\D/g, ""), String(await E(() => view.k)));
+await page.click('#recent [data-look="9580"]');
+await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+assert.equal((await page.textContent("#dossier .d-freq")).replace(/\D/g, ""), "9580");
+assert.equal(await page.locator('#dossier [data-act="tunehere"]').isVisible(), true);
 assert.equal(await page.locator("#radio-controls").isHidden(), true);
 await tab("radio");
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
@@ -266,7 +285,7 @@ await closeTool();
 await page.goto(URL + "#f=90300");
 await page.waitForFunction(() => view.k === 90300 && view.data, null, {timeout: 15000});
 await page.click('#dossier [data-act="nearme"]');
-await page.waitForSelector('select[data-act="radius"]');
+await page.waitForSelector('#dossier select[data-act="radius"]');
 assert.match(await page.textContent("#stations"), /farther than 100 km/);
 ok("Near me filters in Explore (90.3 MHz, 100 km)");
 
@@ -314,6 +333,82 @@ await page.keyboard.press("/");
 assert.equal(await visibleView(), "explore");
 assert.equal(await E(() => document.activeElement.id), "q");
 ok("keyboard: r opens the Remote, / goes to the search");
+
+// ---- Explore: reminders, the dial and the band strip, pins, Share, Discover ----
+await E(() => localStorage.setItem("rf919.reminders", JSON.stringify([{k: 9580, at: Date.now() - 60000, station: "Test Radio"}])));
+await page.goto("about:blank"); await page.goto(URL + "#explore");  // a fresh start (goto to another hash only routes)
+await page.waitForFunction(() => /Test Radio starts now on 9580 kHz/.test(document.getElementById("toast-text").textContent), null, {timeout: 5000});
+assert.equal(await page.textContent("#toast-act"), "Look up");
+assert.equal(await E(() => localStorage.getItem("rf919.reminders")), "[]");
+ok("a due reminder shows a snackbar (Look up without a radio) and is spent");
+await page.waitForSelector('#bands .chip[data-act="dial"]', {timeout: 15000});
+await page.click('#bands .chip[data-act="dial"]:has-text("31m")');
+await page.waitForFunction(() => view.k && view.data && document.querySelector(".strip"), null, {timeout: 15000});
+assert.match(await page.getAttribute(".strip", "aria-valuetext"), /31m/);
+assert.deepEqual(await E(() => history.state), {detail: true});
+const recent0 = await E(() => localStorage.getItem("rf919.recent")), k0 = await E(() => view.k), h0 = await E(() => history.length);
+await page.click('.dial-step[data-keep="dial1"]');
+await page.waitForFunction((k) => view.k > k, k0);
+assert.equal(await E(() => document.activeElement.dataset.keep), "dial1");
+assert.equal(await E(() => localStorage.getItem("rf919.recent")), recent0);
+assert.equal(await E(() => history.length), h0);
+ok("a band chip opens its first frequency as a detail (a history entry); ▶ steps to the next known kHz in place, keeps the focus, leaves Recent alone");
+const k1 = await E(() => view.k), fr = await page.locator(".d-dial .d-freq").boundingBox();
+await page.mouse.move(fr.x + fr.width / 2 - 30, fr.y + 10); await page.mouse.down();
+await page.mouse.move(fr.x + fr.width / 2 + 30, fr.y + 12, {steps: 6}); await page.mouse.up();  // 60 px: a step (120: a seek)
+await page.waitForFunction((k) => view.k === k, k0);
+await page.waitForTimeout(450);  // a swipe swallows the next click for 400 ms
+ok("swiping the looked-up frequency right steps down, back to the first");
+await page.focus(".strip"); await page.keyboard.press("End");
+await page.waitForFunction(() => { const to = document.querySelector('.dial-step[data-keep="dial1"]').dataset.to; return !to || +to > 9900; });
+assert.equal(await E(() => document.activeElement.dataset.keep), "strip");
+const track = await page.locator(".strip-track").boundingBox();
+await page.mouse.click(track.x + track.width / 2, track.y + track.height / 2);
+await page.waitForFunction(() => view.k > 9550 && view.k < 9750);
+ok("the strip: End goes to the band's last known kHz; a tap in the middle jumps there");
+await page.waitForFunction(() => view.data);
+// 9580 carries a long schedule (11 entries in EiBi B26); Near me (on since its check) would hide some of them
+await page.goto(URL + "#f=9580"); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+if (await page.getAttribute('#dossier [data-act="nearme"]', "aria-pressed") === "true") await page.click('#dossier [data-act="nearme"]');
+await page.waitForSelector('#dossier [data-act="sched"]');
+assert.equal(await page.locator("#dossier .slots tr").count(), 4);
+assert.equal(await E(() => [...document.querySelectorAll("#dossier *")].some((el) => el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY))), false);
+await page.click('#dossier [data-act="sched"]');
+await page.waitForFunction(() => document.getElementById("tools").open && !document.getElementById("sched-pane").hidden);
+assert.ok(await page.locator("#sched-body tr").count() > 4);
+assert.match(await page.textContent("#tools-title"), /^Schedule · 9580 kHz/);
+await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open);
+ok("the card shows 4 slots and no scrolling box; Full schedule opens all of them in the sheet");
+const kp = await E(() => view.k);
+await page.click('#dossier [data-act="pin"]');
+assert.equal(await page.getAttribute('#dossier [data-act="pin"]', "aria-pressed"), "true");
+await page.click('#dossier [data-act="share"]');
+await page.waitForFunction(() => /Link copied|#f=\d+/.test(document.getElementById("toast-text").textContent));
+ok("Share: no share sheet here, so the link is copied (or shown)");
+await page.waitForSelector("#nearby [data-go]", {timeout: 15000});
+const kNear = +await page.getAttribute("#nearby [data-go]", "data-go"), h1 = await E(() => history.length);
+await page.click("#nearby [data-go]");
+await page.waitForFunction((k) => view.k === k && location.hash === `#f=${k}`, kNear);
+assert.equal(await E(() => history.length), h1);
+ok("a Nearby card opens its frequency in place (no new history entry)");
+await page.click('#tabbar [data-tab="explore"]'); await atHome();
+ok("tapping Explore's tab in the detail goes back to its home");
+await page.goto(URL + `#f=${kp}`); await page.reload(); await page.waitForFunction((k) => view.k === k, kp);
+await page.click("#x-back"); await atHome(); await page.waitForSelector("#recent .chip.pinned");
+assert.equal(+await page.getAttribute("#recent .chip:first-child", "data-look"), kp);
+ok("a pin survives a reload and comes first under the search");
+await page.click('#disc-meters label:has-text("75m")');
+assert.match(await page.textContent("#disc-scan"), /Scan 75m · \d+/);
+await page.click("#disc-scan");
+await page.waitForFunction(() => /scanned/.test(document.getElementById("disc-results").textContent), null, {timeout: 60000});
+await page.click('#disc-seg label:has-text("Near me")');
+await page.selectOption("#disc-band", "FM");
+await page.click("#disc-scan");
+await page.waitForSelector("#disc-results [data-go]", {timeout: 90000});
+const kn = +await page.getAttribute("#disc-results [data-go]", "data-go");
+await page.click("#disc-results [data-go]");
+await page.waitForFunction((k) => view.k === k && location.hash === `#f=${k}`, kn);
+ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its frequency");
 
 console.log(`\n${n} checks passed`, "| page errors:", errors.length ? errors : "none");
 await b.close();

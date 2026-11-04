@@ -15,7 +15,7 @@ for (const scheme of ["dark", "light"]) for (const [w, h, touch] of SIZES) {
   await page.goto(`${BASE}?demo#f=11620`);
   await page.waitForFunction(() => state.ok && waiters.freq && view.data, null, {timeout: 20000});
   await page.waitForTimeout(1500);
-  for (const t of ["radio", "explore", "memories", "more", "remote", "tools"]) {
+  for (const t of ["radio", "explore-home", "explore", "memories", "more", "remote", "tools"]) {
     if (t === "remote") await page.evaluate(() => {
       document.getElementById("remote").showModal();
       document.querySelectorAll("#remote [data-pane]").forEach((p) => { p.hidden = false; });
@@ -24,7 +24,9 @@ for (const scheme of ["dark", "light"]) for (const [w, h, touch] of SIZES) {
       document.getElementById("tools").showModal();
       document.querySelectorAll("#tools .tool").forEach((p) => { p.hidden = false; });
     });
-    // Explore on a repeater, so station tags and the facts grid are on show too
+    // Explore's home: search, chips, the bands shelf and Discover
+    else if (t === "explore-home") await page.evaluate(() => { go("explore"); document.getElementById("x-back").click(); });
+    // Explore's detail on a repeater, so station tags and the facts grid are on show too
     else if (t === "explore") { await page.evaluate(() => { location.hash = "#f=146730"; }); await page.waitForFunction(() => view.k === 146730 && view.data, null, {timeout: 20000}); }
     else await page.evaluate((t) => go(t), t);
     await page.waitForTimeout(500);

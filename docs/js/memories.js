@@ -1,5 +1,5 @@
 import {BANDS, BAND_CODES, frame} from "./protocol.js";
-import {fmtKHz, parseFreqInput, toKHz} from "./radiomap.js";
+import {fmtKHz, haversineKm, parseFreqInput, toKHz} from "./radiomap.js";
 
 // ---- Memories (see memory.md) ----
 // There is no command to write a memory: each one is stored by replaying the front-panel keys
@@ -353,6 +353,41 @@ export function recallTestSteps(band, ch) {
 export const SW_METERS = [["120m", 2300, 2495], ["90m", 3200, 3400], ["75m", 3900, 4000], ["60m", 4750, 5060], ["49m", 5900, 6200],
   ["41m", 7200, 7600], ["31m", 9400, 9900], ["25m", 11600, 12100], ["22m", 13570, 13870], ["19m", 15100, 15800],
   ["16m", 17480, 17900], ["15m", 18900, 19020], ["13m", 21450, 21850], ["11m", 25670, 26100]];
+
+// What Explore's band strip spans around k: its SW meter band, the gap between two of them, or the band. null off the bands
+export function stripRange(k) {
+  const band = bandFor(k);
+  if (!band) return null;
+  if (band !== "SW") { const [, lo, hi] = bandRange(band); return {label: band, lo, hi}; }
+  const m = SW_METERS.find(([, lo, hi]) => k >= lo && k <= hi);
+  if (m) return {label: m[0], lo: m[1], hi: m[2]};
+  const below = SW_METERS.filter(([, , hi]) => hi < k).pop(), above = SW_METERS.find(([, lo]) => lo > k);
+  return {label: "SW", lo: below ? below[2] + 1 : bandRange("SW")[1], hi: above ? above[1] - 1 : bandRange("SW")[2]};
+}
+// Explore's way in: a chip per band (SW per meter band) with data, each with its count and first kHz
+export function bandChips(freqs) {
+  const groups = [["AM", (k) => bandFor(k) === "AM"],
+    ...SW_METERS.map(([m, lo, hi]) => [m, (k) => k >= lo && k <= hi]),
+    ...["FM", "AIR", "VHF", "UHF"].map((b) => [b, (k) => bandFor(k) === b])];
+  return groups.map(([label, has]) => { const ks = freqs.filter(has); return {label, n: ks.length, k: ks[0]}; }).filter((c) => c.n);
+}
+// Stations across many frequencies (pairs: [[kHz, lookup]]), one per kHz to listen on: the nearest there.
+// A repeater is listed on its input too; it's heard on its output. Nearest first, then by kHz
+export function nearestStations(pairs, {band, kind = "all", pos = null, radius = 0}) {
+  const best = new Map();
+  for (const [at, d] of pairs) {
+    for (const s of (d && d.stations) || []) {
+      if (kind !== "all" && s.category !== kind) continue;
+      const k = s.category === "amateur" && s.rxKHz ? Math.round(s.rxKHz) : at;
+      if (bandFor(k) !== band) continue;
+      const km = pos && s.lat != null && s.lon != null ? haversineKm(pos, s) : null;
+      if (radius && (km == null || km > radius)) continue;
+      const cur = best.get(k);
+      if (!cur || (km ?? Infinity) < (cur.km ?? Infinity)) best.set(k, {k, s, km});
+    }
+  }
+  return [...best.values()].sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.k - b.k);
+}
 
 // The demo's pretend radio: answers tune (10) and key (0C) frames the way the store sequence expects,
 // with 8 banks of MAX_CH channels. emit(frame) gets the radio's replies as raw frames

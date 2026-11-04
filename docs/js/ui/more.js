@@ -3,9 +3,9 @@ import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, errText, linkOpts, sleep} from "../link.js";
-import {$, ask, esc, go, handlers, log, openRemote, openTool, route, setStatus, state, toast} from "./shell.js";
+import {$, ask, esc, exploreHome, go, handlers, inDetail, log, openRemote, openTool, route, setStatus, state, toast} from "./shell.js";
 import {mem, nearPasses, renderView, show, store, view} from "./radio.js";
-import {addMem, addPicked, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
+import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
 // ---- Test one memory: fixed pauses, every step marked in the log ----
 // The connection to the radio (BleLink) or the Demo (ReplayLink); set by startBle / startDemo below
@@ -325,7 +325,7 @@ export function init() {
       case "append": applyText(false); break;
       case "sw-find": swFind(); break;
       case "near-find": nearFind(); break;
-      case "job-stop": if (mem.job) mem.job.abort(); break;
+      case "job-stop": { const j = jobs[t.dataset.job || "mem"]; if (j) j.abort(); break; }
       case "add-sw": addPicked("sw"); break;
       case "add-near": addPicked("near"); break;
       case "store": runJob("store"); break;
@@ -405,9 +405,11 @@ export function init() {
     if (e.target.matches("input, select, textarea") || e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target.matches("button") && (e.key === "Enter" || e.key === " ")) return;
     if (document.querySelector("dialog.ask[open]")) return;
-    if (e.key === "/") { e.preventDefault(); go("explore"); $("q").focus(); return; }
+    // The search lives on Explore's home
+    const search = () => { go("explore"); if (inDetail()) exploreHome(); $("q").focus(); };
+    if (e.key === "/") { e.preventDefault(); search(); return; }
     if (e.key === "r" && !$("remote").open) { e.preventDefault(); openRemote(); return; }
-    if (!state.ok && /^[0-9.]$/.test(e.key)) { e.preventDefault(); go("explore"); $("q").focus(); $("q").value += e.key; return; }
+    if (!state.ok && /^[0-9.]$/.test(e.key)) { e.preventDefault(); search(); $("q").value += e.key; return; }
     const key = /^[0-9]$/.test(e.key) ? e.key : SHORTCUTS[e.key];
     if (key) { e.preventDefault(); pressKey(key, e.shiftKey); }
   });

@@ -398,4 +398,60 @@ await new Promise((r) => setTimeout(r, 20));
   deq(T.parseMemList("146.73").entries.map((e) => e.band), ["VHF"]);  // no default: the frequency's band, as before
   n++; console.log("✓ parseMemList with a default band (lines without a band take it; named bands are kept)");
 }
+ok("Explore's dial: stepKnown (ends, exact hit, off a known kHz, n > 1 clamps), stripTicks", () => {
+  const f = [5900, 5905, 5915, 6000, 9400, 9410];
+  assert.equal(T.stepKnown(f, 5905, 1), 5915);
+  assert.equal(T.stepKnown(f, 5905, -1), 5900);
+  assert.equal(T.stepKnown(f, 5910, 1), 5915);   // between two known: the next one up
+  assert.equal(T.stepKnown(f, 5910, -1), 5905);
+  assert.equal(T.stepKnown(f, 9410, 1), null);   // the ends
+  assert.equal(T.stepKnown(f, 5900, -1), null);
+  assert.equal(T.stepKnown(f, 5900, 1, 3), 6000);
+  assert.equal(T.stepKnown(f, 5900, 1, 10), 9410); // fewer than n left: the last one
+  assert.equal(T.stepKnown(f, 9410, -1, 10), 5900);
+  assert.equal(T.stepKnown([], 9580, 1), null);
+  deq(T.stripTicks(f, 5900, 6000), [5900, 5905, 5915, 6000]);
+});
+ok("stripRange: a meter band, the gap between two, SW's ends, another band; bandChips", () => {
+  deq(T.stripRange(9580), {label: "31m", lo: 9400, hi: 9900});
+  deq(T.stripRange(7000), {label: "SW", lo: 6201, hi: 7199});   // between 49 m and 41 m
+  deq(T.stripRange(2000), {label: "SW", lo: 1711, hi: 2299});   // below 120 m
+  deq(T.stripRange(28000), {label: "SW", lo: 26101, hi: 29999});
+  deq(T.stripRange(101300), {label: "FM", lo: 64000, hi: 108000});
+  assert.equal(T.stripRange(100), null);
+  deq(T.bandChips([720, 9580, 9600, 101300, 146730]), [{label: "AM", n: 1, k: 720}, {label: "31m", n: 2, k: 9580},
+    {label: "FM", n: 1, k: 101300}, {label: "VHF", n: 1, k: 146730}]);
+});
+ok("bearing and compass: Santiago → Madrid; due north/east; 0/360 wrap", () => {
+  const scl = {lat: -33.45, lon: -70.66};
+  assert.ok(Math.abs(T.bearingDeg(scl, {lat: 40.42, lon: -3.7}) - 47) < 3);
+  assert.ok(Math.abs(T.bearingDeg({lat: 0, lon: 0}, {lat: 10, lon: 0})) < 1e-9);
+  assert.ok(Math.abs(T.bearingDeg({lat: 0, lon: 0}, {lat: 0, lon: 10}) - 90) < 1e-9);
+  assert.equal(T.compass(0), "N"); assert.equal(T.compass(359), "N"); assert.equal(T.compass(360), "N");
+  assert.equal(T.compass(22.5), "NNE"); assert.equal(T.compass(47), "NE"); assert.equal(T.compass(-90), "W");
+  assert.match(T.kmBearing(scl, {lat: 40.42, lon: -3.7}), /^10\D?\d{3} km · NE 4\d°$/);
+});
+ok("swOnAir: on air first per frequency, else the next within the window; aimed filter; order kept", () => {
+  const now = Date.UTC(2026, 10, 4, 12, 0);  // Wed 12:00 UTC
+  const e = (station, s, t, target = "SAm") => ({station, startUTC: s, endUTC: t, days: {t: "d"}, target});
+  const pairs = [[9400, {shortwave: [e("Later", "1230", "1300"), e("Now", "1100", "1300", "Eu")], stations: []}],
+    [9410, {shortwave: [e("Soon", "1220", "1300")], stations: []}], [9420, {shortwave: [e("Tonight", "2200", "2300")], stations: []}],
+    [9430, null], [9440, {shortwave: [], stations: []}]];
+  deq(T.swOnAir(pairs, {now}).map((r) => [r.k, r.e.station, r.air.on]), [[9400, "Now", true]]);
+  deq(T.swOnAir(pairs, {now, win: 30}).map((r) => [r.k, r.e.station]), [[9400, "Now"], [9410, "Soon"]]);
+  const sam = T.targetsAt({lat: -33.45, lon: -70.66});
+  deq(T.swOnAir(pairs, {now, win: 30, targets: sam}).map((r) => [r.k, r.e.station, r.air.startsIn]), [[9400, "Later", 30], [9410, "Soon", 20]]);
+});
+ok("nearestStations: kind, radius, repeaters heard on their output, the nearest per kHz, nearest first", () => {
+  const pos = {lat: -33.45, lon: -70.66};
+  const st = (nombre, lat, lon, more = {}) => ({nombre, lat, lon, category: "broadcast", ...more});
+  const pairs = [[101300, {stations: [st("Far", -36.8, -73.05), st("Near", -33.44, -70.65)]}],
+    [146130, {stations: [st("Rpt", -33.4, -70.6, {category: "amateur", rxKHz: 146730, txKHz: 146130})]}],
+    [99900, {stations: [st("Mid", -33.0, -71.6)]}], [88100, {stations: [st("Nowhere", null, null)]}], [90000, null]];
+  deq(T.nearestStations(pairs, {band: "FM", pos}).map((r) => [r.k, r.s.nombre]), [[101300, "Near"], [99900, "Mid"], [88100, "Nowhere"]]);
+  deq(T.nearestStations(pairs, {band: "FM", pos, radius: 50}).map((r) => r.s.nombre), ["Near"]);
+  deq(T.nearestStations(pairs, {band: "VHF", pos}).map((r) => [r.k, r.s.nombre]), [[146730, "Rpt"]]);
+  deq(T.nearestStations(pairs, {band: "FM", kind: "amateur", pos}), []);
+  deq(T.nearestStations(pairs, {band: "FM"}).map((r) => r.k), [88100, 99900, 101300]);  // no position: by kHz
+});
 console.log(`\n${n} checks passed`);

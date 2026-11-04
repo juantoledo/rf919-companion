@@ -1,6 +1,6 @@
 import {pad2} from "../protocol.js";
-import {aimedAt, dur, flagHtml, fmtKHz, fmtShift, haversineKm, hhmmMin, ituFlag, minHHMM, span, swAir, toKHz} from "../radiomap.js";
-import {CancelErr, MAX_CH, MEM_BANDS, MemoryRun, SW_METERS, addToList, backupText, bandCount, bandFor, bandRange, bandSummary, freqText, memKey, parseMemList, pool, recordItems} from "../memories.js";
+import {dur, flagHtml, fmtKHz, fmtShift, hhmmMin, ituFlag, minHHMM, span, swOnAir, toKHz} from "../radiomap.js";
+import {CancelErr, MAX_CH, MEM_BANDS, MemoryRun, SW_METERS, addToList, nearestStations, backupText, bandCount, bandFor, bandRange, bandSummary, freqText, memKey, parseMemList, pool, recordItems} from "../memories.js";
 import {waiters} from "../state.js";
 import {errText} from "../link.js";
 import {$, BAND_COLORS, ask, esc, log, state, toast} from "./shell.js";
@@ -367,16 +367,20 @@ export function applyText(replace) {
 }
 
 // ---- list builders (radiomap.cl has one file per frequency, so they fetch a few at a time) ----
-export async function fetchAll(ks, box) {
-  if (mem.job) mem.job.abort();
-  const ctl = mem.job = new AbortController();
+// One job per key ("mem": the memories tools; Explore's Discover has its own), so neither cancels the other
+export const jobs = {};
+export async function fetchAll(ks, box, key = "mem") {
+  if (jobs[key]) jobs[key].abort();
+  const ctl = jobs[key] = new AbortController();
+  if (key === "mem") mem.job = ctl;
   box.innerHTML = `<div class="progress"><i style="width:0"></i></div>` +
-    `<p class="hint" style="margin-top:0"><span></span> <button class="small" type="button" data-mem="job-stop">Cancel</button></p>`;
+    `<p class="hint" style="margin-top:0"><span></span> <button class="small" type="button" data-mem="job-stop" data-job="${key}">Cancel</button></p>`;
   const bar = box.querySelector(".progress i"), txt = box.querySelector("p span");
   const prog = (d, n) => { bar.style.width = `${d / n * 100}%`; txt.textContent = `Fetching ${d}/${n} from radiomap.cl…`; };
   prog(0, ks.length);
   // rm.get, not rm.lookup: a long list mustn't push the dossier's lookups out of the cache
   const got = await pool(ks, 6, (k) => rm.get(`freq/${k}.json`), prog, ctl.signal);
+  if (jobs[key] === ctl) jobs[key] = null;
   if (mem.job === ctl) mem.job = null;
   if (ctl.signal.aborted) { box.innerHTML = `<p class="hint">Cancelled.</p>`; return null; }
   return got;
@@ -401,19 +405,11 @@ export async function swFind() {
   if (ks.length > 300 && !await ask({title: `Fetch ${ks.length} frequencies?`, body: "radiomap.cl has one file per frequency, so this takes a while.", ok: "Fetch"})) return;
   const got = await fetchAll(ks, box);
   if (!got) return;
-  const win = +$("sw-window").value, now = Date.now(), items = [], aimed = !!myPos && $("sw-aimed").checked;
-  got.forEach((d, i) => {
-    if (!d || !d.shortwave || !d.shortwave.length) return;
-    const rows = d.shortwave.filter((e) => !aimed || aimedAt(e, myTargets)).map((e) => ({e, air: swAir(e, now)}));
-    const on = rows.find((r) => r.air.on);
-    const soon = rows.filter((r) => !r.air.on && r.air.startsIn != null && r.air.startsIn <= win)
-      .sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
-    const r = on || soon;
-    if (!r) return;
-    items.push({band: "SW", kHz: ks[i], ch: null, name: r.e.station || "", flag: flagHtml(ituFlag(r.e.itu), r.e.country),
-      note: [r.e.langLabel || r.e.lang, on ? `on air until ${minHHMM(hhmmMin(r.e.endUTC))} UTC` : `from ${hhmm(r.e.startUTC)} UTC, in ${dur(r.air.startsIn)}`]
-        .filter(Boolean).join(" · ")});
-  });
+  const aimed = !!myPos && $("sw-aimed").checked;
+  const items = swOnAir(ks.map((k, i) => [k, got[i]]), {win: +$("sw-window").value, targets: aimed ? myTargets : null}).map(({k, e, air}) =>
+    ({band: "SW", kHz: k, ch: null, name: e.station || "", flag: flagHtml(ituFlag(e.itu), e.country),
+      note: [e.langLabel || e.lang, air.on ? `on air until ${minHHMM(hhmmMin(e.endUTC))} UTC` : `from ${hhmm(e.startUTC)} UTC, in ${dur(air.startsIn)}`]
+        .filter(Boolean).join(" · ")}));
   mem.picks.sw = {band: "SW", items, failed: got.filter((d) => d === null).length};
   renderPicks("sw");
 }
@@ -427,23 +423,10 @@ export async function nearFind() {
   if (!ks.length) { box.innerHTML = `<p class="hint">radiomap.cl has nothing on ${band}.</p>`; return; }
   const got = await fetchAll(ks, box);
   if (!got) return;
-  const best = new Map();  // the kHz to listen on -> nearest station there
-  got.forEach((d, i) => {
-    for (const s of (d && d.stations) || []) {
-      if (kind !== "all" && s.category !== kind) continue;
-      // A repeater is listed on its input too; it's heard on its output
-      const k = s.category === "amateur" && s.rxKHz ? Math.round(s.rxKHz) : ks[i];
-      if (bandFor(k) !== band) continue;
-      const km = myPos && s.lat != null && s.lon != null ? haversineKm(myPos, s) : null;
-      if (radius && (km == null || km > radius)) continue;
-      const cur = best.get(k);
-      if (!cur || (km ?? Infinity) < (cur.km ?? Infinity)) best.set(k, {s, km});
-    }
-  });
-  const items = [...best].map(([k, {s, km}]) => ({band, kHz: k, ch: null, km, name: s.nombre || s.signal || "",
-    note: [s.nombre && s.signal, isRepeater(s) && `repeater ${fmtShift(s.rxKHz, s.txKHz)}`, placeOf(s)[0],
-      km != null && `${Math.round(km).toLocaleString()} km`].filter(Boolean).join(" · ")}));
-  items.sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.kHz - b.kHz);
+  const items = nearestStations(ks.map((k, i) => [k, got[i]]), {band, kind, pos: myPos, radius}).map(({k, s, km}) =>
+    ({band, kHz: k, ch: null, km, name: s.nombre || s.signal || "",
+      note: [s.nombre && s.signal, isRepeater(s) && `repeater ${fmtShift(s.rxKHz, s.txKHz)}`, placeOf(s)[0],
+        km != null && `${Math.round(km).toLocaleString()} km`].filter(Boolean).join(" · ")}));
   mem.picks.near = {band, items, failed: got.filter((d) => d === null).length};
   renderPicks("near");
 }
