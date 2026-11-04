@@ -246,11 +246,14 @@ await hold(page.locator('#remote [data-key="SCAN"]'));
 assert.equal(await lastSent(), "ab 02 0c 1a d3");
 assert.equal(await has33(), false);
 ok("Scan: only in the Remote; tap and hold both send 1A, never SCAN long");
+await page.click('#remote-seg label:has(input[value="keypad"])');  // Play is on the Keypad pane, which needs the full height
+assert.equal(await E(() => document.getElementById("remote").dataset.detent), "large");
 await hold(page.locator('#remote [data-key="PLAY"]'));
 await page.waitForSelector("#ask[open]");
 assert.match(await page.textContent("#ask-title"), /Hold SCAN on/);
 await page.click("#ask-no"); await page.waitForTimeout(200);
 assert.equal(await has33(), false);
+await page.click('#remote-seg label:has(input[value="keys"])');
 await hold(page.locator('#remote [data-fn="SCAN"]'));
 await confirmAsk();
 assert.equal(await has33(), true);

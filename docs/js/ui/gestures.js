@@ -59,32 +59,48 @@ export function swipeUp(el, onUp) {
   el.addEventListener("pointercancel", () => { id = null; });
 }
 
-// Drag a bottom sheet down by its handles to close it; it follows the finger and snaps back if let go early
-export function swipeToClose(sheet, handles, onClose) {
-  let y0 = 0, dy = 0, id = null;
+// Where sheets come in from the side instead of the bottom: wide screens, and phones held sideways (as in app.css)
+export const SIDE_SHEETS = "(min-width: 900px), (orientation: landscape) and (max-height: 540px)";
+const FLING = 0.8;      // px/ms: a flick this fast moves one detent in its direction
+
+// A bottom sheet's top drags it between its detents (data-detent="medium" | "large"); dragged down past medium
+// it closes. It follows the finger, then settles on the nearest detent, or the next one after a flick.
+export function sheetDrag(sheet, handles, {onClose, onDetent = () => {}}) {
+  let id = null, y0 = 0, h0 = 0, lastY = 0, lastT = 0, v = 0;
   const start = (e) => {
-    if (e.button > 0 || e.target.closest("button, select, input")) return;
-    if (matchMedia("(min-width: 900px)").matches) return;  // a side panel there: nothing to drag down
-    id = e.pointerId; y0 = e.clientY; dy = 0;
+    if (e.button > 0 || e.target.closest("button, select, input, label")) return;
+    if (matchMedia(SIDE_SHEETS).matches) return;  // a side sheet: nothing to drag
+    id = e.pointerId; y0 = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+    h0 = sheet.getBoundingClientRect().height;
     e.currentTarget.setPointerCapture(id);
-    sheet.style.transition = "none";
+    sheet.classList.add("dragging");
   };
   const move = (e) => {
     if (e.pointerId !== id) return;
-    dy = Math.max(0, e.clientY - y0);
-    sheet.style.transform = `translateY(${dy}px)`;
+    if (e.timeStamp > lastT) v = (e.clientY - lastY) / (e.timeStamp - lastT);
+    lastY = e.clientY; lastT = e.timeStamp;
+    const h = h0 - (e.clientY - y0), max = innerHeight * .92;
+    sheet.style.height = `${h > max ? max + (h - max) * .2 : Math.max(0, h)}px`;  // a little give past the top
   };
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
-    sheet.style.transition = "transform var(--med) var(--ease)";
-    if (dy >= CLOSE_PX) {
+    const h = sheet.getBoundingClientRect().height, medium = innerHeight * .58, large = innerHeight * .92;
+    sheet.classList.remove("dragging");
+    sheet.style.height = "";
+    let to = Math.abs(h - medium) < Math.abs(h - large) ? "medium" : "large";
+    if (v > FLING) to = h > medium ? "medium" : "close";
+    else if (v < -FLING) to = "large";
+    else if (h < medium - CLOSE_PX) to = "close";
+    if (to === "close") {
       haptic();
       sheet.style.transform = "translateY(100%)";
-      setTimeout(() => { onClose(); sheet.style.transform = ""; sheet.style.transition = ""; }, 180);
-    } else {
-      sheet.style.transform = "";
+      setTimeout(() => { onClose(); sheet.style.transform = ""; }, 200);
+      return;
     }
+    if (to !== sheet.dataset.detent) haptic(6);
+    sheet.dataset.detent = to;
+    onDetent(to);
   };
   for (const h of handles) {
     h.addEventListener("pointerdown", start);

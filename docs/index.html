@@ -270,7 +270,6 @@
   </button>
   <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
   <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
-  <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
   <div class="rb-off"><span>No radio connected</span>
     <button class="small primary" type="button" data-act="connect">Connect</button>
     <button class="small" type="button" data-act="demo">Demo</button>
@@ -293,9 +292,15 @@
     <div class="mini-freq" data-swipe-tune><span class="rb-freq" data-freq>---.---</span></div>
     <button class="close" type="button" data-close aria-label="Close" autofocus>✕</button>
   </header>
+  <div class="sheet-tabs">
+    <fieldset class="seg seg-fill" id="remote-seg"><legend>Show</legend>
+      <label><input type="radio" name="remote-pane" value="keys" checked><span>Keys</span></label>
+      <label><input type="radio" name="remote-pane" value="keypad"><span>Keypad</span></label>
+      <label><input type="radio" name="remote-pane" value="tune"><span>Tune</span></label>
+    </fieldset>
+  </div>
   <div class="sheet-body">
-    <section>
-      <h3 class="h">Keys</h3>
+    <section data-pane="keys" aria-label="Keys">
       <div class="grid">
         <button data-key="POWER" class="danger">⏻ Power</button>
         <button data-key="BAND">Band</button>
@@ -320,8 +325,7 @@
       </div>
       <p class="hint">Hold a key about 0.6 s for its long press (seek, band list, lock…).</p>
     </section>
-    <section>
-      <h3 class="h">Keypad</h3>
+    <section data-pane="keypad" aria-label="Keypad" hidden>
       <div class="grid k3">
         <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
         <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
@@ -336,8 +340,7 @@
         <button data-key="MUSIC">Music</button>
       </div>
     </section>
-    <section>
-      <h3 class="h">Direct tune</h3>
+    <section data-pane="tune" aria-label="Direct tune" hidden>
       <div class="row">
         <select id="bandsel" data-band-select aria-label="Band"></select>
         <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="9.5 or 101.1" autocomplete="off" aria-label="Frequency">

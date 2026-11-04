@@ -2,7 +2,7 @@ import {pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, swAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {addToList, bandFor} from "../memories.js";
 import {errText} from "../link.js";
-import {$, current, esc, go, goTo, log, lookUp, route, state, toast, tuneHere} from "./shell.js";
+import {$, current, esc, go, goTo, log, lookUp, renderMini, route, state, toast, tuneHere} from "./shell.js";
 import {addMem, renderStoreHere, renderSwChips} from "./memories.js";
 import {startBle, startDemo} from "./more.js";
 
@@ -21,7 +21,7 @@ export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e
 // near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
 // flag: the flag-icons key of the station the card headlines (its background), "" for none
 export const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz", flag: ""};
+  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz", flag: "", radioName: ""};
 export let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
 export const following = () => view.follow && state.ok;
 // Near me filters as well as sorts: stations beyond the radius, and shortwave not aimed at the listener's region.
@@ -54,9 +54,18 @@ export function radioFreq(k) {
   clearTimeout(view.timer);
   view.timer = setTimeout(() => {
     view.radioK = k;
+    nameRadio(k);
     if (view.follow && k !== null && k !== view.k) show(k);
     else renderView();
   }, 500);
+}
+
+// What's on the air where the radio is, for the mini player (the lookup is cached, so the dossier shares it)
+function nameRadio(k) {
+  view.radioName = "";
+  renderMini();
+  if (k === null) return;
+  rm.lookup(k).then((d) => { if (view.radioK === k) { view.radioName = nameOf(d); renderMini(); } }, () => {});
 }
 
 export async function show(k) {
@@ -177,11 +186,11 @@ export function actionsHtml() {
 // A flag-icons key the card can show behind the station ("" for none: the globe, or no country)
 const bgFlag = (key) => key && /^[a-z]{2}(-[a-z]{2})?$/.test(key) ? key : "";
 // The name to keep with a memory of the frequency on show: who's on air (or next), else the first station
-export function dossierName() {
-  const d = view.data;
+export const dossierName = () => nameOf(view.data);
+export function nameOf(d) {
   if (!d) return "";
   if (d.shortwave.length) { const sw = swView(d.shortwave).shown; return swPick(sw.length ? sw : d.shortwave).head.e.station || ""; }
-  if (d.stations.length) { const {s} = stationView().shown[0] || stationRows()[0]; return s.nombre || s.signal || ""; }
+  if (d.stations.length) { const {s} = stationView(d.stations).shown[0] || stationRows(d.stations)[0]; return s.nombre || s.signal || ""; }
   return "";
 }
 

@@ -3,7 +3,7 @@ import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {memKey} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
-import {swipeTune, swipeUp, swipeToClose} from "./gestures.js";
+import {SIDE_SHEETS, sheetDrag, swipeTune, swipeUp} from "./gestures.js";
 import {following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {link, pressKey, send} from "./more.js";
@@ -229,8 +229,23 @@ export function fromHash() {
 }
 
 // ---- the Remote: a native <dialog> (focus trap, Esc, backdrop and focus return come with it) ----
-export function openRemote() { if (!$("remote").open) $("remote").showModal(); }
+// Opens at the medium height, on the keys; the page behind steps back (CSS, bottom sheets only)
+export function openRemote() {
+  const r = $("remote");
+  if (r.open) return;
+  r.dataset.detent = $("remote-seg").querySelector("input:checked").value === "keys" ? "medium" : "large";
+  document.body.style.setProperty("--sy", `${window.scrollY}px`);
+  document.body.classList.add("sheet-open");
+  r.showModal();
+}
 export function closeRemote() { if ($("remote").open) $("remote").close(); }
+// The Remote's panes (Keys, Keypad, Tune); the keypad and direct tune need the sheet's full height
+export function remotePane(name) {
+  for (const p of $("remote").querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== name;
+  const input = $("remote-seg").querySelector(`input[value="${name}"]`);
+  if (input) input.checked = true;
+  if (name !== "keys" && !matchMedia(SIDE_SHEETS).matches) $("remote").dataset.detent = "large";
+}
 
 // ---- band pickers: native <select>s (the phone's own picker); command 10 with frequency 0 switches band ----
 export const BAND_LIST = ["FM", "AM", "SW", "AIR", "CB", "UHF", "WB", "VHF", "LW"];
@@ -248,7 +263,8 @@ export function renderMini(d = waiters.freq) {
   document.querySelectorAll("[data-freq]").forEach((e) => { e.textContent = text; });
   if (d) document.querySelectorAll("[data-band-chip]").forEach((e) => { e.textContent = d.band; e.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5"); });
   document.querySelectorAll("[data-band-select]").forEach((sel) => { if (d && [...sel.options].some((o) => o.value === d.band)) sel.value = d.band; });
-  const sub = [d && !d.alert && d.unit, $("preset").textContent].filter(Boolean).join(" · ");
+  // Under the digits: the channel, and what's on the air there (else the unit)
+  const sub = [$("preset").textContent, view.radioName || (d && !d.alert && d.unit)].filter(Boolean).join(" · ");
   document.querySelectorAll("[data-sub]").forEach((e) => { e.textContent = sub; });
 }
 
@@ -275,6 +291,8 @@ export function init() {
   let barFrame = 0;
   window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(barState); }, {passive: true});
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
+  $("remote").addEventListener("close", () => document.body.classList.remove("sheet-open"));
+  $("remote-seg").addEventListener("change", (e) => remotePane(e.target.value));
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);
 
@@ -288,7 +306,7 @@ export function init() {
     if (!$("swipe-hint").hidden) { $("swipe-hint").hidden = true; store.set("rf919.swiped", true); }
   }));
   swipeUp($("rb-open"), openRemote);
-  swipeToClose($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head")], closeRemote);
+  sheetDrag($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head"), $("remote").querySelector(".sheet-tabs")], {onClose: closeRemote});
   document.addEventListener("change", (e) => {
     const sel = e.target.closest("[data-band-select]");
     if (!sel || !sel.value) return;
