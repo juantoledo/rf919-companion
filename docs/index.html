@@ -30,7 +30,7 @@
   <section class="view" id="view-radio" data-view="radio" aria-labelledby="t-radio">
     <!-- No title bar: the tab names the view; the heading stays for screen readers and focus on tab switch -->
     <h1 class="sr-only" id="t-radio" tabindex="-1">Radio</h1>
-    <div class="status-line"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span>
+    <div class="status-line appbar"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span>
       <span class="clock" id="clock" title="Coordinated Universal Time"></span></div>
     <div class="banner" id="nobt" hidden>
       <b>No Web Bluetooth in this browser.</b>
@@ -87,7 +87,8 @@
 
   <!-- ======== Explore: look up any frequency ======== -->
   <section class="view" id="view-explore" data-view="explore" aria-labelledby="t-explore" hidden>
-    <header class="view-head"><h1 id="t-explore" tabindex="-1">Explore</h1></header>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Explore</span></header>
+    <h1 class="large-title" id="t-explore" tabindex="-1">Explore</h1>
     <form class="search" id="search" role="search">
       <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
              placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
@@ -98,7 +99,8 @@
 
   <!-- ======== Memories ======== -->
   <section class="view" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
-    <header class="view-head"><h1 id="t-memories" tabindex="-1">Memories</h1><span class="clock" id="mem-total"></span></header>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><span class="clock" id="mem-total"></span></span></header>
+    <h1 class="large-title" id="t-memories" tabindex="-1">Memories</h1>
     <section class="panel">
       <fieldset class="seg" id="mem-counts"><legend>Band</legend></fieldset>
       <div class="mem-box"><ul class="list" id="mem-list"></ul></div>
@@ -164,7 +166,8 @@
 
   <!-- ======== More: connection, settings, tools ======== -->
   <section class="view" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
-    <header class="view-head"><h1 id="t-more" tabindex="-1">More</h1></header>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">More</span></header>
+    <h1 class="large-title" id="t-more" tabindex="-1">More</h1>
     <section class="panel group" aria-labelledby="g-conn">
       <h2 id="g-conn">Connection</h2>
       <div class="item"><span class="lamp" data-lamp></span><span class="label" id="conn-state">Not connected</span></div>

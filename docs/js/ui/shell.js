@@ -137,9 +137,11 @@ export function statusLine() {
 // ---- views: Radio follows the dial, Explore looks up any frequency; both show the same info panels ----
 export const VIEWS = ["radio", "explore", "memories", "more"];
 export let current = null;
+const scrollMem = {};  // each tab comes back where it was left
 export function go(name, {focus = true} = {}) {
   if (!VIEWS.includes(name)) name = "radio";
-  const changed = current !== name;
+  const prev = current, changed = prev !== name;
+  if (changed && prev) scrollMem[prev] = window.scrollY;
   current = name;
   if (name === "radio" || name === "explore") {
     const host = $(`host-${name}`);
@@ -147,6 +149,9 @@ export function go(name, {focus = true} = {}) {
   }
   if (name === "radio" && !view.follow) followRadio();
   if (name === "explore" && view.follow) exploreMode();
+  // The new view slides in from the side its tab is on; the tab bar's pill slides to it
+  $("app").dataset.dir = prev && VIEWS.indexOf(name) < VIEWS.indexOf(prev) ? "back" : "fwd";
+  $("tabbar").style.setProperty("--i", VIEWS.indexOf(name));
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== name;
   document.querySelectorAll("#tabbar [data-tab]").forEach((a) => {
     if (a.dataset.tab === name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
@@ -157,9 +162,18 @@ export function go(name, {focus = true} = {}) {
   store.set("rf919.view", name);
   setHash(name === "explore" && view.k !== null ? view.k : name);
   if (changed) {
-    window.scrollTo(0, 0);
+    window.scrollTo(0, scrollMem[name] || 0);
     if (focus) $(`t-${name}`).focus({preventScroll: true});
   }
+  barState();
+}
+// The top bar turns to glass once the page scrolls under it; a large title hands over to the bar's small one
+export function barState() {
+  const v = current && $(`view-${current}`);
+  if (!v) return;
+  v.classList.toggle("scrolled", window.scrollY > 2);
+  const title = v.querySelector(".large-title"), bar = v.querySelector(".appbar");
+  v.classList.toggle("collapsed", !!title && !!bar && title.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
 }
 export function followRadio() {
   if (!view.follow) view.exploreK = view.k;
@@ -258,6 +272,8 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
 // What ran at load in the single-script page, in the same order; app.js calls it once every module is loaded
 export function init() {
   handlers.entry = handlers.freq;
+  let barFrame = 0;
+  window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(barState); }, {passive: true});
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);

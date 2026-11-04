@@ -1,5 +1,6 @@
-/* RF919 Companion. Layout: four views (Radio, Explore, Memories, More) behind a bottom tab bar (a left rail on
-   wide screens), a radio bar above the tabs on every view but Radio, and the Remote as a native <dialog>. */
+/* RF919 Companion. Layout: four views (Radio, Explore, Memories, More). Phones in portrait get a floating tab bar
+   with the radio as a mini player above it; wide screens, and phones held sideways, a navigation rail. The Remote
+   is a native <dialog> sheet. */
 
 /* ================= base ================= */
 * { box-sizing: border-box; }
@@ -7,10 +8,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body { margin: 0; background: var(--ink); color: var(--text); }
 body {
   font: 400 var(--fs-body)/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
-  padding: 0 0 calc(var(--tabbar-h) + var(--radiobar-h) + env(safe-area-inset-bottom) + var(--s4)) var(--rail-w);
+  padding: 0 0 calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s4)) var(--rail-w);
   overflow-x: hidden;
 }
-body.with-radiobar { --radiobar-h: 64px; }
+body.with-radiobar { --radiobar-h: 72px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
 a { color: var(--amber); text-underline-offset: 3px; }
@@ -100,62 +101,115 @@ input[type=checkbox]:not([role=switch]) { width: 20px; height: 20px; margin: 0; 
 .lit { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber); }
 
 /* ================= shell ================= */
-.view { max-width: 640px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + var(--s4)) max(var(--s4), env(safe-area-inset-right)) var(--s4) max(var(--s4), env(safe-area-inset-left)); display: grid; gap: var(--s3); animation: fade-in var(--med) both; }
-.view-head { display: flex; align-items: center; gap: var(--s3); min-height: 44px; }
-.view-head h1 { flex: 1; min-width: 0; font: 800 var(--fs-title)/1 var(--font-display); letter-spacing: .03em; text-transform: uppercase; }
-.view-head h1:focus { outline: none; }
+.view {
+  max-width: 640px; margin: 0 auto; padding: 0 var(--gutter-r) var(--s4) var(--gutter-l); display: grid; gap: var(--s3);
+  animation: view-in var(--med) var(--ease) backwards;
+}
+/* tabs slide in from the side they sit on */
+@keyframes view-in { from { opacity: 0; transform: translateX(10px); } }
+@keyframes view-in-back { from { opacity: 0; transform: translateX(-10px); } }
+main[data-dir="back"] .view { animation-name: view-in-back; }
+
+/* ---- the top bar: sticky under the status bar; clear until the page scrolls under it, then glass ---- */
+.appbar {
+  position: sticky; top: 0; z-index: 6; min-height: calc(var(--bar-h) + env(safe-area-inset-top));
+  margin: 0 calc(-1 * var(--gutter-r)) 0 calc(-1 * var(--gutter-l)); padding: env(safe-area-inset-top) var(--gutter-r) 0 var(--gutter-l);
+  border-bottom: 1px solid transparent; transition: background-color var(--med), border-color var(--med);
+}
+.view.scrolled > .appbar {
+  background: var(--glass); border-bottom-color: var(--line);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8);
+}
+/* titled views: a large title that hands over to a small one in the bar once it scrolls away (iOS) */
+.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3); }
+.topbar-title { grid-column: 2; font: 600 var(--fs-headline)/1.2 var(--font-ui); white-space: nowrap; opacity: 0; transition: opacity var(--fast); }
+.view.collapsed .topbar-title { opacity: 1; }
+.topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: var(--s2); }
+.large-title { margin: calc(-1 * var(--s2)) 0 0; font: 800 var(--fs-large-title)/1 var(--font-display); letter-spacing: .03em; text-transform: uppercase; }
+.large-title:focus { outline: none; }
+/* Radio: no title (like a Now Playing screen); the status line is its bar */
 .status-line { display: flex; align-items: center; gap: var(--s2); min-width: 0; font: 400 var(--fs-caption)/1.4 var(--font-mono); color: var(--dim); }
 .status { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .status b { color: var(--amber); font-weight: 500; }
 .clock { flex: none; font: 400 var(--fs-caption) var(--font-mono); letter-spacing: .06em; color: var(--dim); white-space: nowrap; }
 .clock b { color: var(--text); font-weight: 500; font-variant-numeric: tabular-nums; }
 .lamp { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--lamp-off); }
-.lamp.ok { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool); animation: blink .5s steps(2, jump-none) infinite; }
+.lamp.ok { background: var(--amber); box-shadow: 0 0 8px var(--amber-glow); }
+.lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool-line); animation: blink .5s steps(2, jump-none) infinite; }
 .lamp.cool { background: var(--cool); box-shadow: 0 0 8px var(--cool-line); }
-.banner { display: grid; gap: 3px; padding: var(--s3); border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: var(--r1); background: var(--warn-soft); font-size: var(--fs-small); }
+.banner { display: grid; gap: 3px; padding: var(--s3); border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: var(--r2); background: var(--warn-soft); font-size: var(--fs-small); }
 .banner b { font-weight: 600; color: var(--warn); }
 
-/* ---- tab bar (a left rail on wide screens) ---- */
-.tabbar {
-  position: fixed; z-index: 10; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom)); padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  background: var(--surface); border-top: 1px solid var(--line-strong);
-}
-.tabbar a {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-height: var(--hit);
-  color: var(--dim); text-decoration: none; font: 600 .6875rem/1 var(--font-ui); letter-spacing: .02em; -webkit-touch-callout: none;
-}
-.tabbar a .ico { width: 24px; height: 24px; }
-.tabbar a[aria-current="page"] { color: var(--amber); }
-.tabbar a[aria-current="page"] .ico { filter: drop-shadow(0 0 6px var(--amber-glow)); }
-@media (min-width: 900px) {
-  :root { --rail-w: 88px; --tabbar-h: 0px; }
-  .tabbar { top: 0; right: auto; width: var(--rail-w); height: auto; grid-template-columns: none; grid-auto-rows: 72px; align-content: start;
-    padding: calc(env(safe-area-inset-top) + var(--s4)) 0 0; border-top: 0; border-right: 1px solid var(--line-strong); }
-  .view { max-width: 760px; }
+/* ---- floating bars: glass capsules over the content ---- */
+.tabbar, .radiobar {
+  position: fixed; left: calc(var(--rail-w) + (100% - var(--rail-w)) / 2); translate: -50% 0; width: min(440px, calc(100% - var(--rail-w) - 2 * var(--s3)));
+  background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow-float);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
 }
 
-/* ---- radio bar: the radio, one tap away on every view but Radio ---- */
-.radiobar {
-  position: fixed; z-index: 9; left: var(--rail-w); right: 0; bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
-  display: grid; grid-template-columns: auto minmax(0, 1fr) repeat(3, 48px); align-items: center; gap: var(--s2);
-  height: var(--radiobar-h); padding: 0 max(var(--s3), env(safe-area-inset-right)) 0 max(var(--s3), env(safe-area-inset-left));
-  background: var(--surface-2); border-top: 1px solid var(--line-strong);
+/* ---- tab bar: four tabs and a pill that slides to the current one ---- */
+.tabbar {
+  z-index: 10; bottom: var(--bar-bottom); height: 60px; padding: 4px; border-radius: var(--round);
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
 }
-@media (min-width: 900px) { .radiobar { left: calc(var(--rail-w) + 50% - var(--rail-w) / 2); translate: -50% 0; width: min(760px, calc(100% - var(--rail-w) - 32px)); bottom: var(--s4); border: 1px solid var(--line-strong); border-radius: var(--r3); box-shadow: var(--shadow-float); } }
+.tabbar::before {
+  content: ""; position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 4); border-radius: var(--round);
+  background: var(--amber-soft); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform var(--slow) var(--spring);
+}
+.tabbar a {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: var(--hit);
+  border-radius: var(--round); color: var(--dim); text-decoration: none; font: 600 .6875rem/1 var(--font-ui); letter-spacing: .01em; -webkit-touch-callout: none;
+}
+.tabbar a .ico { width: 24px; height: 24px; transition: fill-opacity var(--fast); }
+.tabbar a[aria-current="page"] { color: var(--amber); }
+.tabbar a[aria-current="page"] .ico { fill: currentColor; fill-opacity: .22; }
+@media (hover: hover) { .tabbar a:hover:not([aria-current]) { color: var(--text); } }
+
+/* ---- mini player: the radio, one tap away on every view but Radio ---- */
+.radiobar {
+  z-index: 9; bottom: calc(var(--bar-bottom) + var(--tabbar-h)); height: 64px; border-radius: var(--r3);
+  display: grid; grid-template-columns: auto minmax(0, 1fr) repeat(3, 48px); align-items: center; gap: var(--s1); padding: 0 var(--s2);
+}
 .radiobar .rb-open {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--s2); min-height: 52px; padding: 0 var(--s2);
-  text-align: left; background: transparent; border: 0; touch-action: pan-y;
+  display: grid; grid-template-columns: minmax(0, 1fr); align-content: center; min-height: 52px; padding: 0 var(--s2);
+  text-align: left; background: transparent; border: 0; border-radius: var(--r2); touch-action: none;
 }
 .radiobar .rb-open:active { transform: none; background: var(--hover); }
-.rb-freq { font: italic 700 1.375rem/1 var(--font-freq); color: var(--freq-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rb-sub { grid-column: 2; font: 500 var(--fs-caption)/1.3 var(--font-mono); letter-spacing: .04em; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rb-sub b { color: var(--amber); font-weight: 500; }
-.radiobar .lamp { grid-row: span 2; }
-.radiobar > button[data-key] { min-height: 48px; padding: 0; }
-.radiobar .rb-off { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--s2); }
+.rb-freq { font: italic 700 1.25rem/1 var(--font-freq); color: var(--freq-ink); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-sub { font: 500 var(--fs-caption)/1.3 var(--font-ui); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rb-sub b { color: var(--amber); font-weight: 600; }
+.radiobar > button[data-key] { min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: 50%; font-size: 1.125rem; }
+.radiobar > button[data-key="MEMO"] { font-size: .625rem; }
+.radiobar .rb-off { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--s2); padding-left: var(--s2); }
 .radiobar .rb-off span { font-size: var(--fs-small); color: var(--dim); }
+.radiobar:not(.off) .rb-off { display: none; }
+.radiobar.off > :not(.rb-off) { display: none; }
+
+/* ---- the rail: wide screens, and phones held sideways (short), put the tabs down the side ---- */
+@media (min-width: 900px), (orientation: landscape) and (max-height: 540px) {
+  :root { --rail-w: calc(80px + env(safe-area-inset-left)); --tabbar-h: 0px; --gutter-l: var(--s5); }
+  .tabbar {
+    left: 0; top: 0; bottom: 0; translate: none; width: var(--rail-w); height: auto; border-radius: 0; border: 0; border-right: 1px solid var(--line);
+    padding: calc(env(safe-area-inset-top) + var(--s4)) 0 env(safe-area-inset-bottom) env(safe-area-inset-left);
+    grid-template-columns: none; grid-auto-rows: 68px; align-content: start; box-shadow: none; background: var(--surface);
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+  }
+  /* Material's rail: a 56 × 32 pill around the icon, the label under it */
+  .tabbar::before {
+    top: calc(env(safe-area-inset-top) + var(--s4) + 8px); bottom: auto; left: calc(env(safe-area-inset-left) + 12px); width: 56px; height: 32px;
+    transform: translateY(calc(var(--i, 0) * 68px));
+  }
+  .tabbar a { justify-content: flex-start; gap: 4px; padding-top: 12px; border-radius: 0; }
+  .radiobar { bottom: var(--bar-bottom); width: min(640px, calc(100% - var(--rail-w) - 2 * var(--s4))); }
+  .view { max-width: 760px; }
+}
+/* phones held sideways: no room for a large title, the bar shows the small one from the start */
+@media (orientation: landscape) and (max-height: 540px) {
+  :root { --bar-h: 40px; }
+  .large-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .topbar-title { opacity: 1; }
+  .view > .appbar { background: var(--glass); border-bottom-color: var(--line); -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8); }
+}
 
 /* ---- band picker: a native <select> laid over a chip, so tapping it opens the phone's own picker ---- */
 .band-pick { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 64px; min-height: var(--hit); }
@@ -192,6 +246,7 @@ dialog.sheet[open] { animation: sheet-up var(--med) var(--ease) both; }
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--s4) max(var(--s4), env(safe-area-inset-right)) calc(var(--s4) + env(safe-area-inset-bottom)) max(var(--s4), env(safe-area-inset-left)); display: grid; gap: var(--s5); }
 .mini-freq { display: flex; align-items: center; gap: var(--s3); min-width: 0; touch-action: pan-y; }
 .mini-freq .rb-freq { font-size: 1.75rem; }
+.sheet-head { touch-action: none; }
 /* ask(): a small centred dialog with clear verbs */
 dialog.ask { margin: auto; width: min(400px, calc(100% - 32px)); border-radius: var(--r3); box-shadow: var(--shadow-float); }
 dialog.ask form { display: grid; gap: var(--s3); padding: var(--s5) var(--s4) var(--s4); }
@@ -201,7 +256,7 @@ dialog.ask .row { margin-top: var(--s2); }
 
 /* ---- toast (snackbar): above the bars, click-through ---- */
 .toast {
-  position: fixed; z-index: 30; left: 50%; translate: -50% 0; bottom: calc(var(--tabbar-h) + var(--radiobar-h) + env(safe-area-inset-bottom) + var(--s3));
+  position: fixed; z-index: 30; left: calc(var(--rail-w) + (100% - var(--rail-w)) / 2); translate: -50% 0; bottom: calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s1));
   width: max-content; max-width: min(520px, calc(100% - 32px)); padding: var(--s3) var(--s4); white-space: pre-line;
   background: var(--inverse); color: var(--on-inverse); border: 0; border-radius: var(--r2); box-shadow: var(--shadow-float);
   font: 400 var(--fs-small)/1.45 var(--font-ui); animation: rise-in var(--med) var(--ease) both; pointer-events: none;
@@ -441,24 +496,17 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 
 /* ---- small additions ---- */
 .tune3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tune3 button[data-key="UP"], .tune3 button[data-key="DOWN"], .radiobar > button[data-key="UP"], .radiobar > button[data-key="DOWN"] { font-size: 1.25rem; }
-.radiobar:not(.off) .rb-off { display: none; }
-.radiobar.off > :not(.rb-off) { display: none; }
+.tune3 button[data-key="UP"], .tune3 button[data-key="DOWN"] { font-size: 1.25rem; }
 .connect-card > h2 { display: block; margin: 0; font: 800 1.75rem/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: var(--text); }
 .sheet-head .mini-freq { flex: 1; }
 .band-pick:focus-within .band { outline: none; }
 .band-pick:has(select:focus-visible) .band { outline: 2px solid var(--cool); outline-offset: 2px; }
 .grid.k5 button[data-fn] { padding: 0 2px; font-size: .6875rem; letter-spacing: 0; }
-.rb-freq { font-size: 1.25rem; }
-.mini-freq .rb-freq { font-size: 1.75rem; }
-.radiobar .rb-open, .sheet-head { touch-action: none; }
+
 /* touch: every target at least 44 px */
 @media (pointer: coarse) {
   .seg span { min-height: var(--hit); }
   .h button.toggle, .h button.small, select.radius { min-height: var(--hit); }
-}
-@media (min-width: 900px) {
-  .tabbar { bottom: 0; }
 }
 
 /* ---- segmented controls ----
