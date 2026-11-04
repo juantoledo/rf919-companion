@@ -3,7 +3,7 @@ import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {memKey} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
-import {SIDE_SHEETS, sheetDrag, swipeTune, swipeUp} from "./gestures.js";
+import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
 import {addRecent, following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {link, pressKey, send} from "./more.js";
@@ -293,7 +293,7 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
   $("ask-body").hidden = !body;
   $("ask-ok").textContent = ok;
   $("ask-no").textContent = cancel;
-  $("ask-ok").className = danger ? "danger" : "primary";
+  $("ask-ok").className = danger ? "danger filled" : "filled";
   d.returnValue = "";
   return new Promise((resolve) => {
     d.addEventListener("close", () => resolve(d.returnValue === "ok"), {once: true});
@@ -327,6 +327,7 @@ export function init() {
   swipeUp($("rb-open"), openRemote);
   sheetDrag($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head"), $("remote").querySelector(".sheet-tabs")], {onClose: closeRemote});
   sheetDrag($("tools"), [$("tools-grab"), $("tools").querySelector(".sheet-head")], {onClose: () => $("tools").close()});
+  swipeAway($("toast"), () => { $("toast").hidden = true; });
   document.addEventListener("change", (e) => {
     const sel = e.target.closest("[data-band-select]");
     if (!sel || !sel.value) return;

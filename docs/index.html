@@ -41,7 +41,7 @@
       <h2 class="empty-t">Connect your RF919</h2>
       <p>Turn the radio on and connect over Bluetooth. No radio at hand? The Demo plays a recorded session, and Explore looks up any frequency.</p>
       <div class="row">
-        <button class="primary" type="button" data-act="connect">Connect radio</button>
+        <button class="filled" type="button" data-act="connect">Connect radio</button>
         <button type="button" data-act="demo">Demo</button>
       </div>
     </div>
@@ -127,7 +127,7 @@
       <h2 id="g-conn">Connection</h2>
       <div class="item"><span class="lamp" data-lamp></span><span class="label" id="conn-state">Not connected</span></div>
       <div class="item-actions">
-        <button class="primary" type="button" id="connect">Connect</button>
+        <button class="filled" type="button" id="connect">Connect</button>
         <button type="button" id="disconnect">Disconnect</button>
         <button type="button" id="demo">Demo</button>
       </div>
@@ -242,7 +242,7 @@
         <select id="bandsel" data-band-select aria-label="Band"></select>
         <input type="text" id="freqin" inputmode="decimal" enterkeyhint="go" placeholder="9.5 or 101.1" autocomplete="off" aria-label="Frequency">
       </div>
-      <div class="row" style="margin-top:var(--s2)"><button class="primary" type="button" id="tunebtn">Tune</button></div>
+      <div class="row" style="margin-top:var(--s2)"><button class="filled" type="button" id="tunebtn">Tune</button></div>
       <p class="hint">Typed in the unit the band shows (MHz on SW and FM).</p>
     </section>
   </div>
@@ -370,7 +370,7 @@
   <form method="dialog">
     <h2 id="ask-title"></h2>
     <p id="ask-body"></p>
-    <div class="row"><button value="cancel" id="ask-no">Cancel</button><button value="ok" id="ask-ok" class="primary">OK</button></div>
+    <div class="row"><button value="cancel" id="ask-no">Cancel</button><button value="ok" id="ask-ok" class="filled">OK</button></div>
   </form>
 </dialog>
 

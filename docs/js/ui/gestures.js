@@ -153,3 +153,28 @@ export function swipeRows(list) {
   // A tap anywhere else closes an open row
   document.addEventListener("pointerdown", (e) => { for (const o of list.querySelectorAll(".open")) if (!o.contains(e.target)) shut(o); });
 }
+
+// A snackbar swiped sideways goes away (one with an action takes taps; a plain one lets them through and times out)
+export function swipeAway(el, onAway) {
+  let id = null, x0 = 0, dx = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button > 0 || e.target.closest("button")) return;
+    id = e.pointerId; x0 = e.clientX; dx = 0;
+    el.setPointerCapture(id);
+    el.style.transition = "none";
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    el.style.transform = `translateX(${dx}px)`;
+    el.style.opacity = String(1 - Math.min(1, Math.abs(dx) / 200));
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    el.style.transition = el.style.transform = el.style.opacity = "";
+    if (Math.abs(dx) > CLOSE_PX) onAway();
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
+}

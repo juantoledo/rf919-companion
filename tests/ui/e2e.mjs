@@ -150,7 +150,7 @@ await tool("mem-fresh");
 await page.click('[data-mem="fresh"]');
 await page.waitForSelector("#ask[open]");
 assert.match(await page.textContent("#ask-title"), /Wipe all AIR memories/);
-assert.equal(await page.getAttribute("#ask-ok", "class"), "danger");
+assert.equal(await page.getAttribute("#ask-ok", "class"), "danger filled");
 await page.screenshot({path: `${OUT}/e2e-ask.png`});
 await page.click("#ask-no");
 assert.equal(await E(() => mem.run), null);

@@ -110,7 +110,7 @@ export function renderMemRun() {
       (over.length > 8 ? ` and ${over.length - 8} more` : "") + `. The radio overwrites a channel without asking.</p>`;
   }
   const off = !state.ok || !n ? " disabled" : "";
-  h += `<div class="row" style="margin-top:8px"><button class="primary" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""}</button>` +
+  h += `<div class="row" style="margin-top:8px"><button class="filled" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""}</button>` +
     `<button type="button" data-mem="check"${off}>Check${n ? ` ${n}` : ""}</button></div>` +
     (n ? `<div class="row" style="margin-top:var(--s2)"><button class="small quiet" type="button" data-mem="clear">Clear the ${band} list</button></div>` : "");
   if (mem.fail) {
