@@ -2,8 +2,8 @@ import {pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, swAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {addToList, bandFor} from "../memories.js";
 import {errText} from "../link.js";
-import {$, current, esc, go, goTo, log, lookUp, route, state, toast, tuneHere} from "./shell.js";
-import {addMem, renderStoreHere, renderSwChips} from "./memories.js";
+import {$, current, esc, go, goTo, log, lookUp, renderMini, route, state, toast, tuneHere} from "./shell.js";
+import {addMem, canStoreHere, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {startBle, startDemo} from "./more.js";
 
 // ---- What's on a frequency (radiomap.cl) ----
@@ -21,7 +21,7 @@ export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e
 // near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
 // flag: the flag-icons key of the station the card headlines (its background), "" for none
 export const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz", flag: ""};
+  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz", flag: "", radioName: ""};
 export let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
 export const following = () => view.follow && state.ok;
 // Near me filters as well as sorts: stations beyond the radius, and shortwave not aimed at the listener's region.
@@ -54,9 +54,18 @@ export function radioFreq(k) {
   clearTimeout(view.timer);
   view.timer = setTimeout(() => {
     view.radioK = k;
+    nameRadio(k);
     if (view.follow && k !== null && k !== view.k) show(k);
     else renderView();
   }, 500);
+}
+
+// What's on the air where the radio is, for the mini player (the lookup is cached, so the dossier shares it)
+function nameRadio(k) {
+  view.radioName = "";
+  renderMini();
+  if (k === null) return;
+  rm.lookup(k).then((d) => { if (view.radioK === k) { view.radioName = nameOf(d); renderMini(); } }, () => {});
 }
 
 export async function show(k) {
@@ -134,8 +143,9 @@ export function dossierHtml() {
   }
   // On Radio the readout above shows the frequency; Explore shows the one looked up in the same big digits
   const freq = following() ? "" : `<p class="d-freq">${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></p>`;
-  if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
-  if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>`;
+  // The actions don't wait for radiomap.cl: Store here and + Memory work whatever it answers
+  if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>` + actionsHtml();
+  if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>` + actionsHtml();
   const {stations, shortwave} = view.data;
   let body;
   if (shortwave.length) body = swHtml(shortwave);
@@ -146,6 +156,19 @@ export function dossierHtml() {
         `${hidden} farther away.</p><div class="intro-act">${showAllBtn(`Show ${hidden === 1 ? "it" : `all ${hidden}`}`)}</div></div>`;
   } else body = `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
   return freq + body + actionsHtml();
+}
+
+// Recent lookups: chips under Explore's search, newest first
+const RECENT_MAX = 8;
+export function addRecent(k) {
+  store.set("rf919.recent", [k, ...store.get("rf919.recent", []).filter((r) => r !== k)].slice(0, RECENT_MAX));
+  renderRecent();
+}
+export function renderRecent() {
+  const list = store.get("rf919.recent", []).filter((k) => k > 0), box = $("recent");
+  box.hidden = !list.length;
+  box.innerHTML = list.map((k) => `<button class="chip" type="button" data-look="${k}" aria-label="Look up ${fmtKHz(k)}">` +
+    `${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></button>`).join("");
 }
 
 export function introHtml() {
@@ -164,24 +187,27 @@ export function actionsHtml() {
   const band = bandFor(k), inList = band && mem.list.find((e) => e.band === band && e.kHz === k);
   const add = !band ? "" : inList ? `<button class="small" type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
     : `<button class="small" type="button" data-act="addmem">+ Memory</button>`;
-  const has = d.stations.length || d.shortwave.length;
+  // On Radio: store what the radio is on, on the channel after the last one in use
+  const here = following() ? `<button class="small" type="button" id="storehere" data-act="storehere"${canStoreHere() ? "" : " disabled"} ` +
+    `title="Saves what the radio is tuned to on the channel after the last one in use">Store here</button>` : "";
+  const has = d && (d.stations.length || d.shortwave.length);
   const near = has ? `<button class="small toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
   const radSel = has && located() && d.stations.length
     ? `<select class="radius" data-act="radius" aria-label="Distance">` +
       RADII.map((r) => `<option value="${r}"${r === radius ? " selected" : ""}>${r ? `≤ ${r} km` : "any km"}</option>`).join("") + `</select>` : "";
   const refilter = has && located() && view.showAll ? `<button class="small" type="button" data-act="refilter">Near only</button>` : "";
   const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
-  return `<div class="d-actions">${tune}${add}${near}${radSel}${refilter}` +
+  return `<div class="d-actions">${tune}${add}${here}${near}${radSel}${refilter}` +
     `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p></div>`;
 }
 // A flag-icons key the card can show behind the station ("" for none: the globe, or no country)
 const bgFlag = (key) => key && /^[a-z]{2}(-[a-z]{2})?$/.test(key) ? key : "";
 // The name to keep with a memory of the frequency on show: who's on air (or next), else the first station
-export function dossierName() {
-  const d = view.data;
+export const dossierName = () => nameOf(view.data);
+export function nameOf(d) {
   if (!d) return "";
   if (d.shortwave.length) { const sw = swView(d.shortwave).shown; return swPick(sw.length ? sw : d.shortwave).head.e.station || ""; }
-  if (d.stations.length) { const {s} = stationView().shown[0] || stationRows()[0]; return s.nombre || s.signal || ""; }
+  if (d.stations.length) { const {s} = stationView(d.stations).shown[0] || stationRows(d.stations)[0]; return s.nombre || s.signal || ""; }
   return "";
 }
 
@@ -383,6 +409,8 @@ export function init() {
     $("q").value = ""; $("q").blur();
     lookUp(k);
   });
+  $("q-clear").addEventListener("click", () => { $("q").value = ""; $("q").focus(); });
+  renderRecent();
   document.addEventListener("change", (e) => {
     if (!e.target.matches('select[data-act="radius"]')) return;
     radius = +e.target.value;
@@ -400,6 +428,7 @@ export function init() {
     else if (t.dataset.act === "refilter") { view.showAll = false; renderView(); }
     else if (t.dataset.act === "tunehere") tuneHere();
     else if (t.dataset.act === "addmem") addMem([{band: bandFor(view.k), kHz: view.k, ch: null, name: dossierName()}]);
+    else if (t.dataset.act === "storehere") storeHere();
     else if (t.dataset.act === "connect") startBle();
     else if (t.dataset.act === "demo") startDemo();
   });

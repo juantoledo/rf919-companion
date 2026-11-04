@@ -3,7 +3,7 @@ import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, errText, linkOpts, sleep} from "../link.js";
-import {$, ask, esc, go, handlers, log, openRemote, route, setStatus, state, toast} from "./shell.js";
+import {$, ask, esc, go, handlers, log, openRemote, openTool, route, setStatus, state, toast} from "./shell.js";
 import {mem, nearPasses, renderView, show, store, view} from "./radio.js";
 import {addMem, addPicked, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
@@ -49,11 +49,21 @@ export async function testRun(kind, auto) {
   } finally { t.busy = false; }
 }
 
-export async function clearBand() {
-  const band = shownBand(), n = bandCount(mem.list, band);
-  if (mem.run || !n || !await ask({title: `Clear the ${band} list?`, body: `Removes its ${n} memor${n === 1 ? "y" : "ies"} from this list. The radio keeps what it has stored.`, ok: "Clear", danger: true})) return;
-  Object.assign(mem, {list: mem.list.filter((e) => e.band !== band), check: null, fail: null});
+// Changes to the list are undone from the snackbar instead of being asked about first (the radio keeps what it has)
+export function setList(list, msg, also = {}) {
+  const before = {list: mem.list, check: mem.check, fail: mem.fail};
+  Object.assign(mem, {list, ...also});
   saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+  toast(msg, 5000, false, {label: "Undo", run: () => {
+    if (mem.run) return;
+    Object.assign(mem, before);
+    saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+  }});
+}
+export function clearBand() {
+  const band = shownBand(), n = bandCount(mem.list, band);
+  if (mem.run || !n) return;
+  setList(mem.list.filter((e) => e.band !== band), `Cleared the ${band} list (${n})`, {check: null, fail: null});
 }
 
 // ---- Developer: send any frame (FF13 only) ----
@@ -253,13 +263,23 @@ export async function startBle() {
       setStatus("bad", "no device chosen");
       if ($("onlyRadio").checked) toast("Radio not in the list? Turn off \"Only list RF919 radios\" in More › Connection", 6000);
     }
-    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; go("more"); }
+    else { setStatus("bad", `failed: ${errText(e)}`); go("more"); openTool("logpanel"); }
   }
 }
 export async function startDemo() {
   if (link) await link.close();
   link = new ReplayLink(onEvent, setStatus);
   link.connect();
+}
+
+// Theme: "system" follows the phone; "light" or "dark" sets <html data-theme> (index.html applies it before the page draws)
+const THEME_BG = {light: "#eef2f6", dark: "#070d15"};  // --bg in tokens.css, for the browser's own bars
+export function applyTheme(t) {
+  const root = document.documentElement;
+  if (t === "light" || t === "dark") root.dataset.theme = t; else delete root.dataset.theme;
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+    m.content = THEME_BG[t] || THEME_BG[m.media.includes("light") ? "light" : "dark"];
+  }
 }
 
 // Screen wake lock
@@ -283,6 +303,7 @@ export function init() {
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (t.name === "memband") { mem.viewBand = t.value; renderMem(); }
+    else if (t.name === "theme") { store.set("rf919.theme", t.value); applyTheme(t.value); }
     else if (t.matches("[data-swband]")) {
       if (t.checked) mem.swSel.add(t.value); else mem.swSel.delete(t.value);
       store.set("rf919.swbands", [...mem.swSel]);
@@ -294,9 +315,8 @@ export function init() {
     switch (t.dataset.mem) {
       case "del": {
         if (mem.run) return;
-        const i = +t.dataset.i;
-        mem.list = mem.list.filter((_, j) => j !== i);
-        saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+        const i = +t.dataset.i, e = mem.list[i];
+        if (e) setList(mem.list.filter((_, j) => j !== i), `Removed ${e.band} CH ${e.ch}${e.name ? ` · ${e.name}` : ""}`);
         break;
       }
       case "clear": clearBand(); break;
@@ -324,6 +344,10 @@ export function init() {
       case "t-recall": testRun("recall", true); break;
     }
   });
+  const theme = store.get("rf919.theme", "system");
+  const pick = $("theme-seg").querySelector(`input[value="${theme}"]`);
+  if (pick) pick.checked = true;
+  applyTheme(theme);
   for (const b of MEM_BANDS) $("t-band").add(new Option(b, b, b === "SW", b === "SW"));
   renderSwChips();
   $("mem-text").addEventListener("input", () => { $("mem-errs").textContent = ""; });
@@ -372,7 +396,6 @@ export function init() {
     }
   });
   $("connect").addEventListener("click", startBle);
-  $("storehere").addEventListener("click", storeHere);
   $("disconnect").addEventListener("click", () => link && link.close(true));
   $("demo").addEventListener("click", startDemo);
   $("wake").addEventListener("change", () => setWake($("wake").checked));

@@ -3,8 +3,8 @@ import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {memKey} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
-import {swipeTune, swipeUp, swipeToClose} from "./gestures.js";
-import {following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
+import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
+import {addRecent, following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {link, pressKey, send} from "./more.js";
 
@@ -39,12 +39,18 @@ export function renderStat() {
 
 export const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 export let toastTimer;
-export function toast(text, ms = 3500, err = false) {
+// A snackbar; action: {label, run} adds one button (Undo), and keeps it up a little longer
+export function toast(text, ms = 3500, err = false, action = null) {
   // Inside an open dialog the page below is out of the top layer, so the toast moves into the dialog
   const t = $("toast"), host = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
   if (t.parentElement !== host) host.append(t);
-  t.textContent = text; t.hidden = false; t.classList.toggle("err", err);
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
+  $("toast-text").textContent = text; t.hidden = false; t.classList.toggle("err", err);
+  const act = $("toast-act");
+  act.hidden = !action;
+  t.classList.toggle("has-act", !!action);
+  act.onclick = action ? () => { t.hidden = true; action.run(); } : null;
+  act.textContent = action ? action.label : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, action ? Math.max(ms, 5000) : ms);
 }
 
 export function log(ev) {
@@ -137,9 +143,11 @@ export function statusLine() {
 // ---- views: Radio follows the dial, Explore looks up any frequency; both show the same info panels ----
 export const VIEWS = ["radio", "explore", "memories", "more"];
 export let current = null;
+const scrollMem = {};  // each tab comes back where it was left
 export function go(name, {focus = true} = {}) {
   if (!VIEWS.includes(name)) name = "radio";
-  const changed = current !== name;
+  const prev = current, changed = prev !== name;
+  if (changed && prev) scrollMem[prev] = window.scrollY;
   current = name;
   if (name === "radio" || name === "explore") {
     const host = $(`host-${name}`);
@@ -147,6 +155,9 @@ export function go(name, {focus = true} = {}) {
   }
   if (name === "radio" && !view.follow) followRadio();
   if (name === "explore" && view.follow) exploreMode();
+  // The new view slides in from the side its tab is on; the tab bar's pill slides to it
+  $("app").dataset.dir = prev && VIEWS.indexOf(name) < VIEWS.indexOf(prev) ? "back" : "fwd";
+  $("tabbar").style.setProperty("--i", VIEWS.indexOf(name));
   for (const v of VIEWS) $(`view-${v}`).hidden = v !== name;
   document.querySelectorAll("#tabbar [data-tab]").forEach((a) => {
     if (a.dataset.tab === name) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
@@ -154,12 +165,22 @@ export function go(name, {focus = true} = {}) {
   // The radio bar shows on every view but Radio, which has the full readout
   $("radiobar").hidden = name === "radio";
   document.body.classList.toggle("with-radiobar", name !== "radio");
+  document.body.classList.toggle("on-radio", name === "radio");  // the controls' dock shows only here
   store.set("rf919.view", name);
   setHash(name === "explore" && view.k !== null ? view.k : name);
   if (changed) {
-    window.scrollTo(0, 0);
+    window.scrollTo(0, scrollMem[name] || 0);
     if (focus) $(`t-${name}`).focus({preventScroll: true});
   }
+  barState();
+}
+// The top bar turns to glass once the page scrolls under it; a large title hands over to the bar's small one
+export function barState() {
+  const v = current && $(`view-${current}`);
+  if (!v) return;
+  v.classList.toggle("scrolled", window.scrollY > 2);
+  const title = v.querySelector(".large-title"), bar = v.querySelector(".appbar");
+  v.classList.toggle("collapsed", !!title && !!bar && title.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
 }
 export function followRadio() {
   if (!view.follow) view.exploreK = view.k;
@@ -177,6 +198,7 @@ export function exploreMode() {
 }
 // A search, a shared link, an example, or a nearby row in Explore
 export function lookUp(k) {
+  addRecent(k);
   view.follow = false;
   view.exploreK = k;
   if (current !== "explore") go("explore");
@@ -215,8 +237,33 @@ export function fromHash() {
 }
 
 // ---- the Remote: a native <dialog> (focus trap, Esc, backdrop and focus return come with it) ----
-export function openRemote() { if (!$("remote").open) $("remote").showModal(); }
+// Sheets open at a detent; the page behind steps back (CSS, bottom sheets only)
+export function openSheet(d, detent = "medium") {
+  if (d.open) return;
+  d.dataset.detent = detent;
+  document.body.style.setProperty("--sy", `${window.scrollY}px`);
+  document.body.classList.add("sheet-open");
+  d.showModal();
+}
+// The Remote opens at the medium height on its keys, full height on the keypad or direct tune
+export function openRemote() { openSheet($("remote"), $("remote-seg").querySelector("input:checked").value === "keys" ? "medium" : "large"); }
 export function closeRemote() { if ($("remote").open) $("remote").close(); }
+// The tools of Memories and More: one sheet, a pane each, titled by the row that opened it
+export function openTool(id) {
+  const pane = $(id), row = document.querySelector(`[data-tool="${id}"]`);
+  if (!pane) return;
+  $("tools-title").textContent = row ? row.textContent.trim() : "";
+  for (const p of $("tools").querySelectorAll(".tool")) p.hidden = p !== pane;
+  $("tools").querySelector(".sheet-body").scrollTop = 0;
+  openSheet($("tools"), "large");
+}
+// The Remote's panes (Keys, Keypad, Tune); the keypad and direct tune need the sheet's full height
+export function remotePane(name) {
+  for (const p of $("remote").querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== name;
+  const input = $("remote-seg").querySelector(`input[value="${name}"]`);
+  if (input) input.checked = true;
+  if (name !== "keys" && !matchMedia(SIDE_SHEETS).matches) $("remote").dataset.detent = "large";
+}
 
 // ---- band pickers: native <select>s (the phone's own picker); command 10 with frequency 0 switches band ----
 export const BAND_LIST = ["FM", "AM", "SW", "AIR", "CB", "UHF", "WB", "VHF", "LW"];
@@ -234,7 +281,8 @@ export function renderMini(d = waiters.freq) {
   document.querySelectorAll("[data-freq]").forEach((e) => { e.textContent = text; });
   if (d) document.querySelectorAll("[data-band-chip]").forEach((e) => { e.textContent = d.band; e.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5"); });
   document.querySelectorAll("[data-band-select]").forEach((sel) => { if (d && [...sel.options].some((o) => o.value === d.band)) sel.value = d.band; });
-  const sub = [d && !d.alert && d.unit, $("preset").textContent].filter(Boolean).join(" · ");
+  // Under the digits: the channel, and what's on the air there (else the unit)
+  const sub = [$("preset").textContent, view.radioName || (d && !d.alert && d.unit)].filter(Boolean).join(" · ");
   document.querySelectorAll("[data-sub]").forEach((e) => { e.textContent = sub; });
 }
 
@@ -246,7 +294,7 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
   $("ask-body").hidden = !body;
   $("ask-ok").textContent = ok;
   $("ask-no").textContent = cancel;
-  $("ask-ok").className = danger ? "danger" : "primary";
+  $("ask-ok").className = danger ? "danger filled" : "filled";
   d.returnValue = "";
   return new Promise((resolve) => {
     d.addEventListener("close", () => resolve(d.returnValue === "ok"), {once: true});
@@ -258,7 +306,13 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
 // What ran at load in the single-script page, in the same order; app.js calls it once every module is loaded
 export function init() {
   handlers.entry = handlers.freq;
+  let barFrame = 0;
+  window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(barState); }, {passive: true});
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
+  for (const d of [$("remote"), $("tools")]) d.addEventListener("close", () => document.body.classList.remove("sheet-open"));
+  $("tools").addEventListener("click", (e) => { if (e.target === $("tools") || e.target.closest("[data-close]")) $("tools").close(); });
+  document.addEventListener("click", (e) => { const t = e.target.closest("[data-tool]"); if (t) openTool(t.dataset.tool); });
+  $("remote-seg").addEventListener("change", (e) => remotePane(e.target.value));
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);
 
@@ -272,7 +326,9 @@ export function init() {
     if (!$("swipe-hint").hidden) { $("swipe-hint").hidden = true; store.set("rf919.swiped", true); }
   }));
   swipeUp($("rb-open"), openRemote);
-  swipeToClose($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head")], closeRemote);
+  sheetDrag($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head"), $("remote").querySelector(".sheet-tabs")], {onClose: closeRemote});
+  sheetDrag($("tools"), [$("tools-grab"), $("tools").querySelector(".sheet-head")], {onClose: () => $("tools").close()});
+  swipeAway($("toast"), () => { $("toast").hidden = true; });
   document.addEventListener("change", (e) => {
     const sel = e.target.closest("[data-band-select]");
     if (!sel || !sel.value) return;

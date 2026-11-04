@@ -59,32 +59,48 @@ export function swipeUp(el, onUp) {
   el.addEventListener("pointercancel", () => { id = null; });
 }
 
-// Drag a bottom sheet down by its handles to close it; it follows the finger and snaps back if let go early
-export function swipeToClose(sheet, handles, onClose) {
-  let y0 = 0, dy = 0, id = null;
+// Where sheets come in from the side instead of the bottom: wide screens, and phones held sideways (as in app.css)
+export const SIDE_SHEETS = "(min-width: 900px), (orientation: landscape) and (max-height: 540px)";
+const FLING = 0.8;      // px/ms: a flick this fast moves one detent in its direction
+
+// A bottom sheet's top drags it between its detents (data-detent="medium" | "large"); dragged down past medium
+// it closes. It follows the finger, then settles on the nearest detent, or the next one after a flick.
+export function sheetDrag(sheet, handles, {onClose, onDetent = () => {}}) {
+  let id = null, y0 = 0, h0 = 0, lastY = 0, lastT = 0, v = 0;
   const start = (e) => {
-    if (e.button > 0 || e.target.closest("button, select, input")) return;
-    if (matchMedia("(min-width: 900px)").matches) return;  // a side panel there: nothing to drag down
-    id = e.pointerId; y0 = e.clientY; dy = 0;
+    if (e.button > 0 || e.target.closest("button, select, input, label")) return;
+    if (matchMedia(SIDE_SHEETS).matches) return;  // a side sheet: nothing to drag
+    id = e.pointerId; y0 = lastY = e.clientY; lastT = e.timeStamp; v = 0;
+    h0 = sheet.getBoundingClientRect().height;
     e.currentTarget.setPointerCapture(id);
-    sheet.style.transition = "none";
+    sheet.classList.add("dragging");
   };
   const move = (e) => {
     if (e.pointerId !== id) return;
-    dy = Math.max(0, e.clientY - y0);
-    sheet.style.transform = `translateY(${dy}px)`;
+    if (e.timeStamp > lastT) v = (e.clientY - lastY) / (e.timeStamp - lastT);
+    lastY = e.clientY; lastT = e.timeStamp;
+    const h = h0 - (e.clientY - y0), max = innerHeight * .92;
+    sheet.style.height = `${h > max ? max + (h - max) * .2 : Math.max(0, h)}px`;  // a little give past the top
   };
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
-    sheet.style.transition = "transform var(--med) var(--ease)";
-    if (dy >= CLOSE_PX) {
+    const h = sheet.getBoundingClientRect().height, medium = innerHeight * .58, large = innerHeight * .92;
+    sheet.classList.remove("dragging");
+    sheet.style.height = "";
+    let to = Math.abs(h - medium) < Math.abs(h - large) ? "medium" : "large";
+    if (v > FLING) to = h > medium ? "medium" : "close";
+    else if (v < -FLING) to = "large";
+    else if (h < medium - CLOSE_PX) to = "close";
+    if (to === "close") {
       haptic();
       sheet.style.transform = "translateY(100%)";
-      setTimeout(() => { onClose(); sheet.style.transform = ""; sheet.style.transition = ""; }, 180);
-    } else {
-      sheet.style.transform = "";
+      setTimeout(() => { onClose(); sheet.style.transform = ""; }, 200);
+      return;
     }
+    if (to !== sheet.dataset.detent) haptic(6);
+    sheet.dataset.detent = to;
+    onDetent(to);
   };
   for (const h of handles) {
     h.addEventListener("pointerdown", start);
@@ -92,4 +108,73 @@ export function swipeToClose(sheet, handles, onClose) {
     h.addEventListener("pointerup", end);
     h.addEventListener("pointercancel", end);
   }
+}
+
+// List rows that uncover an action when swiped left (touch and pen; with a mouse the row's ✕ does it). Let go past
+// half the row and the action runs; past half the action's width the row stays open on it. Rows are delegated, so
+// re-rendering the list keeps this working. Each row: .mr-fg (what moves) and .mr-act (the button behind).
+const REVEAL = 88;
+export function swipeRows(list) {
+  let row = null, fg = null, id = null, x0 = 0, y0 = 0, dx = 0, base = 0, horiz = null;
+  const shut = (r) => { r.classList.remove("open"); r.querySelector(".mr-fg").style.transform = ""; };
+  list.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" || e.button > 0 || e.target.closest("button")) return;
+    const f = e.target.closest(".mr-fg");
+    if (!f) return;
+    row = f.parentElement; fg = f; id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
+    base = row.classList.contains("open") ? -REVEAL : 0;
+    for (const o of list.querySelectorAll(".open")) if (o !== row) shut(o);
+  });
+  list.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== id) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (horiz === null) {
+      if (Math.hypot(mx, my) < 8) return;
+      horiz = Math.abs(mx) > Math.abs(my);
+      if (!horiz) { id = null; return; }  // a scroll: leave it to the page
+      fg.setPointerCapture(id);
+      row.classList.add("swiping");
+    }
+    dx = Math.min(0, base + mx);
+    fg.style.transform = `translateX(${dx}px)`;
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    if (!horiz) return;
+    row.classList.remove("swiping");
+    eatNextClick(fg);
+    if (-dx > row.offsetWidth * .55) { haptic(20); row.querySelector(".mr-act").click(); return; }
+    if (-dx > REVEAL / 2) { row.classList.add("open"); fg.style.transform = `translateX(${-REVEAL}px)`; }
+    else shut(row);
+  };
+  list.addEventListener("pointerup", end);
+  list.addEventListener("pointercancel", end);
+  // A tap anywhere else closes an open row
+  document.addEventListener("pointerdown", (e) => { for (const o of list.querySelectorAll(".open")) if (!o.contains(e.target)) shut(o); });
+}
+
+// A snackbar swiped sideways goes away (one with an action takes taps; a plain one lets them through and times out)
+export function swipeAway(el, onAway) {
+  let id = null, x0 = 0, dx = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.button > 0 || e.target.closest("button")) return;
+    id = e.pointerId; x0 = e.clientX; dx = 0;
+    el.setPointerCapture(id);
+    el.style.transition = "none";
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    el.style.transform = `translateX(${dx}px)`;
+    el.style.opacity = String(1 - Math.min(1, Math.abs(dx) / 200));
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    el.style.transition = el.style.transform = el.style.opacity = "";
+    if (Math.abs(dx) > CLOSE_PX) onAway();
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
 }

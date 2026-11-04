@@ -24,21 +24,26 @@ Open **https://juantoledo.github.io/rf919-companion/**
 2. Tap **Connect radio** and pick `RF919-BLE` from the list of nearby Bluetooth devices.
 3. Optional: use **Add to Home screen** so it opens like an app.
 
-The app has four tabs at the bottom (a rail on the left on wide screens):
+The app has four tabs in a floating bar at the bottom; on wide screens, and on a phone held sideways,
+they move to a rail on the side so landscape keeps its height for the content. It follows the phone's
+light or dark setting, or the theme picked in **More › Appearance** (System, Light, Dark).
 
 | Tab | What's there |
 |---|---|
-| **Radio** | The radio's frequency, band, preset and signal; ◀ ▶, Memo, Sub, volume, **Keys** (the Remote), **Store here**; and what's on the frequency the radio is tuned to |
+| **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store here** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
 | **Explore** | Look up any frequency, with or without the radio |
 | **Memories** | Memory lists for the radio, one band at a time |
 | **More** | Connection, settings, the radio's text lines, tools and the log |
 
-On every tab but Radio, a **radio bar** above the tabs keeps the radio at hand: band, frequency,
-◀ ▶ and Memo. Tap it (or swipe it up) for the **Remote**, with every key of the radio.
+On every tab but Radio, a **mini player** above the tabs keeps the radio at hand: band, frequency,
+what's on the air there, and ◀ ▶. Tap it (or swipe it up) for the **Remote**, with every key of the
+radio. The Remote opens half height on its keys; **Keypad** and **Tune** open it full height. On a
+wide screen or sideways it comes in from the side.
 
 **Gestures** (each also has a button): swipe a frequency **left to step up, right to step down**,
-and flick it further to seek; swipe the radio bar **up** to open the Remote; drag the Remote down
-by its top edge to close it.
+and flick it further to seek; swipe the mini player **up** to open the Remote; drag a sheet's top
+edge between half and full height, or down to close it; on a phone, swipe a memory **left** to
+delete it; swipe a snackbar sideways to dismiss it.
 
 ### What's on the air
 
@@ -46,7 +51,8 @@ The page asks [radiomap.cl](https://www.radiomap.cl/) what is on a frequency (it
 JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 
 - **Explore** looks up any frequency: `9580` (kHz), or `9.58`, `146.73`, `101.3` (MHz).
-  The address becomes `…/#f=9580`, so a lookup can be bookmarked or shared.
+  The address becomes `…/#f=9580`, so a lookup can be bookmarked or shared. Recent lookups are
+  chips under the search.
   **Tune radio to…** sends the radio there.
 - **Radio** shows the same for the frequency the radio is on, and follows the dial.
 - **Shortwave**: the station on air (or the next one) with its flag, transmitter site, language
@@ -66,7 +72,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 ### The radio's controls
 
 - ◀ ▶ step the frequency (**hold about 0.6 s** to seek); so does swiping the frequency.
-- **The band chip** (`AIR ▾`, on the readout, the radio bar and the Remote) opens the phone's own
+- **The band chip** (`AIR ▾`, on the readout, the mini player and the Remote) opens the phone's own
   picker with the radio's bands; pick one and the radio switches.
 - **Sub**: the radio's sub-band key (MODE in the vendor app).
 - **Scan** (Remote) sends the vendor app's SCAN key, `1A`, which doesn't scan on the RF919, and the radio
@@ -75,7 +81,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   radio's SCAN-slot key in the Remote (labelled V-UHF on the RF919), still sends that long press, but
   only after a confirmation.
 - **Memo**: a tap switches the radio's memory channel mode, a hold starts storing, as on the radio.
-- **Keys** (or the radio bar, or `r` on a keyboard) opens the Remote: every key, the keypad and
+- **Keys** (or the mini player, or `r` on a keyboard) opens the Remote: every key, the keypad and
   direct tune.
 - **More › Tools › Log** has two diagnostic switches: **Every notification** logs each Bluetooth
   notification before decoding, and **Also listen on FFF1 and battery** (after Disconnect, then
@@ -83,7 +89,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 - **More › Tools › Key capture** shows what the radio reports when you press one of *its own*
   buttons: a guess at the button, what changed, and the raw messages. It's informational and sends
   nothing. The RF919 doesn't send key codes, only what changed (frequency, channel mode, a setting…).
-- **Demo** (on the Radio tab, the radio bar or More) shows the radio side with recorded data, no
+- **Demo** (on the Radio tab, the mini player or More) shows the radio side with recorded data, no
   radio needed. It also pretends to be a radio for what you send, so Memories can be tried without one.
 - **More › Connection › Disconnect** forgets the radio, so the next **Connect** lets you pick a
   different one.
@@ -110,9 +116,11 @@ channel, confirm), one channel at a time, about 2–3 s each. See [memory.md](me
   radio was wiped: the file becomes the list, then Store) or **Already on radio** (a new phone or
   browser: the app learns the channels, and nothing is sent).
 - **One band at a time:** the Memories tab shows the band the radio is on, and follows it when you
-  change band on the radio. The band tabs above the list (`● AIR · 11`) let you look at another
+  change band on the radio. The band chips above the list (`● AIR · 11`) let you look at another
   band. **Store**, **Check on radio**, **Start fresh** and **Edit as text** act on the band shown;
   in Edit as text, lines without a band belong to it. Backup still exports every band.
+- **Removing** a memory (✕, or swiping it left) or clearing a band's list can be undone from the
+  snackbar. The tools (Start fresh, Backup, Edit as text, the list builders) open in a sheet.
 - **Start fresh** wipes the band shown on the radio, the same as holding SCAN/ATS (all 200
   channels of the band), then clears the app's list and record for it. It recalls a channel
   afterwards to make sure it's empty before clearing anything in the app.

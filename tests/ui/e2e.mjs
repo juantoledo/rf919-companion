@@ -25,6 +25,10 @@ const confirmAsk = async () => {
   await page.waitForFunction(() => !document.getElementById("ask").open); await page.waitForTimeout(150);
 };
 const tab = (t) => page.click(`#tabbar [data-tab="${t}"]`);
+// The tools of Memories and More open in one sheet; a modal sheet has to close before the page behind takes taps
+const toolsOpen = () => E(() => document.getElementById("tools").open);
+const closeTool = async () => { if (await toolsOpen()) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open); } };
+const tool = async (id) => { await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction(() => document.getElementById("tools").open); };
 const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
 
 await page.goto(URL); await E(() => localStorage.clear()); await page.goto(URL);
@@ -65,7 +69,8 @@ assert.equal(await page.locator("#readout").isVisible(), true);
 assert.equal(await page.locator("#connect-card").isHidden(), true);
 assert.equal(await E(() => document.getElementById("host-radio").contains(document.getElementById("dossier"))), true);
 assert.equal(await E(() => { const now = document.getElementById("now"); return now.contains(document.getElementById("readout")) && now.contains(document.getElementById("dossier")); }), true);
-assert.match(await E(() => document.getElementById("now").style.getPropertyValue("--flag")), /\/us\.svg/);
+// whoever is on air on 11620 changes with the UTC hour, so any country's flag will do
+assert.match(await E(() => document.getElementById("now").style.getPropertyValue("--flag")), /\/[a-z]{2}(-[a-z]{2})?\.svg/);
 assert.equal(await page.locator("#dossier .d-freq").count(), 0);  // the readout shows the frequency
 ok("Radio: readout + controls; one card holds the readout and what's on the dial (11620), the station's flag behind");
 await tab("explore");
@@ -86,6 +91,15 @@ await swipe(80); assert.equal(await lastSent(), "ab 02 0c 10 c9");    // DOWN
 await swipe(-160); assert.equal(await lastSent(), "ab 02 0c 0f c8");  // UP long (seek)
 ok("swipes on the readout: left UP, right DOWN, long left seeks");
 
+// ---- the controls' dock: on screen however far the page scrolls, only on Radio ----
+await E(() => window.scrollTo(0, document.body.scrollHeight));
+await page.waitForTimeout(200);
+{ const d = await page.locator("#radio-controls").boundingBox(), vh = await E(() => innerHeight);
+  assert.ok(d && d.y >= 0 && d.y + d.height <= vh, `dock at ${JSON.stringify(d)} in a ${vh}px viewport`); }
+await page.click('#radio-controls [data-key="DOWN"]'); assert.equal(await lastSent(), "ab 02 0c 10 c9");
+await E(() => window.scrollTo(0, 0));
+ok("the controls' dock stays on screen scrolled to the bottom, and its keys send (DOWN)");
+
 // ---- band select (native) ----
 await page.selectOption("#readout [data-band-select]", "AIR");
 await page.waitForFunction(() => waiters.freq.band === "AIR");
@@ -101,6 +115,7 @@ assert.equal(await E(() => document.getElementById("remote").open), false);
 assert.equal(await E(() => document.activeElement.id), "open-remote");
 ok("Keys opens the Remote; Esc closes it and focus returns");
 await tab("memories");
+assert.equal(await page.locator("#radio-controls").isHidden(), true);  // the dock is the Radio tab's
 const rb = await page.locator("#rb-open").boundingBox();
 { const x = rb.x + rb.width / 2, y = rb.y + rb.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y - 60, {steps: 6}); await page.mouse.up(); }
 await page.waitForFunction(() => document.getElementById("remote").open);
@@ -115,34 +130,45 @@ await page.click('#remote [data-close]');
 ok("a Remote key sends (SQ), ✕ closes");
 
 // ---- Memories: per band, store, check, store here, clear, start fresh (ask dialogs) ----
-await page.click("#mem-textbox summary");
+await tool("mem-textbox");
+assert.match(await page.textContent("#tools-title"), /Edit .* as text/);
 await page.fill("#mem-text", "1 118.1 Torre\n2 121.9");
 await page.click('[data-mem="apply"]');
 assert.equal(await E(() => mem.list.map((e) => `${e.band}:${e.ch}`).join(" ")), "AIR:1 AIR:2");
+await closeTool();
 await page.check('#mem-counts input[value="FM"]');
+await tool("mem-textbox");
 await page.fill("#mem-text", "1 101.3 Radio Uno");
 await page.click('[data-mem="apply"]');
+await closeTool();
 await page.check('#mem-counts input[value="AIR"]');
 assert.equal(await page.locator("#mem-list .mem-row").count(), 2);
-ok("Memories: native band segments; text per band (AIR 2, FM 1)");
+ok("Memories: band chips; text per band in the tools sheet (AIR 2, FM 1)");
 await page.click('[data-mem="store"]'); await done();
 await page.click('[data-mem="check"]'); await done();
 assert.deepEqual(await E(() => [mem.check.n, mem.check.ok]), [2, 2]);
 ok("Store 2 + Check 2 on AIR");
-await page.click('[data-mem="clear"]'); await confirmAsk();
+await page.click('[data-mem="clear"]');
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
-ok("Clear the AIR list, confirmed in the ask dialog");
-await page.click("#mem-fresh summary");
+await page.click("#toast-act");  // Undo
+assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 2);
+await page.click('#mem-list .mem-row:first-child .mr-del');
+assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 1);
+await page.click('[data-mem="clear"]');
+assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
+ok("Clear the AIR list, then Undo from the snackbar; ✕ removes one row");
+await tool("mem-fresh");
 await page.click('[data-mem="fresh"]');
 await page.waitForSelector("#ask[open]");
 assert.match(await page.textContent("#ask-title"), /Wipe all AIR memories/);
-assert.equal(await page.getAttribute("#ask-ok", "class"), "danger");
+assert.equal(await page.getAttribute("#ask-ok", "class"), "danger filled");
 await page.screenshot({path: `${OUT}/e2e-ask.png`});
 await page.click("#ask-no");
 assert.equal(await E(() => mem.run), null);
 await page.click('[data-mem="fresh"]'); await confirmAsk(); await done();
 assert.equal(await E(() => [...link.sim.bank.keys()].filter((k) => k.startsWith("AIR")).length), 0);
 ok("Start fresh: Cancel does nothing; Wipe AIR (danger) wipes it");
+await closeTool();
 await tab("radio");
 await page.click("#storehere");
 await page.waitForFunction(() => !mem.run && /Stored/.test(document.getElementById("toast").textContent), null, {timeout: 15000});
@@ -150,7 +176,7 @@ ok("Store here: " + await page.textContent("#toast"));
 
 // ---- Backup ----
 await tab("memories");
-await page.click("#mem-backup summary");
+await tool("mem-backup");
 const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-mem="bk-download"]')]);
 const file = `${OUT}/${dl.suggestedFilename()}`; await dl.saveAs(file);
 assert.match(fs.readFileSync(file, "utf8"), /# RF919 memories/);
@@ -159,6 +185,7 @@ await page.setInputFiles("#backup-file", file);
 await page.click('[data-mem="bk-mark"]');
 assert.ok(await E(() => Object.keys(mem.record).length) > 0);
 ok("Backup: download, then import as Already on radio");
+await closeTool();
 
 // ---- More: switches, key capture ----
 await tab("more");
@@ -167,8 +194,17 @@ assert.equal(await E(() => state.hold), true);
 await page.click('label:has(#hold)');
 assert.equal(await E(() => state.hold), false);
 ok("Hold next key is a native switch");
+await page.click('#theme-seg label:has(input[value="light"])');
+assert.deepEqual(await E(() => [document.documentElement.dataset.theme, getComputedStyle(document.body).colorScheme]), ["light", "light"]);
+{ const p3 = await ctx.newPage(); await p3.goto(URL + "#more");  // remembered, and applied before the page draws
+  assert.equal(await p3.evaluate(() => document.documentElement.dataset.theme), "light"); await p3.close(); }
+await page.click('#theme-seg label:has(input[value="dark"])');
+assert.equal(await E(() => getComputedStyle(document.body).colorScheme), "dark");
+await page.click('#theme-seg label:has(input[value="system"])');
+assert.equal(await E(() => document.documentElement.dataset.theme), undefined);
+ok("Appearance: Light and Dark override the system, remembered across pages; System hands it back");
 // Key capture: the test plays the radio, sending what its own buttons would make it report
-await page.click("#capbox summary");
+await tool("capbox");
 const caps = () => E(() => [...document.querySelectorAll("#cap-list .cap")].map((c) => c.textContent.replace(/\s+/g, " ")));
 const sentBefore = (await sent()).length;
 await page.click("#cap-btn");
@@ -200,11 +236,12 @@ await page.screenshot({path: `${OUT}/e2e-capture.png`});
 ok("Key capture: channel mode, a running frequency, STEP 2.50K → 5K and an unknown message, each with its raw frames; routine updates ignored; nothing sent")
 
 // ---- Log diagnostics: every notification; other channels in the capture ----
-await page.click("#logpanel summary");
+await tool("logpanel");
 await page.click('label:has(#rawrx)');
 await E(() => { link.connected = true; link.connect(); });  // restart the recorded session (paused by the capture check)
 await page.waitForFunction(() => [...document.querySelectorAll("#log .k-rx")].length > 3, null, {timeout: 10000});
 assert.match(await page.textContent("#log .k-rx"), /^RX FF14 ab [0-9a-f ]+\(demo\)$/);
+await tool("capbox");
 await page.click("#cap-btn");
 await page.waitForTimeout(1500);
 const capsBefore = (await caps()).length;
@@ -214,6 +251,7 @@ const capsNow = await caps();
 assert.equal(capsNow.length, capsBefore + 1, capsNow.join(" | "));
 assert.match(capsNow[0], /^A message on another channel \(FFF1\).*RX FFF1 01 02/);
 await page.click("#cap-btn");
+await tool("logpanel");
 await page.click('label:has(#extrach)');
 // remembered: a second tab (same storage) opens with both on; this tab stays connected for the checks after
 const p2 = await ctx.newPage();
@@ -224,6 +262,7 @@ await E(() => { document.getElementById("rawrx").click(); document.getElementByI
 ok("Log: every notification as RX FF14 lines (not counted by the capture); a message on another channel gets a capture card; both switches are remembered");
 
 // ---- Near me filters on Radio ----
+await closeTool();
 await page.goto(URL + "#f=90300");
 await page.waitForFunction(() => view.k === 90300 && view.data, null, {timeout: 15000});
 await page.click('#dossier [data-act="nearme"]');
@@ -246,11 +285,14 @@ await hold(page.locator('#remote [data-key="SCAN"]'));
 assert.equal(await lastSent(), "ab 02 0c 1a d3");
 assert.equal(await has33(), false);
 ok("Scan: only in the Remote; tap and hold both send 1A, never SCAN long");
+await page.click('#remote-seg label:has(input[value="keypad"])');  // Play is on the Keypad pane, which needs the full height
+assert.equal(await E(() => document.getElementById("remote").dataset.detent), "large");
 await hold(page.locator('#remote [data-key="PLAY"]'));
 await page.waitForSelector("#ask[open]");
 assert.match(await page.textContent("#ask-title"), /Hold SCAN on/);
 await page.click("#ask-no"); await page.waitForTimeout(200);
 assert.equal(await has33(), false);
+await page.click('#remote-seg label:has(input[value="keys"])');
 await hold(page.locator('#remote [data-fn="SCAN"]'));
 await confirmAsk();
 assert.equal(await has33(), true);
