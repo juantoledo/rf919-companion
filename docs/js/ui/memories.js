@@ -6,6 +6,7 @@ import {errText} from "../link.js";
 import {$, BAND_COLORS, ask, esc, log, state, toast} from "./shell.js";
 import {dossierName, hhmm, isRepeater, locate, mem, myPos, myRegion, myTargets, placeOf, radius, renderView, rm, show, store, view} from "./radio.js";
 import {link, setWake} from "./more.js";
+import {swipeRows} from "./gestures.js";
 
 // ---- Memories tab ----
 export const memNote = (text) => log({kind: "mem", text, raw: new Uint8Array()});
@@ -59,13 +60,19 @@ export function renderMem() {
   $("mem-text-hint").textContent = `One memory per line: channel, frequency, name, for the ${band} list. The channel is optional ` +
     `(a missing one takes the next free channel); a line for another band needs its band name, as in "FM 101.3". At most ${MAX_CH}.`;
   const checked = mem.check && mem.check.byKey;
+  // A row: the channel, the name over the frequency (or the frequency alone), and ✕; on touch, swiping it left
+  // uncovers Delete (gestures.js swipeRows)
+  const dis = running ? " disabled" : "";
   $("mem-list").innerHTML = n ? rows.map(([e, i]) => {
     const st = checked && checked.get(memKey(e.band, e.ch));
     const cls = running && (mem.kind === "store" || mem.kind === "check") && e === (mem.jobRows || [])[mem.pos] ? "cur" : st === "ok" ? "ok" : st ? "bad" : "";
-    return `<li class="mem-row ${cls}"><span>${e.ch}</span><span class="band" style="${bandStyle(e.band)}">${e.band}</span>` +
-      `<span>${freqText(e.kHz)}</span><span class="nm"><b>${esc(e.name)}</b>${st && st !== "ok" ? ` ${esc(st)}` : ""}</span>` +
-      `<button type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${running ? " disabled" : ""}>✕</button></li>`;
-  }).join("") : `<li class="hint">No ${band} memories in the list. Add some below, with + Memory under a frequency you look up, or with Store here.</li>`;
+    const sub = [e.name && fmtKHz(e.kHz), st && st !== "ok" && st.replace(/^· /, "")].filter(Boolean).join(" · ");
+    return `<li class="mem-row ${cls}"><div class="mr-fg"><span class="ch">${e.ch}</span>` +
+      `<span class="mr-main"><b>${e.name ? esc(e.name) : fmtKHz(e.kHz)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
+      `<button class="mr-del" type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${dis}>✕</button></div>` +
+      `<button class="mr-act" type="button" data-mem="del" data-i="${i}" tabindex="-1" aria-hidden="true"${dis}>Delete</button></li>`;
+  }).join("") : `<li class="empty-row"><b>No ${band} memories yet</b><span>Add some with + Memory under a frequency, ` +
+    `Store here on Radio, or the tools below.</span></li>`;
   renderMemRun();
 }
 
@@ -82,6 +89,7 @@ export const jobLabel = (kind, it) => kind === "wipe" ? it.band : kind === "next
 
 export function renderMemRun() {
   const box = $("mem-run"), band = shownBand(), list = selRows(), n = list.length;
+  box.classList.toggle("running", !!mem.run);  // stays in view, over the list, while it runs
   let h = `<h2 class="h"><span>Store on the radio · ${band}</span><span>${n ? `${n} · ≈${memSecs(n)}` : ""}</span></h2>`;
   if (mem.run) {
     const job = JOBS[mem.kind], items = job.items(), total = items.length, i = mem.pos, e = items[i], todo = total - mem.from;
@@ -471,4 +479,5 @@ export function addPicked(kind) {
 export function init() {
 
   mem.swSel = new Set(store.get("rf919.swbands", ["49m", "41m", "31m", "25m"]));
+  swipeRows($("mem-list"));
 }

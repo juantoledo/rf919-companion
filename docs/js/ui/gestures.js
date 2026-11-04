@@ -109,3 +109,47 @@ export function sheetDrag(sheet, handles, {onClose, onDetent = () => {}}) {
     h.addEventListener("pointercancel", end);
   }
 }
+
+// List rows that uncover an action when swiped left (touch and pen; with a mouse the row's ✕ does it). Let go past
+// half the row and the action runs; past half the action's width the row stays open on it. Rows are delegated, so
+// re-rendering the list keeps this working. Each row: .mr-fg (what moves) and .mr-act (the button behind).
+const REVEAL = 88;
+export function swipeRows(list) {
+  let row = null, fg = null, id = null, x0 = 0, y0 = 0, dx = 0, base = 0, horiz = null;
+  const shut = (r) => { r.classList.remove("open"); r.querySelector(".mr-fg").style.transform = ""; };
+  list.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" || e.button > 0 || e.target.closest("button")) return;
+    const f = e.target.closest(".mr-fg");
+    if (!f) return;
+    row = f.parentElement; fg = f; id = e.pointerId; x0 = e.clientX; y0 = e.clientY; dx = 0; horiz = null;
+    base = row.classList.contains("open") ? -REVEAL : 0;
+    for (const o of list.querySelectorAll(".open")) if (o !== row) shut(o);
+  });
+  list.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== id) return;
+    const mx = e.clientX - x0, my = e.clientY - y0;
+    if (horiz === null) {
+      if (Math.hypot(mx, my) < 8) return;
+      horiz = Math.abs(mx) > Math.abs(my);
+      if (!horiz) { id = null; return; }  // a scroll: leave it to the page
+      fg.setPointerCapture(id);
+      row.classList.add("swiping");
+    }
+    dx = Math.min(0, base + mx);
+    fg.style.transform = `translateX(${dx}px)`;
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    if (!horiz) return;
+    row.classList.remove("swiping");
+    eatNextClick(fg);
+    if (-dx > row.offsetWidth * .55) { haptic(20); row.querySelector(".mr-act").click(); return; }
+    if (-dx > REVEAL / 2) { row.classList.add("open"); fg.style.transform = `translateX(${-REVEAL}px)`; }
+    else shut(row);
+  };
+  list.addEventListener("pointerup", end);
+  list.addEventListener("pointercancel", end);
+  // A tap anywhere else closes an open row
+  document.addEventListener("pointerdown", (e) => { for (const o of list.querySelectorAll(".open")) if (!o.contains(e.target)) shut(o); });
+}

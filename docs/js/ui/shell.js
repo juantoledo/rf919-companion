@@ -4,7 +4,7 @@ import {memKey} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeTune, swipeUp} from "./gestures.js";
-import {following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
+import {addRecent, following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {link, pressKey, send} from "./more.js";
 
@@ -39,12 +39,18 @@ export function renderStat() {
 
 export const esc = (s) => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 export let toastTimer;
-export function toast(text, ms = 3500, err = false) {
+// A snackbar; action: {label, run} adds one button (Undo), and keeps it up a little longer
+export function toast(text, ms = 3500, err = false, action = null) {
   // Inside an open dialog the page below is out of the top layer, so the toast moves into the dialog
   const t = $("toast"), host = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
   if (t.parentElement !== host) host.append(t);
-  t.textContent = text; t.hidden = false; t.classList.toggle("err", err);
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, ms);
+  $("toast-text").textContent = text; t.hidden = false; t.classList.toggle("err", err);
+  const act = $("toast-act");
+  act.hidden = !action;
+  t.classList.toggle("has-act", !!action);
+  act.onclick = action ? () => { t.hidden = true; action.run(); } : null;
+  act.textContent = action ? action.label : "";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, action ? Math.max(ms, 5000) : ms);
 }
 
 export function log(ev) {
@@ -191,6 +197,7 @@ export function exploreMode() {
 }
 // A search, a shared link, an example, or a nearby row in Explore
 export function lookUp(k) {
+  addRecent(k);
   view.follow = false;
   view.exploreK = k;
   if (current !== "explore") go("explore");
@@ -229,16 +236,26 @@ export function fromHash() {
 }
 
 // ---- the Remote: a native <dialog> (focus trap, Esc, backdrop and focus return come with it) ----
-// Opens at the medium height, on the keys; the page behind steps back (CSS, bottom sheets only)
-export function openRemote() {
-  const r = $("remote");
-  if (r.open) return;
-  r.dataset.detent = $("remote-seg").querySelector("input:checked").value === "keys" ? "medium" : "large";
+// Sheets open at a detent; the page behind steps back (CSS, bottom sheets only)
+export function openSheet(d, detent = "medium") {
+  if (d.open) return;
+  d.dataset.detent = detent;
   document.body.style.setProperty("--sy", `${window.scrollY}px`);
   document.body.classList.add("sheet-open");
-  r.showModal();
+  d.showModal();
 }
+// The Remote opens at the medium height on its keys, full height on the keypad or direct tune
+export function openRemote() { openSheet($("remote"), $("remote-seg").querySelector("input:checked").value === "keys" ? "medium" : "large"); }
 export function closeRemote() { if ($("remote").open) $("remote").close(); }
+// The tools of Memories and More: one sheet, a pane each, titled by the row that opened it
+export function openTool(id) {
+  const pane = $(id), row = document.querySelector(`[data-tool="${id}"]`);
+  if (!pane) return;
+  $("tools-title").textContent = row ? row.textContent.trim() : "";
+  for (const p of $("tools").querySelectorAll(".tool")) p.hidden = p !== pane;
+  $("tools").querySelector(".sheet-body").scrollTop = 0;
+  openSheet($("tools"), "large");
+}
 // The Remote's panes (Keys, Keypad, Tune); the keypad and direct tune need the sheet's full height
 export function remotePane(name) {
   for (const p of $("remote").querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== name;
@@ -291,7 +308,9 @@ export function init() {
   let barFrame = 0;
   window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(barState); }, {passive: true});
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
-  $("remote").addEventListener("close", () => document.body.classList.remove("sheet-open"));
+  for (const d of [$("remote"), $("tools")]) d.addEventListener("close", () => document.body.classList.remove("sheet-open"));
+  $("tools").addEventListener("click", (e) => { if (e.target === $("tools") || e.target.closest("[data-close]")) $("tools").close(); });
+  document.addEventListener("click", (e) => { const t = e.target.closest("[data-tool]"); if (t) openTool(t.dataset.tool); });
   $("remote-seg").addEventListener("change", (e) => remotePane(e.target.value));
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);
@@ -307,6 +326,7 @@ export function init() {
   }));
   swipeUp($("rb-open"), openRemote);
   sheetDrag($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head"), $("remote").querySelector(".sheet-tabs")], {onClose: closeRemote});
+  sheetDrag($("tools"), [$("tools-grab"), $("tools").querySelector(".sheet-head")], {onClose: () => $("tools").close()});
   document.addEventListener("change", (e) => {
     const sel = e.target.closest("[data-band-select]");
     if (!sel || !sel.value) return;

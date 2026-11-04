@@ -3,7 +3,7 @@ import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, errText, linkOpts, sleep} from "../link.js";
-import {$, ask, esc, go, handlers, log, openRemote, route, setStatus, state, toast} from "./shell.js";
+import {$, ask, esc, go, handlers, log, openRemote, openTool, route, setStatus, state, toast} from "./shell.js";
 import {mem, nearPasses, renderView, show, store, view} from "./radio.js";
 import {addMem, addPicked, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
@@ -49,11 +49,21 @@ export async function testRun(kind, auto) {
   } finally { t.busy = false; }
 }
 
-export async function clearBand() {
-  const band = shownBand(), n = bandCount(mem.list, band);
-  if (mem.run || !n || !await ask({title: `Clear the ${band} list?`, body: `Removes its ${n} memor${n === 1 ? "y" : "ies"} from this list. The radio keeps what it has stored.`, ok: "Clear", danger: true})) return;
-  Object.assign(mem, {list: mem.list.filter((e) => e.band !== band), check: null, fail: null});
+// Changes to the list are undone from the snackbar instead of being asked about first (the radio keeps what it has)
+export function setList(list, msg, also = {}) {
+  const before = {list: mem.list, check: mem.check, fail: mem.fail};
+  Object.assign(mem, {list, ...also});
   saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+  toast(msg, 5000, false, {label: "Undo", run: () => {
+    if (mem.run) return;
+    Object.assign(mem, before);
+    saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+  }});
+}
+export function clearBand() {
+  const band = shownBand(), n = bandCount(mem.list, band);
+  if (mem.run || !n) return;
+  setList(mem.list.filter((e) => e.band !== band), `Cleared the ${band} list (${n})`, {check: null, fail: null});
 }
 
 // ---- Developer: send any frame (FF13 only) ----
@@ -253,7 +263,7 @@ export async function startBle() {
       setStatus("bad", "no device chosen");
       if ($("onlyRadio").checked) toast("Radio not in the list? Turn off \"Only list RF919 radios\" in More › Connection", 6000);
     }
-    else { setStatus("bad", `failed: ${errText(e)}`); $("logpanel").open = true; go("more"); }
+    else { setStatus("bad", `failed: ${errText(e)}`); go("more"); openTool("logpanel"); }
   }
 }
 export async function startDemo() {
@@ -294,9 +304,8 @@ export function init() {
     switch (t.dataset.mem) {
       case "del": {
         if (mem.run) return;
-        const i = +t.dataset.i;
-        mem.list = mem.list.filter((_, j) => j !== i);
-        saveMem(); renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
+        const i = +t.dataset.i, e = mem.list[i];
+        if (e) setList(mem.list.filter((_, j) => j !== i), `Removed ${e.band} CH ${e.ch}${e.name ? ` · ${e.name}` : ""}`);
         break;
       }
       case "clear": clearBand(); break;

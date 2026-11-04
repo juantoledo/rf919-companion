@@ -90,10 +90,14 @@
     <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Explore</span></header>
     <h1 class="large-title" id="t-explore" tabindex="-1">Explore</h1>
     <form class="search" id="search" role="search">
-      <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
-             placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
+      <span class="search-field">
+        <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
+               placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
+        <button class="search-clear" type="button" id="q-clear" aria-label="Clear">✕</button>
+      </span>
       <button class="small primary" type="submit">Look up</button>
     </form>
+    <div class="chips recent" id="recent" aria-label="Recent lookups" hidden></div>
     <div class="info-host" id="host-explore"></div>
   </section>
 
@@ -101,67 +105,18 @@
   <section class="view" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
     <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><span class="clock" id="mem-total"></span></span></header>
     <h1 class="large-title" id="t-memories" tabindex="-1">Memories</h1>
-    <section class="panel">
-      <fieldset class="seg" id="mem-counts"><legend>Band</legend></fieldset>
-      <div class="mem-box"><ul class="list" id="mem-list"></ul></div>
-    </section>
+    <fieldset class="seg chips band-chips" id="mem-counts"><legend>Band</legend></fieldset>
+    <section class="panel list-panel" aria-label="Memories in the list"><ul class="list" id="mem-list"></ul></section>
     <section class="panel" id="mem-run"></section>
-    <section class="panel">
-      <details class="mem-sub" id="mem-fresh" style="border-top:0">
-        <summary id="fresh-sum">Start fresh: wipe a band</summary>
-        <div id="fresh-body"></div>
-      </details>
-      <details class="mem-sub" id="mem-backup">
-        <summary>Backup: export / import</summary>
-        <div id="backup-body"></div>
-        <input type="file" id="backup-file" accept=".txt,.csv,text/plain" hidden>
-      </details>
-      <details class="mem-sub" id="mem-textbox">
-        <summary id="mem-text-sum">Edit as text</summary>
-        <div class="row" style="margin-bottom:var(--s2)"><button class="small" type="button" data-mem="show-text" id="mem-text-show">Show as text</button></div>
-        <textarea id="mem-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Memories, one per line"></textarea>
-        <p class="hint" id="mem-text-hint"></p>
-        <div class="row" style="margin-top:var(--s2)">
-          <button class="small primary" type="button" data-mem="apply" id="mem-text-apply">Replace list</button>
-          <button class="small" type="button" data-mem="append" id="mem-text-append">Add to list</button>
-        </div>
-        <p class="errs" id="mem-errs"></p>
-      </details>
-      <details class="mem-sub" id="mem-sw">
-        <summary>Add shortwave on air (EiBi)</summary>
-        <fieldset class="seg wrap" id="sw-bands"><legend>Meter bands</legend></fieldset>
-        <div class="row">
-          <select id="sw-window" aria-label="When">
-            <option value="0">On air now</option>
-            <option value="120">Now or within 2 h</option>
-            <option value="360">Now or within 6 h</option>
-            <option value="720">Now or within 12 h</option>
-          </select>
-          <button class="small" type="button" data-mem="sw-find">Find</button>
-        </div>
-        <label class="item" id="sw-aimed-row" style="padding:var(--s2) 0" hidden><span class="label">Only aimed at <span id="sw-aimed-name"></span></span><input type="checkbox" role="switch" switch id="sw-aimed" checked></label>
-        <div id="sw-results"></div>
-      </details>
-      <details class="mem-sub" id="mem-near">
-        <summary>Add Chilean stations near me</summary>
-        <div class="row">
-          <select id="near-band" aria-label="Band"><option>FM</option><option>AM</option><option>VHF</option><option>UHF</option><option>AIR</option></select>
-          <select id="near-kind" aria-label="Kind">
-            <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
-            <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
-          </select>
-        </div>
-        <div class="row" style="margin-top:var(--s2)">
-          <select id="near-radius" aria-label="Distance">
-            <option value="25">Within 25 km</option><option value="50" selected>Within 50 km</option>
-            <option value="100">Within 100 km</option><option value="250">Within 250 km</option><option value="0">Any distance</option>
-          </select>
-          <button class="small" type="button" data-mem="near-find">Find</button>
-        </div>
-        <div id="near-results"></div>
-      </details>
-      <p class="hint">+ Memory, under a frequency in Radio or Explore, adds it to the list.</p>
+    <section class="group" aria-labelledby="g-mtools">
+      <h2 id="g-mtools">Tools</h2>
+      <button class="nav-row" type="button" data-tool="mem-fresh"><span class="label" id="fresh-sum">Start fresh: wipe a band</span></button>
+      <button class="nav-row" type="button" data-tool="mem-backup"><span class="label">Backup: export / import</span></button>
+      <button class="nav-row" type="button" data-tool="mem-textbox"><span class="label" id="mem-text-sum">Edit as text</span></button>
+      <button class="nav-row" type="button" data-tool="mem-sw"><span class="label">Add shortwave on air (EiBi)</span></button>
+      <button class="nav-row" type="button" data-tool="mem-near"><span class="label">Add Chilean stations near me</span></button>
     </section>
+    <p class="hint footnote">+ Memory, under a frequency in Radio or Explore, adds it to the list.</p>
   </section>
 
   <!-- ======== More: connection, settings, tools ======== -->
@@ -191,68 +146,10 @@
     </section>
     <section class="panel group" aria-labelledby="g-tools">
       <h2 id="g-tools">Tools</h2>
-      <details id="capbox">
-        <summary>Key capture</summary>
-        <p class="hint" style="margin-top:0">Shows what the radio reports when you press one of its own buttons. The RF919 doesn't send
-          key codes, only what changed (a frequency, channel mode, a setting…), so each press shows a guess at the button, what
-          changed, and the raw messages. Nothing is sent to the radio.</p>
-        <div class="cap-field" id="cap-field" aria-live="polite">Off</div>
-        <div class="row">
-          <button class="small primary" type="button" id="cap-btn">Capture</button>
-          <button class="small" type="button" id="cap-clear">Clear</button>
-        </div>
-        <ol class="list caps" id="cap-list" aria-label="Captured button presses"></ol>
-      </details>
-      <details id="mem-test">
-        <summary>Test one memory</summary>
-        <p class="hint" style="margin-top:0">Runs the store sequence with fixed pauses and marks each step in the log, to find out which keys and replies the radio really uses (memory.md §8).</p>
-        <div class="row" style="margin-top:var(--s2)">
-          <select id="t-band" aria-label="Band"></select>
-          <input type="text" id="t-freq" inputmode="decimal" enterkeyhint="next" placeholder="9580" autocomplete="off" aria-label="Frequency">
-          <input type="text" id="t-ch" inputmode="numeric" enterkeyhint="done" placeholder="ch" autocomplete="off" aria-label="Channel">
-        </div>
-        <div class="row" style="margin-top:var(--s2)">
-          <select id="t-confirm" aria-label="Confirm key">
-            <option value="MEMO">Confirm with MEMO</option>
-            <option value="FREQ">Confirm with FREQ (EN)</option>
-          </select>
-        </div>
-        <div class="row" style="margin-top:var(--s2)">
-          <button class="small" type="button" data-mem="t-step">Step</button>
-          <button class="small" type="button" data-mem="t-auto">Auto</button>
-          <button class="small" type="button" data-mem="t-recall">Recall test</button>
-        </div>
-        <div class="row" style="margin-top:var(--s2)">
-          <button class="small danger" type="button" data-mem="t-wipe">Test band wipe</button>
-        </div>
-        <p class="hint">Test band wipe holds SCAN on the band above (deleting all its memories), listens 5 s, then recalls CH 1.</p>
-        <p class="hint" id="t-status"></p>
-      </details>
-      <details id="devbox">
-        <summary>Developer: send a frame</summary>
-        <div class="row">
-          <input type="text" id="dev-cmd" placeholder="cmd: 0c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command byte, hex">
-          <input type="text" id="dev-data" placeholder="data: 2c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Data bytes, hex">
-        </div>
-        <p class="hint" id="dev-frame">Type a command byte and data bytes in hex.</p>
-        <div class="row" style="margin-top:var(--s2)"><button class="small primary" type="button" id="dev-send" disabled>Send</button></div>
-        <p class="hint">Sent on FF13, like every other command; the checksum is added. Replies show in the log. An unknown command could change a setting.</p>
-      </details>
-      <details id="logpanel">
-        <summary>Log</summary>
-        <div class="row" style="align-items:center;margin-bottom:var(--s2)">
-          <label class="item" style="padding:0;border:0;min-height:var(--hit)"><span class="label">Raw hex</span><input type="checkbox" role="switch" switch id="rawlog"></label>
-          <button class="small" type="button" id="copylog">Copy log</button>
-        </div>
-        <label class="item" style="padding:var(--s2) 0;border:0"><span class="label">Every notification<small>Logs each Bluetooth
-          notification as it arrives, before decoding (RX FF14 …), including bytes the decoder would drop</small></span>
-          <input type="checkbox" role="switch" switch id="rawrx"></label>
-        <label class="item" style="padding:var(--s2) 0;border:0;margin-bottom:var(--s2)"><span class="label">Also listen on FFF1 and battery<small>The radio's
-          other channels, which the vendor app doesn't use. Only reads them and turns their notifications on; never writes data.
-          Takes effect after Disconnect, then Connect.</small></span>
-          <input type="checkbox" role="switch" switch id="extrach"></label>
-        <div class="log" id="log" aria-live="off"></div>
-      </details>
+      <button class="nav-row" type="button" data-tool="capbox"><span class="label">Key capture</span></button>
+      <button class="nav-row" type="button" data-tool="mem-test"><span class="label">Test one memory</span></button>
+      <button class="nav-row" type="button" data-tool="devbox"><span class="label">Developer: send a frame</span></button>
+      <button class="nav-row" type="button" data-tool="logpanel"><span class="label">Log</span></button>
     </section>
     <section class="panel group" aria-labelledby="g-about">
       <h2 id="g-about">About</h2>
@@ -351,6 +248,123 @@
   </div>
 </dialog>
 
+<!-- ======== tools: one sheet, a pane per tool (Memories and More) ======== -->
+<dialog class="sheet" id="tools" aria-labelledby="tools-title">
+  <div class="grabber" id="tools-grab" aria-hidden="true"></div>
+  <header class="sheet-head">
+    <h2 id="tools-title">Tool</h2>
+    <button class="close" type="button" data-close aria-label="Close">✕</button>
+  </header>
+  <div class="sheet-body">
+    <section class="tool" id="mem-fresh" hidden>
+        <div id="fresh-body"></div>
+    </section>
+    <section class="tool" id="mem-backup" hidden>
+        <div id="backup-body"></div>
+        <input type="file" id="backup-file" accept=".txt,.csv,text/plain" hidden>
+    </section>
+    <section class="tool" id="mem-textbox" hidden>
+        <div class="row" style="margin-bottom:var(--s2)"><button class="small" type="button" data-mem="show-text" id="mem-text-show">Show as text</button></div>
+        <textarea id="mem-text" rows="8" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Memories, one per line"></textarea>
+        <p class="hint" id="mem-text-hint"></p>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small primary" type="button" data-mem="apply" id="mem-text-apply">Replace list</button>
+          <button class="small" type="button" data-mem="append" id="mem-text-append">Add to list</button>
+        </div>
+        <p class="errs" id="mem-errs"></p>
+    </section>
+    <section class="tool" id="mem-sw" hidden>
+        <fieldset class="seg wrap" id="sw-bands"><legend>Meter bands</legend></fieldset>
+        <div class="row">
+          <select id="sw-window" aria-label="When">
+            <option value="0">On air now</option>
+            <option value="120">Now or within 2 h</option>
+            <option value="360">Now or within 6 h</option>
+            <option value="720">Now or within 12 h</option>
+          </select>
+          <button class="small" type="button" data-mem="sw-find">Find</button>
+        </div>
+        <label class="item" id="sw-aimed-row" style="padding:var(--s2) 0" hidden><span class="label">Only aimed at <span id="sw-aimed-name"></span></span><input type="checkbox" role="switch" switch id="sw-aimed" checked></label>
+        <div id="sw-results"></div>
+    </section>
+    <section class="tool" id="mem-near" hidden>
+        <div class="row">
+          <select id="near-band" aria-label="Band"><option>FM</option><option>AM</option><option>VHF</option><option>UHF</option><option>AIR</option></select>
+          <select id="near-kind" aria-label="Kind">
+            <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
+            <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="near-radius" aria-label="Distance">
+            <option value="25">Within 25 km</option><option value="50" selected>Within 50 km</option>
+            <option value="100">Within 100 km</option><option value="250">Within 250 km</option><option value="0">Any distance</option>
+          </select>
+          <button class="small" type="button" data-mem="near-find">Find</button>
+        </div>
+        <div id="near-results"></div>
+    </section>
+    <section class="tool" id="capbox" hidden>
+        <p class="hint" style="margin-top:0">Shows what the radio reports when you press one of its own buttons. The RF919 doesn't send
+          key codes, only what changed (a frequency, channel mode, a setting…), so each press shows a guess at the button, what
+          changed, and the raw messages. Nothing is sent to the radio.</p>
+        <div class="cap-field" id="cap-field" aria-live="polite">Off</div>
+        <div class="row">
+          <button class="small primary" type="button" id="cap-btn">Capture</button>
+          <button class="small" type="button" id="cap-clear">Clear</button>
+        </div>
+        <ol class="list caps" id="cap-list" aria-label="Captured button presses"></ol>
+    </section>
+    <section class="tool" id="mem-test" hidden>
+        <p class="hint" style="margin-top:0">Runs the store sequence with fixed pauses and marks each step in the log, to find out which keys and replies the radio really uses (memory.md §8).</p>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="t-band" aria-label="Band"></select>
+          <input type="text" id="t-freq" inputmode="decimal" enterkeyhint="next" placeholder="9580" autocomplete="off" aria-label="Frequency">
+          <input type="text" id="t-ch" inputmode="numeric" enterkeyhint="done" placeholder="ch" autocomplete="off" aria-label="Channel">
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <select id="t-confirm" aria-label="Confirm key">
+            <option value="MEMO">Confirm with MEMO</option>
+            <option value="FREQ">Confirm with FREQ (EN)</option>
+          </select>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small" type="button" data-mem="t-step">Step</button>
+          <button class="small" type="button" data-mem="t-auto">Auto</button>
+          <button class="small" type="button" data-mem="t-recall">Recall test</button>
+        </div>
+        <div class="row" style="margin-top:var(--s2)">
+          <button class="small danger" type="button" data-mem="t-wipe">Test band wipe</button>
+        </div>
+        <p class="hint">Test band wipe holds SCAN on the band above (deleting all its memories), listens 5 s, then recalls CH 1.</p>
+        <p class="hint" id="t-status"></p>
+    </section>
+    <section class="tool" id="devbox" hidden>
+        <div class="row">
+          <input type="text" id="dev-cmd" placeholder="cmd: 0c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Command byte, hex">
+          <input type="text" id="dev-data" placeholder="data: 2c" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Data bytes, hex">
+        </div>
+        <p class="hint" id="dev-frame">Type a command byte and data bytes in hex.</p>
+        <div class="row" style="margin-top:var(--s2)"><button class="small primary" type="button" id="dev-send" disabled>Send</button></div>
+        <p class="hint">Sent on FF13, like every other command; the checksum is added. Replies show in the log. An unknown command could change a setting.</p>
+    </section>
+    <section class="tool" id="logpanel" hidden>
+        <div class="row" style="align-items:center;margin-bottom:var(--s2)">
+          <label class="item" style="padding:0;border:0;min-height:var(--hit)"><span class="label">Raw hex</span><input type="checkbox" role="switch" switch id="rawlog"></label>
+          <button class="small" type="button" id="copylog">Copy log</button>
+        </div>
+        <label class="item" style="padding:var(--s2) 0;border:0"><span class="label">Every notification<small>Logs each Bluetooth
+          notification as it arrives, before decoding (RX FF14 …), including bytes the decoder would drop</small></span>
+          <input type="checkbox" role="switch" switch id="rawrx"></label>
+        <label class="item" style="padding:var(--s2) 0;border:0;margin-bottom:var(--s2)"><span class="label">Also listen on FFF1 and battery<small>The radio's
+          other channels, which the vendor app doesn't use. Only reads them and turns their notifications on; never writes data.
+          Takes effect after Disconnect, then Connect.</small></span>
+          <input type="checkbox" role="switch" switch id="extrach"></label>
+        <div class="log" id="log" aria-live="off"></div>
+    </section>
+  </div>
+</dialog>
+
 <!-- ======== ask(): confirmations with clear verbs ======== -->
 <dialog class="ask" id="ask" aria-labelledby="ask-title" aria-describedby="ask-body">
   <form method="dialog">
@@ -360,7 +374,7 @@
   </form>
 </dialog>
 
-<div class="toast" id="toast" role="status" hidden></div>
+<div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button class="toast-act" type="button" id="toast-act" hidden></button></div>
 
 <script type="module" src="js/app.js"></script>
 </body>

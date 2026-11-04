@@ -157,6 +157,19 @@ export function dossierHtml() {
   return freq + body + actionsHtml();
 }
 
+// Recent lookups: chips under Explore's search, newest first
+const RECENT_MAX = 8;
+export function addRecent(k) {
+  store.set("rf919.recent", [k, ...store.get("rf919.recent", []).filter((r) => r !== k)].slice(0, RECENT_MAX));
+  renderRecent();
+}
+export function renderRecent() {
+  const list = store.get("rf919.recent", []).filter((k) => k > 0), box = $("recent");
+  box.hidden = !list.length;
+  box.innerHTML = list.map((k) => `<button class="chip" type="button" data-look="${k}" aria-label="Look up ${fmtKHz(k)}">` +
+    `${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></button>`).join("");
+}
+
 export function introHtml() {
   const examples = [[9580, "9580"], [11620, "11620"], [146730, "146.730"], [101300, "101.3"], [118100, "118.1"]];
   return `<div class="d-empty"><p class="empty-t">What's on the air?</p>
@@ -392,6 +405,8 @@ export function init() {
     $("q").value = ""; $("q").blur();
     lookUp(k);
   });
+  $("q-clear").addEventListener("click", () => { $("q").value = ""; $("q").focus(); });
+  renderRecent();
   document.addEventListener("change", (e) => {
     if (!e.target.matches('select[data-act="radius"]')) return;
     radius = +e.target.value;
