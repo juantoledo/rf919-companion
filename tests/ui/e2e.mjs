@@ -64,7 +64,19 @@ await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 
 assert.equal(await page.locator("#readout").isVisible(), true);
 assert.equal(await page.locator("#connect-card").isHidden(), true);
 assert.equal(await E(() => document.getElementById("host-radio").contains(document.getElementById("dossier"))), true);
-ok("Radio: readout + controls; the info panels moved to Radio and follow the dial (11620)");
+assert.equal(await E(() => { const now = document.getElementById("now"); return now.contains(document.getElementById("readout")) && now.contains(document.getElementById("dossier")); }), true);
+assert.match(await E(() => document.getElementById("now").style.getPropertyValue("--flag")), /\/us\.svg/);
+assert.equal(await page.locator("#dossier .d-freq").count(), 0);  // the readout shows the frequency
+ok("Radio: readout + controls; one card holds the readout and what's on the dial (11620), the station's flag behind");
+await tab("explore");
+assert.equal(await page.locator("#readout").isHidden(), true);
+await page.waitForFunction(() => view.k !== null && view.data, null, {timeout: 15000});
+assert.equal((await page.textContent("#dossier .d-freq")).replace(/\D/g, ""), String(await E(() => view.k)));
+assert.equal(await page.locator("#radio-controls").isHidden(), true);
+await tab("radio");
+await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
+assert.equal(await page.locator("#readout").isVisible(), true);
+ok("Explore hides the readout and controls while connected and shows the looked-up frequency; back on Radio they return");
 
 // ---- swipe on the readout (left = up, right = down; long = seek) ----
 const box = await page.locator("#freqbox").boundingBox();

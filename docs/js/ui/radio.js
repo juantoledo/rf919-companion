@@ -1,5 +1,5 @@
 import {pad2} from "../protocol.js";
-import {EMPTY_FREQ, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, swAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
+import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, swAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {addToList, bandFor} from "../memories.js";
 import {errText} from "../link.js";
 import {$, current, esc, go, goTo, log, lookUp, route, state, toast, tuneHere} from "./shell.js";
@@ -19,8 +19,9 @@ export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e
   job: null, picks: {sw: null, near: null}, test: null};
 // radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
 // near: nearby frequencies with their lookups; fresh: scroll the schedule to "now" on the next render
+// flag: the flag-icons key of the station the card headlines (its background), "" for none
 export const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz"};
+  all: false, showAll: false, fresh: false, timer: 0, unit: "MHz", flag: ""};
 export let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
 export const following = () => view.follow && state.ok;
 // Near me filters as well as sorts: stations beyond the radius, and shortwave not aimed at the listener's region.
@@ -93,9 +94,10 @@ export async function loadNearby(k) {
 // ---- rendering ----
 export function renderView() {
   renderStoreHere();
-  const ok = state.ok;
-  $("readout").hidden = !ok;
-  $("radio-controls").hidden = !ok;
+  const ok = state.ok, here = following();
+  // The readout and the controls travel with the info panels but show only on Radio (Explore doesn't follow the dial)
+  $("readout").hidden = !here;
+  $("radio-controls").hidden = !here;
   $("connect-card").hidden = ok;
   $("radiobar").classList.toggle("off", !ok);
   if (!ok && $("remote").open) $("remote").close();
@@ -108,31 +110,32 @@ export function renderDossier() {
   const box = $("dossier"), old = box.querySelector(".slots-box"), top = old ? old.scrollTop : 0;
   box.innerHTML = dossierHtml();
   box.hidden = !box.innerHTML;
+  // One card: the radio's readout over what's on its frequency, the station's flag behind both
+  const now = $("now");
+  now.hidden = box.hidden && $("readout").hidden;
+  now.style.setProperty("--flag", view.flag ? `url("${FLAG_CDN}${view.flag}.svg")` : "none");
+  now.classList.toggle("flagged", !!view.flag);
   const slots = box.querySelector(".slots-box");
   if (!slots) return;
   if (view.fresh) {
     const target = slots.querySelector("tr.cur") || slots.querySelector("tr.next");
-    slots.scrollTop = target ? target.offsetTop - slots.querySelector("thead").offsetHeight : 0;
+    slots.scrollTop = target ? target.offsetTop : 0;
     view.fresh = false;
   } else slots.scrollTop = top;
 }
 
 export function dossierHtml() {
   const k = view.k;
+  view.flag = "";
   if (k === null) {
     // Radio: waiting for the radio (the connect card covers "not connected"); Explore: how to start
     if (view.follow) return state.ok ? `<div class="d-empty"><p class="empty-t">Listening…</p><p class="empty-d">Waiting for the radio's frequency.</p></div>` : "";
     return introHtml();
   }
-  const has = view.data && (view.data.stations.length || view.data.shortwave.length);
-  const radSel = has && located() && view.data.stations.length
-    ? `<select class="radius" data-act="radius" aria-label="Distance">` +
-      RADII.map((r) => `<option value="${r}"${r === radius ? " selected" : ""}>${r ? `≤ ${r} km` : "any km"}</option>`).join("") + `</select>` : "";
-  const refilter = has && located() && view.showAll ? `<button class="small" type="button" data-act="refilter">Near only</button>` : "";
-  const near = has ? `<button class="toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
-  const head = `<h2 class="h"><span>On <span class="hv">${fmtKHz(k)}</span></span><span class="h-act">${refilter}${radSel}${near}</span></h2>`;
-  if (view.err) return head + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
-  if (!view.data) return head + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>`;
+  // On Radio the readout above shows the frequency; Explore shows the one looked up in the same big digits
+  const freq = following() ? "" : `<p class="d-freq">${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></p>`;
+  if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
+  if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>`;
   const {stations, shortwave} = view.data;
   let body;
   if (shortwave.length) body = swHtml(shortwave);
@@ -142,9 +145,7 @@ export function dossierHtml() {
       : `<div class="d-empty"><p class="empty-t">Nothing near</p><p class="empty-d">No station on ${fmtKHz(k)} within ${radius} km; ` +
         `${hidden} farther away.</p><div class="intro-act">${showAllBtn(`Show ${hidden === 1 ? "it" : `all ${hidden}`}`)}</div></div>`;
   } else body = `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
-  const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
-  return head + body + tuneHereHtml() +
-    `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p>`;
+  return freq + body + actionsHtml();
 }
 
 export function introHtml() {
@@ -155,15 +156,26 @@ export function introHtml() {
     <div class="tags">${examples.map(([k, t]) => `<button class="tag" type="button" data-look="${k}">${t}</button>`).join("")}</div></div>`;
 }
 
-export function tuneHereHtml() {
-  if (view.k === null) return "";
-  const tune = state.ok && view.k !== view.radioK
-    ? `<button class="primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(view.k)}</button>` : "";
-  const band = bandFor(view.k), inList = band && mem.list.find((e) => e.band === band && e.kHz === view.k);
-  const add = !band ? "" : inList ? `<button type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
-    : `<button type="button" data-act="addmem">+ Memory</button>`;
-  return tune || add ? `<div class="tune-here">${tune}${add}</div>` : "";
+// The card's foot: tune, keep, filter by distance, and where the data comes from
+export function actionsHtml() {
+  const k = view.k, d = view.data;
+  const tune = state.ok && k !== view.radioK
+    ? `<button class="small primary" type="button" data-act="tunehere">Tune radio to ${fmtKHz(k)}</button>` : "";
+  const band = bandFor(k), inList = band && mem.list.find((e) => e.band === band && e.kHz === k);
+  const add = !band ? "" : inList ? `<button class="small" type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
+    : `<button class="small" type="button" data-act="addmem">+ Memory</button>`;
+  const has = d.stations.length || d.shortwave.length;
+  const near = has ? `<button class="small toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
+  const radSel = has && located() && d.stations.length
+    ? `<select class="radius" data-act="radius" aria-label="Distance">` +
+      RADII.map((r) => `<option value="${r}"${r === radius ? " selected" : ""}>${r ? `≤ ${r} km` : "any km"}</option>`).join("") + `</select>` : "";
+  const refilter = has && located() && view.showAll ? `<button class="small" type="button" data-act="refilter">Near only</button>` : "";
+  const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
+  return `<div class="d-actions">${tune}${add}${near}${radSel}${refilter}` +
+    `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p></div>`;
 }
+// A flag-icons key the card can show behind the station ("" for none: the globe, or no country)
+const bgFlag = (key) => key && /^[a-z]{2}(-[a-z]{2})?$/.test(key) ? key : "";
 // The name to keep with a memory of the frequency on show: who's on air (or next), else the first station
 export function dossierName() {
   const d = view.data;
@@ -194,10 +206,11 @@ export function swHtml(all) {
             : head.air.startsIn != null ? `next at ${hhmm(e.startUTC)} UTC · in ${dur(head.air.startsIn)}`
             : "nothing scheduled in the coming weeks";
   const meta = [e.country, [e.langLabel || e.lang, e.targetLabel || e.target].filter(Boolean).join(" → ")].filter(Boolean).join(" · ");
+  view.flag = bgFlag(ituFlag(e.itu));
   const grid = [];
   if (e.site && e.site.name) {
     const siteFlag = e.site.itu && e.site.itu !== e.itu ? flagHtml(ituFlag(e.site.itu), e.site.itu) : "";
-    grid.push(`<div class="w2"><dt>Transmitter</dt><dd>${siteFlag}${esc(e.site.name)}</dd></div>`);
+    grid.push(`<div><dt>Transmitter</dt><dd>${siteFlag}${esc(e.site.name)}</dd></div>`);
   }
   grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
   if (nearMe && myPos && e.site && e.site.lat != null) grid.push(`<div><dt>Distance</dt><dd>${Math.round(haversineKm(myPos, e.site)).toLocaleString()} km</dd></div>`);
@@ -205,20 +218,21 @@ export function swHtml(all) {
   const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
   const slots = rows.map((r) => {
     const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
+    const to = r.e.targetLabel || r.e.target;
     return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
-      `<td>${flagHtml(ituFlag(r.e.itu), r.e.country)}${esc(r.e.station)}<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}</small></td>` +
-      `<td>${esc(r.e.targetLabel || r.e.target || "")}</td></tr>`;
+      `<td>${flagHtml(ituFlag(r.e.itu), r.e.country)}${esc(r.e.station)}` +
+      `<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}${to ? ` → ${esc(to)}` : ""}</small></td></tr>`;
   }).join("");
   return `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
-    <h3 class="d-name">${flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
+    <h3 class="d-name">${view.flag ? "" : flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
     <p class="d-meta">${esc(meta)}</p>
     <dl class="d-grid">${grid.join("")}</dl>
-    <div class="sched"><h4 class="h"><span>Today</span><span>UTC</span></h4>
+    <div class="sched"><h4 class="h"><span>Today</span></h4>
       <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
       <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
     <div class="slots"><h4 class="h"><span>Schedule${hidden ? ` · ${list.length} of ${all.length} aimed at ${esc(myRegion())}` : ""}</span>` +
       `<span>${hidden ? showAllBtn() : list.length}</span></h4>
-      <div class="slots-box"><table><thead><tr><th>UTC</th><th>Station</th><th>Target</th></tr></thead><tbody>${slots}</tbody></table></div></div>`;
+      <div class="slots-box"><table><tbody>${slots}</tbody></table></div></div>`;
 }
 
 // Stations with their distance; nearest first with Near me
@@ -255,17 +269,18 @@ export function stationTags(s, inGrid = false) {
 }
 
 export function stationHero({s, km}) {
-  const dd = (label, v, cls = "") => v ? `<div class="${cls}"><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
+  const dd = (label, v) => v ? `<div><dt>${label}</dt><dd>${esc(v)}</dd></div>` : "";
   const grid = s.category === "amateur"
     ? [dd("Output", s.rxKHz && fmtKHz(Math.round(s.rxKHz))), dd("Input", isRepeater(s) && fmtKHz(Math.round(s.txKHz))),
        dd("Tone", s.tono), dd("Shift", isRepeater(s) && fmtShift(s.rxKHz, s.txKHz)), dd("Power", s.potencia && `${s.potencia} W`),
        dd("DMR", s.isDMR && (dmrText(s) || "yes"))]
-    : [dd("Band", s.banda), dd("Region", s.region, "w2")];
+    : [dd("Band", s.banda), dd("Region", s.region)];
   if (km != null) grid.push(dd("Distance", `${Math.round(km).toLocaleString()} km`));
   const tags = stationTags(s, true), place = placeOf(s);
   const cat = isRepeater(s) ? "Repeater" : CATEGORY[s.category] || "Station";
+  view.flag = bgFlag(stationFlag(s));
   return `<div class="d-head"><span class="pill cat">${esc(cat)}</span><span class="d-sub">${esc(s.signal || "")}</span></div>
-    <h3 class="d-name">${flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.nombre || s.signal || "")}</h3>
+    <h3 class="d-name">${view.flag ? "" : flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.nombre || s.signal || "")}</h3>
     ${place.length || s.notes ? `<p class="d-meta">${esc([...place, s.notes].filter(Boolean).join(" · "))}</p>` : ""}
     <dl class="d-grid">${grid.join("")}</dl>
     ${tags ? `<div class="tags">${tags}</div>` : ""}`;

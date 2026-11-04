@@ -264,8 +264,12 @@ export function init() {
 
   // Gestures (each also has a button): swipe a frequency to step or seek, swipe the radio bar up for the Remote,
   // drag the Remote down by its top to close it
+  // The readout's hint goes once the swipe has been found
+  $("swipe-hint").hidden = store.get("rf919.swiped", false);
   document.querySelectorAll("[data-swipe-tune]").forEach((el) => swipeTune(el, (dir, seek) => {
-    if (state.ok) pressKey(dir > 0 ? "UP" : "DOWN", seek);
+    if (!state.ok) return;
+    pressKey(dir > 0 ? "UP" : "DOWN", seek);
+    if (!$("swipe-hint").hidden) { $("swipe-hint").hidden = true; store.set("rf919.swiped", true); }
   }));
   swipeUp($("rb-open"), openRemote);
   swipeToClose($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head")], closeRemote);

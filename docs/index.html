@@ -27,59 +27,57 @@
 <main id="app">
   <!-- ======== Radio: what the radio is on ======== -->
   <section class="view" id="view-radio" data-view="radio" aria-labelledby="t-radio">
-    <header class="view-head">
-      <h1 id="t-radio" tabindex="-1">Radio</h1>
-      <span class="clock" id="clock" title="Coordinated Universal Time"></span>
-    </header>
-    <div class="status-line"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span></div>
+    <!-- No title bar: the tab names the view; the heading stays for screen readers and focus on tab switch -->
+    <h1 class="sr-only" id="t-radio" tabindex="-1">Radio</h1>
+    <div class="status-line"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span>
+      <span class="clock" id="clock" title="Coordinated Universal Time"></span></div>
     <div class="banner" id="nobt" hidden>
       <b>No Web Bluetooth in this browser.</b>
       <span>You can still look up frequencies in Explore. To control the radio use <b>Chrome on Android</b>, or the <b>Bluefy</b>
       browser on iPhone, over https. The <b>Demo</b> plays a recorded session.</span>
     </div>
-    <div class="radio-side">
-      <div class="panel connect-card" id="connect-card">
-        <h2 class="empty-t">Connect your RF919</h2>
-        <p>Turn the radio on and connect over Bluetooth. No radio at hand? The Demo plays a recorded session, and Explore looks up any frequency.</p>
-        <div class="row">
-          <button class="primary" type="button" data-act="connect">Connect radio</button>
-          <button type="button" data-act="demo">Demo</button>
-        </div>
-      </div>
-      <div class="readout" id="readout" hidden>
-        <div class="lcd-row" style="justify-content:space-between">
-          <label class="band-pick"><span class="band" id="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
-          <span class="unit" id="unit"></span>
-        </div>
-        <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span></div>
-        <div class="sub"><span id="preset"></span><span class="alert" id="alert"></span></div>
-        <div class="cells">
-          <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
-          <div class="cell" id="c-bw"><span class="l">BW</span><span class="v">–</span></div>
-          <div class="cell" id="c-snr"><span class="l">SNR</span><span class="v">–</span></div>
-          <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
-          <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
-        </div>
-        <p class="swipe-hint">Swipe the frequency to step · flick to seek</p>
-      </div>
-      <div class="controls" id="radio-controls" hidden>
-        <div class="grid tune3">
-          <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
-          <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
-          <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
-        </div>
-        <div class="grid">
-          <button data-key="SUBBAND" aria-label="Sub-band (the radio's MODE key)">Sub</button>
-          <button data-key="VOL-" aria-label="Volume down">Vol −</button>
-          <button data-key="VOL+" aria-label="Volume up">Vol +</button>
-          <button class="key" type="button" id="open-remote" aria-haspopup="dialog">Keys</button>
-        </div>
-        <button class="primary wide" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
+    <div class="panel connect-card" id="connect-card">
+      <h2 class="empty-t">Connect your RF919</h2>
+      <p>Turn the radio on and connect over Bluetooth. No radio at hand? The Demo plays a recorded session, and Explore looks up any frequency.</p>
+      <div class="row">
+        <button class="primary" type="button" data-act="connect">Connect radio</button>
+        <button type="button" data-act="demo">Demo</button>
       </div>
     </div>
     <div class="info-host" id="host-radio">
       <div class="info" id="info">
-        <section class="panel hero" id="dossier" aria-live="polite"></section>
+        <section class="panel hero" id="now">
+          <div class="readout" id="readout" hidden>
+            <div class="lcd-row">
+              <label class="band-pick"><span class="band" id="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
+              <span class="sub"><span id="preset"></span><span class="alert" id="alert"></span></span>
+            </div>
+            <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span><span class="unit" id="unit"></span></div>
+            <div class="cells">
+              <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
+              <div class="cell" id="c-bw"><span class="l">BW</span><span class="v">–</span></div>
+              <div class="cell" id="c-snr"><span class="l">SNR</span><span class="v">–</span></div>
+              <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
+              <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
+            </div>
+            <p class="swipe-hint" id="swipe-hint">Swipe the frequency to step · flick to seek</p>
+          </div>
+          <div id="dossier" aria-live="polite"></div>
+        </section>
+        <div class="controls" id="radio-controls" hidden>
+          <div class="grid tune3">
+            <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
+            <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
+            <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
+          </div>
+          <div class="grid">
+            <button data-key="SUBBAND" aria-label="Sub-band (the radio's MODE key)">Sub</button>
+            <button data-key="VOL-" aria-label="Volume down">Vol −</button>
+            <button data-key="VOL+" aria-label="Volume up">Vol +</button>
+            <button class="key" type="button" id="open-remote" aria-haspopup="dialog">Keys</button>
+          </div>
+          <button class="primary wide" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
+        </div>
         <section class="panel" id="stations" hidden></section>
         <section class="panel" id="nearby" hidden></section>
       </div>
