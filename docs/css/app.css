@@ -5,7 +5,7 @@
 /* ================= base ================= */
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-html, body { margin: 0; background: var(--ink); color: var(--text); }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
 body {
   font: 400 var(--fs-body)/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
   padding: 0 0 calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s4)) var(--rail-w);
@@ -220,7 +220,7 @@ main[data-dir="back"] .view { animation-name: view-in-back; }
 /* ---- band picker: a native <select> laid over a chip, so tapping it opens the phone's own picker ---- */
 .band-pick { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: 64px; min-height: var(--hit); }
 .band-pick select { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; opacity: 0; cursor: pointer; font-size: 16px; }
-.band-pick:focus-within .band { outline: 2px solid var(--cool); outline-offset: 2px; }
+.band-pick:has(select:focus-visible) .band { outline: 2px solid var(--cool); outline-offset: 2px; }
 .band {
   --band: var(--dim); flex: none; min-width: 52px; padding: 3px 10px; border-radius: var(--round); text-align: center;
   font: 500 var(--fs-caption) var(--font-mono); letter-spacing: .1em; text-transform: uppercase;
@@ -267,6 +267,7 @@ main { transition: transform var(--slow) var(--ease-sheet), border-radius var(--
 .sheet-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--s1) var(--s4) calc(var(--s4) + env(safe-area-inset-bottom)); display: grid; align-content: start; gap: var(--s5); }
 .mini-freq { display: flex; align-items: center; gap: var(--s3); min-width: 0; touch-action: pan-y; }
 .mini-freq .rb-freq { font-size: 1.75rem; }
+.sheet-head .mini-freq { flex: 1; }
 
 /* ---- segmented control (iOS): one track, the chosen segment raised in it ---- */
 .seg.seg-fill { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; margin: 0; padding: 2px; border-radius: var(--r2); background: var(--surface-2); overflow: visible; }
@@ -305,8 +306,6 @@ dialog .toast { position: fixed; bottom: calc(env(safe-area-inset-bottom) + var(
   display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin: 0 0 var(--s3);
   font: 500 var(--fs-caption) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
 }
-.h .hv { color: var(--amber); letter-spacing: .05em; }
-.h-act { display: flex; align-items: center; gap: var(--s2); }
 .h button.toggle, .h button.small { min-height: 32px; padding: 0 var(--s3); font: 500 .6875rem var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
 @media (pointer: coarse) { .h button.toggle, .h button.small { min-height: 40px; } }
 .hint { margin: var(--s2) 0 0; font-size: var(--fs-small); line-height: 1.5; color: var(--dim); }
@@ -316,6 +315,7 @@ dialog .toast { position: fixed; bottom: calc(env(safe-area-inset-bottom) + var(
 .grid { display: grid; gap: var(--s2); grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid.k5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .grid.k3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.k5 button[data-fn] { padding: 0 2px; font-size: .6875rem; letter-spacing: 0; }
 .grid.k3 button[data-key] { font-size: 1.25rem; letter-spacing: 0; }
 .grid.k3 button[data-key="FREQ"] { font-size: var(--fs-caption); letter-spacing: .08em; }
 
@@ -354,6 +354,7 @@ label.item { cursor: pointer; }
 .connect-card { display: grid; gap: var(--s3); padding: var(--s5) var(--s4); text-align: left; }
 .connect-card p { margin: 0; color: var(--dim); }
 .connect-card .row button { min-height: 52px; font-size: var(--fs-body); }
+.connect-card > h2 { display: block; margin: 0; font: 800 1.75rem/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: var(--text); }
 /* ---- the "now" card: the radio's readout over what's on its frequency, the station's flag faded in behind both ---- */
 #now { position: relative; isolation: isolate; overflow: hidden; }
 #now.flagged::before {
@@ -387,6 +388,8 @@ label.item { cursor: pointer; }
 .nudge-l { transform: translateX(-10px); } .nudge-r { transform: translateX(10px); }
 /* the controls: a transport row (step, Memo, step) over the secondary keys, then Store here */
 .controls { display: grid; gap: var(--s2); }
+.tune3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tune3 button[data-key="UP"], .tune3 button[data-key="DOWN"] { font-size: 1.25rem; }
 .controls .tune3 button { min-height: 56px; border-color: transparent; border-radius: var(--round); background: var(--surface); }
 .controls .grid:not(.tune3) button { min-height: var(--hit); border-radius: var(--round); background: transparent; }
 .controls #storehere { min-height: 52px; border-radius: var(--round); }
@@ -484,6 +487,7 @@ svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: n
 .tag.cool { color: var(--cool); border-color: var(--cool-line); }
 .tag.full { color: var(--warn); border-color: var(--warn-line); }
 a.tag { min-height: 32px; }
+@media (pointer: coarse) { a.tag { min-height: var(--hit); } }
 button.tag { min-height: var(--hit); padding: 0 var(--s3); font: 500 var(--fs-small) var(--font-mono); background: transparent; }
 .note { margin: var(--s3) 0 0; font-size: var(--fs-caption); color: var(--dim); }
 select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); border-radius: var(--round); font: 500 .6875rem var(--font-mono); letter-spacing: .04em; background-position: right 10px center; }
@@ -569,18 +573,36 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .blink { text-decoration: underline wavy; }
+  body.sheet-open main { transform: none !important; }
+}
+/* Reduce transparency: solid bars and sheets */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: var(--surface); }
+  * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+}
+/* Increase contrast: stronger lines, secondary text closer to the main one */
+@media (prefers-contrast: more) {
+  :root {
+    --line: light-dark(rgba(20, 45, 75, .4), rgba(140, 185, 230, .45));
+    --line-strong: light-dark(rgba(20, 45, 75, .65), rgba(140, 185, 230, .7));
+    --dim: light-dark(#2e3d4d, #b4c4d4);
+    --flag-opacity: .12;
+  }
+}
+/* Forced colours (Windows high contrast): the system's colours for what is drawn, not written */
+@media (forced-colors: active) {
+  .tabbar::before { background: Highlight; forced-color-adjust: none; }
+  .tabbar a[aria-current="page"] { color: HighlightText; forced-color-adjust: none; }
+  .lamp, .dot, .lit, .pill::before, .bar .win, .progress i { forced-color-adjust: none; background: CanvasText; }
+  .lamp.ok, .dot.on { background: Highlight; }
+  input[type=checkbox][role=switch] { forced-color-adjust: none; background: GrayText; border: 1px solid CanvasText; }
+  input[type=checkbox][role=switch]:checked { background: Highlight; }
+  #now.flagged::before { display: none; }
+  .nav-row::after { forced-color-adjust: none; background: CanvasText; }
+  .toast { border: 1px solid CanvasText; }
 }
 
-/* ---- small additions ---- */
-.tune3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tune3 button[data-key="UP"], .tune3 button[data-key="DOWN"] { font-size: 1.25rem; }
-.connect-card > h2 { display: block; margin: 0; font: 800 1.75rem/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: var(--text); }
-.sheet-head .mini-freq { flex: 1; }
-.band-pick:focus-within .band { outline: none; }
-.band-pick:has(select:focus-visible) .band { outline: 2px solid var(--cool); outline-offset: 2px; }
-.grid.k5 button[data-fn] { padding: 0 2px; font-size: .6875rem; letter-spacing: 0; }
-
-/* touch: every target at least 44 px */
+/* touch: every target at least 48 px */
 @media (pointer: coarse) {
   .seg span { min-height: var(--hit); }
   .h button.toggle, .h button.small, select.radius { min-height: var(--hit); }

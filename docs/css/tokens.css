@@ -45,8 +45,6 @@
   --track: light-dark(rgba(20, 45, 75, .09), rgba(140, 185, 230, .1));  /* bars, progress */
   --switch-off: light-dark(rgba(20, 45, 75, .18), rgba(140, 185, 230, .22));
   --scrim: light-dark(rgba(10, 20, 30, .32), rgba(3, 7, 12, .66));
-  --backdrop: var(--scrim);
-  --ink: var(--bg);                                /* older name */
 
   /* ---- log colours (More › Log) ---- */
   --log-unknown: light-dark(#9c2f73, #e0a3c8);
