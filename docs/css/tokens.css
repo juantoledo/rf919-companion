@@ -1,55 +1,97 @@
-/* Design tokens: the "Shortwave Atlas" identity, modernised.
-   Cold blue ink; one warm dial-lamp amber for everything "lit"; cool blue for information; warm red for danger.
-   Sizes are in rem so the phone's text-size setting carries through. */
+/* Design tokens: the "Shortwave Atlas" identity, in a light and a dark theme that follow the system.
+   Dark: cold blue ink with one warm dial-lamp amber for everything "lit". Light: paper and ink, the amber deepened
+   so it still reads as text. Cool blue for information; warm red for danger.
+   Every colour is light-dark(light, dark); sizes are in rem so the phone's text-size setting carries through. */
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
-  /* colour */
-  --ink: #070d15;          /* page */
-  --surface: #0b141f;      /* cards, bars */
-  --surface-2: #101b28;    /* raised: fields, pressed rows */
-  --deep: #050a11;         /* wells: logs */
-  --line: rgba(140, 185, 230, .14);
-  --line-strong: rgba(140, 185, 230, .3);
-  --hover: rgba(140, 185, 230, .08);
-  --press: rgba(140, 185, 230, .16);
-  --text: #dbe6f2;         /* 14.9:1 on ink */
-  --dim: #8fa3b8;          /* 7.4:1 on ink */
-  --faint: #56677a;        /* decoration only, never body text */
-  --amber: #ffb33f;        /* 10.6:1 on ink */
-  --amber-soft: rgba(255, 179, 63, .14);
-  --amber-line: rgba(255, 179, 63, .6);
-  --cool: #7fd0ff;         /* 11.3:1 on ink */
-  --cool-soft: rgba(127, 208, 255, .1);
-  --cool-line: rgba(127, 208, 255, .4);
-  --warn: #ff8a7a;         /* 7.9:1 on ink */
-  --warn-soft: rgba(255, 138, 122, .1);
-  --warn-line: rgba(255, 138, 122, .5);
-  --backdrop: rgba(3, 7, 12, .66);
+  /* ---- surfaces: a tonal scale, low to high ---- */
+  --bg: light-dark(#eef2f6, #070d15);              /* the page */
+  --surface: light-dark(#ffffff, #0b141f);         /* cards */
+  --surface-2: light-dark(#f2f5f8, #101b28);       /* fields, rows, keys */
+  --surface-3: light-dark(#e6ebf1, #16222f);       /* selected, pressed */
+  --glass: light-dark(rgba(250, 252, 254, .78), rgba(14, 23, 34, .76));  /* floating bars, over content */
+  --deep: light-dark(#e9eef3, #050a11);            /* wells: logs */
+  --inverse: light-dark(#1b2633, #e3ebf3);         /* snackbar */
+  --on-inverse: light-dark(#eef3f8, #0e1824);
 
-  /* type */
+  /* ---- content ---- */
+  --text: light-dark(#0f1924, #dbe6f2);
+  --dim: light-dark(#4b5c6e, #8fa3b8);             /* secondary text, AA on every surface */
+  --faint: light-dark(#8e9cab, #56677a);           /* decoration only, never body text */
+  --line: light-dark(rgba(20, 45, 75, .12), rgba(140, 185, 230, .14));
+  --line-strong: light-dark(rgba(20, 45, 75, .24), rgba(140, 185, 230, .3));
+  --hover: light-dark(rgba(20, 45, 75, .06), rgba(140, 185, 230, .08));
+  --press: light-dark(rgba(20, 45, 75, .12), rgba(140, 185, 230, .16));
+
+  /* ---- accents: the colour, its container (tint) and its outline ---- */
+  --amber: light-dark(#8a4f00, #ffb33f);
+  --on-amber: light-dark(#ffffff, #241500);        /* text on filled amber */
+  --amber-soft: light-dark(#ffe9c7, rgba(255, 179, 63, .14));
+  --amber-line: light-dark(rgba(138, 79, 0, .45), rgba(255, 179, 63, .6));
+  --amber-glow: light-dark(transparent, rgba(255, 179, 63, .55));
+  --cool: light-dark(#005f94, #7fd0ff);
+  --cool-soft: light-dark(#e0f0fb, rgba(127, 208, 255, .1));
+  --cool-line: light-dark(rgba(0, 95, 148, .4), rgba(127, 208, 255, .4));
+  --warn: light-dark(#b3261e, #ff8a7a);
+  --warn-soft: light-dark(#fde7e4, rgba(255, 138, 122, .1));
+  --warn-line: light-dark(rgba(179, 38, 30, .45), rgba(255, 138, 122, .5));
+  --on-warn-soft: light-dark(#7a1710, #ffc2b8);
+
+  /* ---- the radio's display ---- */
+  --freq-ink: light-dark(#0b1520, #ffffff);
+  --freq-glow: light-dark(transparent, rgba(255, 255, 255, .3));
+  --lamp-off: light-dark(#b8c3ce, #3b4a5b);
+  --track: light-dark(rgba(20, 45, 75, .09), rgba(140, 185, 230, .1));  /* bars, progress */
+  --switch-off: light-dark(rgba(20, 45, 75, .18), rgba(140, 185, 230, .22));
+  --scrim: light-dark(rgba(10, 20, 30, .32), rgba(3, 7, 12, .66));
+  --backdrop: var(--scrim);
+  --ink: var(--bg);                                /* older name */
+
+  /* ---- log colours (More › Log) ---- */
+  --log-unknown: light-dark(#9c2f73, #e0a3c8);
+  --log-note: light-dark(#7a5a00, #ffe2a0);
+  --log-link: light-dark(#2f5f8f, #a9c7e4);
+  --log-rx: light-dark(#5b3fc4, #b9a6ff);
+  --log-rx2: light-dark(#8a6100, #ffd166);
+
+  /* ---- type ---- */
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --font-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
   --font-freq: "Goldman", var(--font-display);
-  --fs-caption: .75rem;    /* 12px: labels, eyebrows */
-  --fs-small: .8125rem;    /* 13px: hints, secondary */
-  --fs-body: 1rem;         /* 16px */
-  --fs-lead: 1.125rem;     /* 18px */
-  --fs-title: 2rem;        /* view titles */
+  --fs-large-title: 2.125rem;  /* 34: a view's title, before it scrolls away */
+  --fs-title: 1.375rem;        /* 22: sheet titles */
+  --fs-headline: 1.0625rem;    /* 17: the compact title bar, row titles */
+  --fs-lead: 1.125rem;
+  --fs-body: 1rem;             /* 16 */
+  --fs-callout: .9375rem;      /* 15 */
+  --fs-small: .8125rem;        /* 13: footnotes, secondary */
+  --fs-caption: .75rem;        /* 12: labels, eyebrows */
 
-  /* space, shape */
+  /* ---- space, shape, depth ---- */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
-  --r1: 8px; --r2: 12px; --r3: 20px; --round: 999px;
-  --hit: 44px;             /* minimum touch target */
-  --key: 52px;             /* radio keys */
+  --r1: 8px; --r2: 12px; --r3: 20px; --r4: 28px; --round: 999px;
+  --shadow-float: 0 10px 34px rgba(5, 15, 30, .5);
+  --flag-opacity: .3;
+  --hero-shadow: 0 1px 10px rgba(5, 10, 17, .85);
+  --hit: 44px;                 /* minimum target; 48 on touch (Android 48 dp ≥ iOS 44 pt) */
+  --key: 52px;                 /* radio keys */
 
-  /* motion */
-  --fast: .12s; --med: .22s; --ease: cubic-bezier(.2, .8, .2, 1);
+  /* ---- motion ---- */
+  --fast: .12s; --med: .22s; --slow: .36s;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --ease-sheet: cubic-bezier(.32, .72, 0, 1);      /* sheets and bars: quick out, long settle */
+  --spring: linear(0, .22 6%, .62 14%, .92 24%, 1.04 33%, 1.06 40%, 1.03 52%, 1 66%, 1);  /* indicators: a little overshoot */
 
-  /* layout: heights of the fixed bars, used to pad the page and place toasts */
-  --tabbar-h: 58px;
+  /* ---- layout: the fixed bars, used to pad the page and place toasts ---- */
+  --tabbar-h: 64px;            /* the floating tab bar and its margin */
   --radiobar-h: 0px;
   --rail-w: 0px;
+  --gutter: max(var(--s4), env(safe-area-inset-left), env(safe-area-inset-right));
 }
-@media (prefers-reduced-motion: reduce) { :root { --fast: 0s; --med: 0s; } }
+@media (prefers-color-scheme: light) {
+  :root { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
+}
+@media (pointer: coarse) { :root { --hit: 48px; } }
+@media (prefers-reduced-motion: reduce) { :root { --fast: 0s; --med: 0s; --slow: 0s; } }
