@@ -1,4 +1,4 @@
-import {BAND_CODES, hex, pad2, splitFreq} from "../protocol.js";
+import {BAND_CODES, bandIconId, hex, pad2, splitFreq} from "../protocol.js";
 import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {MemoryRun, bandFor, bandUnit, memKey} from "../memories.js";
 import {Tuner} from "../tuner.js";
@@ -14,6 +14,15 @@ import {link, pressKey, send} from "./more.js";
 export const $ = (id) => document.getElementById(id);
 export const BAND_COLORS = {FM:"#4fc3f7", AM:"#ffb74d", SW:"#81c784", LW:"#ce93d8", AIR:"#90caf9", WB:"#ef5350",
   HAM:"#fff176", CB:"#a1887f", VHF:"#4db6ac", UHF:"#9575cd"};
+// A band's symbol (protocol.js BAND_ICON), before its name; decoration, the name says it
+export const bandIco = (band) => `<svg class="ico band-ico" aria-hidden="true"><use href="#${bandIconId(band)}"/></svg>`;
+// The band chip (the readout, the radio bar, the Remote): symbol, name, colour
+export function setBandChip(el, band) {
+  if (el.dataset.band === band) return;
+  el.dataset.band = band;
+  el.innerHTML = `${bandIco(band)}<span class="band-name">${band}</span>`;
+  el.style.setProperty("--band", BAND_COLORS[band] || "#b0bec5");
+}
 export const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null, ok: false};
 
 export function setStatus(kind, text) {
@@ -76,9 +85,7 @@ export function cell(name, label, value) {
 
 export const handlers = {
   freq(d) {
-    const band = $("band");
-    band.textContent = d.band;
-    band.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5");
+    setBandChip($("band"), d.band);
     if (d.alert) { $("alert").textContent = "⚠ WEATHER ALERT"; setBlink($("alert"), true); radioFreq(null); return; }
     $("alert").textContent = ""; setBlink($("alert"), false);
     const [main, small] = d.raw ? splitFreq(d.raw, d.dp) : ["---.---", ""];
@@ -470,7 +477,7 @@ export function fillBandSelects() {
 export function renderMini(d = waiters.freq) {
   const text = !d ? "---.---" : d.alert ? "ALERT" : d.raw ? splitFreq(d.raw, d.dp)[0] : "---.---";  // the big digits only
   document.querySelectorAll("[data-freq]").forEach((e) => { e.textContent = text; });
-  if (d) document.querySelectorAll("[data-band-chip]").forEach((e) => { e.textContent = d.band; e.style.setProperty("--band", BAND_COLORS[d.band] || "#b0bec5"); });
+  if (d) document.querySelectorAll("[data-band-chip]").forEach((e) => setBandChip(e, d.band));
   document.querySelectorAll("[data-band-select]").forEach((sel) => { if (d && [...sel.options].some((o) => o.value === d.band)) sel.value = d.band; });
   // Under the digits: the channel, and what's on the air there (else the unit)
   const sub = [$("preset").textContent, view.radioName || (d && !d.alert && d.unit)].filter(Boolean).join(" · ");

@@ -578,4 +578,14 @@ ok("NameIndex: accents and case don't matter; words in any order; whole words, t
   deq(back.search("radio").map((h) => [h.name, h.ks]), ix.search("radio").map((h) => [h.name, h.ks]));
   assert.equal(back.seen.has(7777), true);
 });
+{
+  const fs = await import("node:fs");
+  const html = fs.readFileSync(new URL("../docs/index.html", import.meta.url), "utf8");
+  for (const band of Object.values(T.BANDS)) {
+    assert.ok(T.BAND_ICON[band], `no icon for ${band}`);
+    assert.ok(html.includes(`<symbol id="${T.bandIconId(band)}"`), `no #${T.bandIconId(band)} in index.html`);
+  }
+  assert.equal(T.bandIconId("NOPE"), "i-b-other");
+  ok("every band has its symbol, and the sprite has every symbol", () => {});
+}
 console.log(`\n${n} checks passed`);

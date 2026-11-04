@@ -8,6 +8,10 @@ export const MAX_FRAME = 20;
 export const BANDS = {0x00:"FM",0x01:"AM",0x02:"SW",0x03:"AIR",0x04:"CB",0x05:"UHF",0x06:"WB",0x07:"VHF",0x08:"LW",
   0x09:"HAM",0x10:"RAIL",0x11:"MRN",0x12:"RACE",0x13:"POL",0x14:"FIRE",0x15:"OTHER"};
 export const BAND_CODES = Object.fromEntries(Object.entries(BANDS).map(([k, v]) => [v, +k]));
+// A symbol per band, in index.html's sprite (#i-b-…): what the band is for, at a glance (AIR an aircraft, CB a truck…)
+export const BAND_ICON = {FM: "fm", AM: "am", SW: "sw", LW: "lw", AIR: "air", VHF: "vhf", UHF: "uhf", CB: "cb", WB: "wb",
+  HAM: "ham", RAIL: "rail", MRN: "mrn", RACE: "race", POL: "pol", FIRE: "fire", OTHER: "other"};
+export const bandIconId = (band) => `i-b-${BAND_ICON[band] || "other"}`;
 
 // PRESET: the vendor app's key 23 does nothing on the RF919 (✓ live); the radio's Memo button, short, switches its
 // channel (preset) mode, so the page's recall uses MEMO short too

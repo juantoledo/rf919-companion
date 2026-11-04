@@ -3,7 +3,7 @@ import {dur, flagHtml, fmtKHz, fmtShift, hhmmMin, ituFlag, minHHMM, span, swOnAi
 import {CancelErr, MAX_CH, MEM_BANDS, MemoryRun, SW_METERS, addToList, nearestStations, backupText, bandCount, bandFor, bandRange, bandSummary, freqText, memKey, parseMemList, pool, recordItems} from "../memories.js";
 import {waiters} from "../state.js";
 import {errText} from "../link.js";
-import {$, BAND_COLORS, ask, esc, log, state, toast} from "./shell.js";
+import {$, BAND_COLORS, ask, bandIco, esc, log, state, toast} from "./shell.js";
 import {dossierName, hhmm, isRepeater, locate, mem, myPos, myRegion, myTargets, placeOf, radius, renderView, rm, show, store, view} from "./radio.js";
 import {link, setWake} from "./more.js";
 import {swipeRows} from "./gestures.js";
@@ -48,7 +48,7 @@ export function renderMem() {
   $("mem-counts").innerHTML = `<legend>Band</legend>` + MEM_BANDS.map((b) => {
     const c = bandCount(list, b);
     return `<label class="${c >= MAX_CH ? "full" : ""}"><input type="radio" name="memband" value="${b}"${b === band ? " checked" : ""}${running ? " disabled" : ""}>` +
-      `<span>${b === radio ? `<i class="lit" title="The radio's band"></i>` : ""}${b} · ${c}</span></label>`;
+      `<span>${b === radio ? `<i class="lit" title="The radio's band"></i>` : ""}${bandIco(b)}${b} · ${c}</span></label>`;
   }).join("");
   // Edit as text works on this band too; text and errors typed for another band don't carry over
   if (mem.textBand !== band) { mem.textBand = band; $("mem-text").value = ""; $("mem-errs").textContent = ""; }
