@@ -15,13 +15,18 @@ function eatNextClick(el) {
 }
 
 // Horizontal swipe on a frequency: left = up, right = down (like turning a dial: the scale moves with the finger).
-// onStep(direction: 1 | -1, seek: boolean)
-export function swipeTune(el, onStep) {
+// onStep(direction: 1 | -1, seek: boolean). only: a selector inside el where the swipe has to start (el re-renders)
+export function swipeTune(el, onStep, {only = null} = {}) {
   let x0 = 0, y0 = 0, id = null;
   el.addEventListener("pointerdown", (e) => {
-    if (e.button > 0 || e.target.closest("select")) return;
+    if (e.button > 0 || e.target.closest("select") || (only && !e.target.closest(only))) return;
     id = e.pointerId; x0 = e.clientX; y0 = e.clientY;
-    el.setPointerCapture(id);  // the swipe ends here even if the finger leaves the element
+    // The swipe ends here even if the finger leaves the element. With only, el holds buttons of its own: capture
+    // once the finger moves, so a tap still clicks the button under it
+    if (!only) el.setPointerCapture(id);
+  });
+  if (only) el.addEventListener("pointermove", (e) => {
+    if (e.pointerId === id && !el.hasPointerCapture(id) && Math.abs(e.clientX - x0) > 8) el.setPointerCapture(id);
   });
   el.addEventListener("pointerup", (e) => {
     if (e.pointerId !== id) return;
@@ -31,7 +36,7 @@ export function swipeTune(el, onStep) {
     const dir = dx < 0 ? 1 : -1;
     eatNextClick(el);
     haptic(Math.abs(dx) >= SEEK_PX ? 30 : 10);
-    const nudge = el.querySelector(".freq, .rb-freq") || el;
+    const nudge = el.querySelector(".freq, .rb-freq, .d-freq") || el;
     nudge.classList.add(dir > 0 ? "nudge-l" : "nudge-r");
     setTimeout(() => nudge.classList.remove("nudge-l", "nudge-r"), 160);
     onStep(dir, Math.abs(dx) >= SEEK_PX);

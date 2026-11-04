@@ -188,8 +188,15 @@ main[data-dir="back"] .view { animation-name: view-in-back; }
 .rb-sub { font: 500 var(--fs-caption)/1.3 var(--font-ui); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rb-sub b { color: var(--amber); font-weight: 600; }
 .radiobar > button[data-key] { min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: 50%; font-size: 1.125rem; }
-.radiobar .rb-off { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: var(--s2); padding-left: var(--s2); }
-.radiobar .rb-off span { font-size: var(--fs-small); color: var(--dim); }
+/* No radio: the bar shrinks to a pill at the tab bar's trailing edge (Connect radio · Demo) */
+.radiobar.off {
+  left: auto; translate: none; right: calc((100% - var(--rail-w) - min(440px, 100% - var(--rail-w) - 2 * var(--s3))) / 2);
+  display: flex; width: max-content; height: auto; padding: 4px; border-radius: var(--round); bottom: calc(var(--bar-bottom) + var(--tabbar-h) + var(--s1));
+}
+body.with-radiobar:has(#radiobar.off) { --radiobar-h: 60px; }
+.radiobar .rb-off { display: flex; align-items: center; gap: 2px; }
+.radiobar .rb-off button { display: inline-flex; align-items: center; gap: var(--s2); }
+.radiobar .rb-off .lamp { background: var(--lamp-off); }
 .radiobar:not(.off) .rb-off { display: none; }
 .radiobar.off > :not(.rb-off) { display: none; }
 
@@ -219,6 +226,7 @@ body:not(.on-radio) .dock { display: none; }
   }
   .tabbar a { justify-content: flex-start; gap: 4px; padding-top: 12px; border-radius: 0; }
   .radiobar, .dock { bottom: var(--bar-bottom); width: min(640px, calc(100% - var(--rail-w) - 2 * var(--s4))); }
+  .radiobar.off { right: calc((100% - var(--rail-w) - min(640px, 100% - var(--rail-w) - 2 * var(--s4))) / 2); }
   .view { max-width: 760px; }
 }
 /* phones held sideways: no room for a large title, the bar shows the small one from the start */
@@ -421,15 +429,21 @@ label.item { cursor: pointer; }
 .view.scrolled .search { background: var(--glass); -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8); border-bottom: 1px solid var(--line); }
 .view.scrolled:has(.search) > .appbar { border-bottom-color: transparent; }
 .search-field { position: relative; flex: 1; min-width: 0; display: flex; }
-.search-clear { position: absolute; right: 0; top: 0; bottom: 0; width: var(--hit); min-height: 0; padding: 0; border: 0; background: transparent; font-size: 0; }
+.search-clear { position: absolute; right: var(--hit); top: 0; bottom: 0; width: var(--hit); min-height: 0; padding: 0; border: 0; background: transparent; font-size: 0; }
 .search-clear::before { content: "✕"; display: grid; place-items: center; width: 22px; height: 22px; margin: auto; border-radius: 50%; background: var(--surface-3); color: var(--dim); font-size: .625rem; }
 .search-field:has(input:placeholder-shown) .search-clear { display: none; }
+.search-field:has(input:placeholder-shown) input { padding-right: var(--hit); }
 .search input {
-  flex: 1; min-width: 0; padding-left: 40px; padding-right: var(--hit); border-radius: var(--round); font: 500 var(--fs-body) var(--font-mono); font-variant-numeric: tabular-nums;
+  flex: 1; min-width: 0; padding-left: 40px; padding-right: calc(2 * var(--hit)); border-radius: var(--round); font: 500 var(--fs-body) var(--font-mono); font-variant-numeric: tabular-nums;
   background: var(--surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='6.5' cy='6.5' r='5' fill='none' stroke='%237a8ca0' stroke-width='1.6'/%3E%3Cpath d='M10.3 10.3 15 15' stroke='%237a8ca0' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat 15px center / 15px 15px;
 }
 .search input::-webkit-search-cancel-button { display: none; }
-.search button[type=submit] { border-radius: var(--round); }
+/* Look up: a round button at the field's end (iOS's decimal pad has no Enter key) */
+.search-go {
+  position: absolute; right: 0; top: 0; bottom: 0; width: var(--hit); min-height: 0; padding: 0; border: 0; border-radius: 50%;
+  display: grid; place-items: center; color: var(--amber); background: radial-gradient(circle closest-side, var(--amber-soft) 78%, transparent 81%);
+}
+.search-go .ico { width: 20px; height: 20px; stroke-width: 2.2; }
 /* chips that scroll sideways, edge to edge (recent lookups, the Memories bands) */
 .chips { display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter-r)) 0 calc(-1 * var(--gutter-l)); padding: 0 var(--gutter-r) 0 var(--gutter-l); }
 .chips::-webkit-scrollbar { display: none; }
@@ -469,9 +483,17 @@ svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: n
 .d-grid dt { font: 500 .6875rem/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
 .d-grid dd { margin: 2px 0 0; font-size: var(--fs-small); font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 /* the card's foot: tune, keep, filter, and the data source */
-.d-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); margin-top: var(--s4); padding-top: var(--s4); border-top: 1px solid var(--line); }
-.d-actions .note { flex: 1 1 100%; margin: 0; }
-@media (min-width: 600px) { .d-actions .note { flex: 1 1 auto; text-align: right; } }
+/* what to do with it, right under the name: one row that scrolls sideways rather than wrapping */
+.d-actions {
+  display: flex; align-items: center; gap: var(--s2); margin: var(--s4) calc(-1 * var(--s4)) 0; padding: 2px var(--s4);
+  overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--s4);
+}
+.d-actions::-webkit-scrollbar { display: none; }
+.d-actions > * { flex: none; }
+/* then what the card and the lists show: Near me, its radius, Near only */
+.d-sep { align-self: stretch; width: 1px; margin: var(--s2) var(--s1); background: var(--line-strong); }
+.d-freq:focus { outline: none; }
+.info-src { margin: 0; text-align: center; }
 .sched { margin-top: var(--s4); }
 .sched .h { margin-bottom: var(--s2); }
 .bar { position: relative; height: 10px; border-radius: 3px; background: var(--track); }
@@ -479,7 +501,6 @@ svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: n
 .bar .now { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
 .axis { display: flex; justify-content: space-between; margin-top: var(--s1); font: 400 .6875rem var(--font-mono); color: var(--dim); }
 .slots { margin-top: var(--s4); }
-.slots-box { max-height: 15rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 .slots table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
 .slots th { position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--surface); font: 500 .6875rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .slots td { padding: 8px 6px 8px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
@@ -498,6 +519,57 @@ a.tag { min-height: 32px; }
 @media (pointer: coarse) { a.tag { min-height: var(--hit); } }
 button.tag { min-height: var(--hit); padding: 0 var(--s3); font: 500 var(--fs-small) var(--font-mono); background: transparent; }
 .note { margin: var(--s3) 0 0; font-size: var(--fs-caption); color: var(--dim); }
+/* Explore's dial: the looked-up frequency between ◀ ▶ (swipe it too), over a strip of the band around it */
+button.icon { display: inline-grid; place-items: center; width: 36px; padding: 0; }
+@media (pointer: coarse) { button.icon { width: var(--hit); } }
+button.icon .ico { width: 18px; height: 18px; }
+button.icon[aria-pressed="true"] { color: var(--amber); border-color: var(--amber-line); }
+button.icon[aria-pressed="true"] .ico { fill: currentColor; }
+/* ================= Explore: home (search, bands, Discover) and detail (one frequency) ================= */
+#view-explore[data-mode="home"] .x-detail, #view-explore[data-mode="detail"] :is(.x-home, .x-home-only) { display: none !important; }
+.bar-btn { width: var(--hit); min-height: var(--hit); border-radius: 50%; }
+.bar-btn .ico { width: 22px; height: 22px; }
+#x-back { grid-column: 1; justify-self: start; margin-left: calc(-1 * var(--s2)); }
+#view-explore .topbar-title { overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0; }
+#view-explore[data-mode="detail"] .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+#view-explore[data-mode="detail"] .topbar-title { text-align: center; }
+.x-home, .x-find { display: grid; gap: var(--s3); min-width: 0; align-content: start; }
+.x-hint { margin: 0; }
+.shelf { display: grid; gap: var(--s2); min-width: 0; }
+.shelf .h { margin: 0; }
+#bands { scroll-snap-type: x proximity; }
+#bands .chip { scroll-snap-align: start; }
+/* side by side when there's room: finding on the left, Discover on the right */
+@media (min-width: 840px) {
+  #view-explore { max-width: 1120px; }
+  .x-home { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s5); align-items: start; }
+  .x-find :is(.search, .chips) { margin-inline: 0; padding-inline: 0; }
+}
+.d-dial { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.d-dial .d-freq { flex: 1; min-width: 0; margin: 0; text-align: center; transition: transform var(--fast); }
+.dial-step { flex: none; width: var(--hit); border-radius: 50%; background: transparent; }
+.dial-step .ico { width: 22px; height: 22px; }
+.strip { margin: 0 0 var(--s4); padding-top: var(--s2); touch-action: pan-y; cursor: pointer; user-select: none; -webkit-user-select: none; outline: none; }
+.strip-track { position: relative; height: 28px; border-radius: 4px; background: var(--track); }
+@media (pointer: coarse) { .strip-track { height: 36px; } }
+.strip:focus-visible .strip-track { outline: 2px solid var(--cool); outline-offset: 3px; }
+.strip-track i { position: absolute; top: 25%; bottom: 25%; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--dim); opacity: .55; }
+.strip-mark { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--amber); box-shadow: 0 0 10px var(--amber-glow); }
+.strip-tip { position: absolute; bottom: calc(100% + 8px); padding: 2px 8px; border-radius: var(--round); background: var(--surface-3); color: var(--text); font: 500 var(--fs-caption) var(--font-mono); white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
+.strip-axis { display: flex; justify-content: space-between; gap: var(--s2); margin-top: var(--s1); font: 400 .6875rem var(--font-mono); font-variant-numeric: tabular-nums; color: var(--dim); }
+.tag small { margin-left: 6px; color: var(--dim); font-size: .6875rem; }
+.seg span small { margin-left: 5px; color: var(--dim); font-size: .6875rem; }
+.chip.pinned { border-color: var(--amber-line); }
+.chip.pinned .ico { width: 13px; height: 13px; align-self: center; fill: var(--amber); stroke: var(--amber); }
+/* Discover (Explore): on air across a meter band, the stations near you */
+#discover { display: grid; gap: var(--s3); }
+#discover > .h, #discover .seg { margin: 0; }
+#disc-sw { display: grid; gap: var(--s3); min-width: 0; }
+#disc-aimed-row { min-height: 0; padding: 0; }
+.disc-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--s2); }
+.disc-scan { width: 100%; }
+#disc-results .hint, #disc-results .note { margin: 0; }
+#disc-results .list + .note, #disc-results .more + .note { margin-top: var(--s2); }
 select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); border-radius: var(--round); font: 500 .6875rem var(--font-mono); letter-spacing: .04em; background-position: right 10px center; }
 @media (pointer: coarse) { select.radius { min-height: 40px; } }
 .far { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin: var(--s3) 0 0; font-size: var(--fs-small); color: var(--dim); }
@@ -514,6 +586,20 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
   text-align: left; background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; font: 400 var(--fs-body) var(--font-ui); white-space: normal;
 }
 .near-row:active { transform: none; background: var(--hover); }
+/* Nearby on a phone: a shelf of cards that scrolls sideways, so the page stays short (a list when there's room) */
+@container (max-width: 639px) {
+  #nearby .list {
+    display: flex; gap: var(--s2); margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4) var(--s1);
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--s4); scrollbar-width: none;
+  }
+  #nearby .list::-webkit-scrollbar { display: none; }
+  #nearby .list li { flex: 0 0 min(15rem, 78%); scroll-snap-align: start; }
+  #nearby .near-row {
+    height: 100%; grid-template-columns: minmax(0, 1fr) 12px; grid-template-areas: "nf dot" "nn nn"; align-items: start; gap: var(--s1) var(--s2);
+    padding: var(--s3); border: 1px solid var(--line); border-radius: var(--r2);
+  }
+  #nearby .nf { grid-area: nf; } #nearby .nn { grid-area: nn; } #nearby .dot { grid-area: dot; align-self: center; }
+}
 .nf { font: 500 var(--fs-body) var(--font-mono); font-variant-numeric: tabular-nums; }
 .nn { min-width: 0; }
 .nn b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

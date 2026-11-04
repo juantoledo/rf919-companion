@@ -3,8 +3,9 @@
 Two scripts drive the web app in Chrome through its **Demo** (a simulated radio, no Bluetooth needed):
 
 - `e2e.mjs`: tabs and links, the Remote, gestures, band pickers, memories (store, check, Store here, clear,
-  Start fresh), backup, switches, Find the Preset key, Near me, keyboard. Exits 1 on any failure or page error.
-- `audit.mjs`: every visible control on every view, in the Remote and in the tools sheet; phones in portrait
+  Start fresh), backup, switches, Find the Preset key, Near me, keyboard, Explore (home and detail with Back and ←,
+  dial, band strip, Full schedule, pins, Share, Nearby, Discover, reminders), the idle mini player pill. Exits 1 on any failure or page error.
+- `audit.mjs`: every visible control on every view (Explore both as its home and as a detail), in the Remote and in the tools sheet; phones in portrait
   (360×780, 412×915) and landscape (780×360, 915×412, 932×430) with touch, 768×1024 and 1280×800 with a mouse,
   each in the light and the dark theme. Reports targets under 48 px on touch (24 px with a mouse), cut-off labels,
   unnamed controls and pages wider than the screen.

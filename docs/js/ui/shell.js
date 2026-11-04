@@ -4,7 +4,7 @@ import {memKey} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
-import {addRecent, following, mem, radioFreq, renderView, show, store, view} from "./radio.js";
+import {addRecent, following, loadIndex, mem, radioFreq, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {link, pressKey, send} from "./more.js";
 
@@ -148,6 +148,7 @@ export function go(name, {focus = true} = {}) {
   if (!VIEWS.includes(name)) name = "radio";
   const prev = current, changed = prev !== name;
   if (changed && prev) scrollMem[prev] = window.scrollY;
+  if (name === "explore") exploreScreen(view.exploreK != null);  // Explore comes back on the screen it was left on
   current = name;
   if (name === "radio" || name === "explore") {
     const host = $(`host-${name}`);
@@ -155,6 +156,7 @@ export function go(name, {focus = true} = {}) {
   }
   if (name === "radio" && !view.follow) followRadio();
   if (name === "explore" && view.follow) exploreMode();
+  if (name === "explore") loadIndex();  // the dial, the band strip and the band chips need it
   // The new view slides in from the side its tab is on; the tab bar's pill slides to it
   $("app").dataset.dir = prev && VIEWS.indexOf(name) < VIEWS.indexOf(prev) ? "back" : "fwd";
   $("tabbar").style.setProperty("--i", VIEWS.indexOf(name));
@@ -167,10 +169,10 @@ export function go(name, {focus = true} = {}) {
   document.body.classList.toggle("with-radiobar", name !== "radio");
   document.body.classList.toggle("on-radio", name === "radio");  // the controls' dock shows only here
   store.set("rf919.view", name);
-  setHash(name === "explore" && view.k !== null ? view.k : name);
+  setHash(name === "explore" && view.exploreK != null ? view.exploreK : name);
   if (changed) {
     window.scrollTo(0, scrollMem[name] || 0);
-    if (focus) $(`t-${name}`).focus({preventScroll: true});
+    if (focus) { if (name === "explore" && inDetail()) focusDetail(); else $(`t-${name}`).focus({preventScroll: true}); }
   }
   barState();
 }
@@ -179,7 +181,9 @@ export function barState() {
   const v = current && $(`view-${current}`);
   if (!v) return;
   v.classList.toggle("scrolled", window.scrollY > 2);
-  const title = v.querySelector(".large-title"), bar = v.querySelector(".appbar");
+  // Explore's detail has no large title: its dial hands over to the bar's title instead
+  const title = v === $("view-explore") && inDetail() ? v.querySelector(".d-dial, .d-freq") : v.querySelector(".large-title");
+  const bar = v.querySelector(".appbar");
   v.classList.toggle("collapsed", !!title && !!bar && title.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
 }
 export function followRadio() {
@@ -192,23 +196,72 @@ export function followRadio() {
 export function exploreMode() {
   view.follow = false;
   const k = view.exploreK ?? null;
+  exploreScreen(k !== null);
   if (k !== null && k !== view.k) show(k);
   else if (k === null) { Object.assign(view, {k: null, data: null, err: null, near: []}); renderView(); }
   else renderView();
 }
-// A search, a shared link, an example, or a nearby row in Explore
-export function lookUp(k) {
-  addRecent(k);
+// ---- Explore's two screens: home (search, bands, Discover) and detail (one frequency) ----
+// Opening a frequency from home adds a history entry, so Back (the system's or the bar's ←) returns home; moving
+// along the dial inside detail replaces it
+let homeScroll = 0, openerK = null, toSearch = false;
+export const inDetail = () => $("view-explore").dataset.mode === "detail";
+// Switches the screen; on Explore itself it also slides it in (the tabs' animation). false: it was already there
+function exploreScreen(detail) {
+  const v = $("view-explore"), mode = detail ? "detail" : "home";
+  if (v.dataset.mode === mode) return false;
+  if (current === "explore") {
+    if (detail) homeScroll = window.scrollY;
+    $("app").dataset.dir = detail ? "fwd" : "back";
+    v.style.animation = "none"; void v.offsetWidth; v.style.animation = "";
+  }
+  v.dataset.mode = mode;
+  return true;
+}
+const focusDetail = () => { const f = document.querySelector("#dossier .d-freq"); if (f) f.focus({preventScroll: true}); };
+// A search, a shared link, a band, a Discover or Nearby row, the dial. Stepping along the dial doesn't fill Recent.
+// push: a history entry (default: when coming from home or another tab)
+export function lookUp(k, {recent = true, push} = {}) {
+  if (recent) addRecent(k);
+  const fromHome = !(current === "explore" && inDetail());
+  if (fromHome) openerK = k;
   view.follow = false;
   view.exploreK = k;
-  if (current !== "explore") go("explore");
-  setHash(k);
+  if (current !== "explore") go("explore", {focus: false});
+  const entering = exploreScreen(true);
+  if (push ?? fromHome) { try { history.pushState({detail: true}, "", `#f=${k}`); } catch { /* sandboxed */ } }
+  else setHash(k);
   if (k !== view.k) show(k);
   else renderView();
+  if (entering) { window.scrollTo(0, 0); focusDetail(); barState(); }
+}
+// Back to Explore's home: the detail's entry if this page added it, else in place (a shared link opened straight in)
+// search: land in the search field (the bar's search button)
+export function exploreBack({search = false} = {}) {
+  toSearch = search;
+  if (history.state && history.state.detail) history.back();
+  else exploreHome();
+}
+export function exploreHome() {
+  view.exploreK = null;
+  if (!view.follow) Object.assign(view, {k: null, data: null, err: null, near: []});
+  const changed = exploreScreen(false);
+  renderView();
+  if (current !== "explore") return;
+  setHash("explore");
+  if (changed) {
+    window.scrollTo(0, homeScroll);
+    // The focus goes back to what opened the frequency (a chip, a row), else to the title
+    const from = openerK != null && document.querySelector(`#x-home :is([data-look="${openerK}"], [data-to="${openerK}"], [data-go="${openerK}"])`);
+    (toSearch ? $("q") : from || $("t-explore")).focus({preventScroll: true});
+  }
+  toSearch = false;
+  barState();
 }
 export function route() {
   const k = fromHash(), h = location.hash.slice(1);
-  if (k) lookUp(k);
+  if (k) lookUp(k, {push: false});
+  else if (h === "explore" && current === "explore" && inDetail()) exploreHome();
   else go(VIEWS.includes(h) ? h : store.get("rf919.view", "radio"), {focus: false});
 }
 // Nearby rows "go there": tune the radio while following it, otherwise just look
@@ -229,7 +282,7 @@ export function tuneKHz(k) {
 export function setHash(k) {
   const h = typeof k === "number" ? `#f=${k}` : k ? `#${k}` : "";
   if (location.hash === h) return;
-  try { history.replaceState(null, "", h || location.pathname + location.search); } catch { /* sandboxed */ }
+  try { history.replaceState(history.state, "", h || location.pathname + location.search); } catch { /* sandboxed */ }
 }
 export function fromHash() {
   const m = location.hash.match(/^#f=(\d{1,7})$/);
@@ -248,11 +301,12 @@ export function openSheet(d, detent = "medium") {
 // The Remote opens at the medium height on its keys, full height on the keypad or direct tune
 export function openRemote() { openSheet($("remote"), $("remote-seg").querySelector("input:checked").value === "keys" ? "medium" : "large"); }
 export function closeRemote() { if ($("remote").open) $("remote").close(); }
-// The tools of Memories and More: one sheet, a pane each, titled by the row that opened it
-export function openTool(id) {
+// The tools of Memories and More, and Explore's full schedule: one sheet, a pane each, titled by the row that
+// opened it (or by title)
+export function openTool(id, title = null) {
   const pane = $(id), row = document.querySelector(`[data-tool="${id}"]`);
   if (!pane) return;
-  $("tools-title").textContent = row ? row.textContent.trim() : "";
+  $("tools-title").textContent = title ?? (row ? row.textContent.trim() : "");
   for (const p of $("tools").querySelectorAll(".tool")) p.hidden = p !== pane;
   $("tools").querySelector(".sheet-body").scrollTop = 0;
   openSheet($("tools"), "large");
@@ -315,6 +369,8 @@ export function init() {
   $("remote-seg").addEventListener("change", (e) => remotePane(e.target.value));
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);
+  $("x-back").addEventListener("click", () => exploreBack());
+  $("x-search").addEventListener("click", () => exploreBack({search: true}));
 
   // Gestures (each also has a button): swipe a frequency to step or seek, swipe the radio bar up for the Remote,
   // drag the Remote down by its top to close it

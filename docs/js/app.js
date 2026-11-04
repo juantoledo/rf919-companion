@@ -2,7 +2,8 @@
 // the UI lives in ui/:
 //   shell.js     status, the decoded-event handlers, routing between the four views, the Remote and ask() dialogs,
 //                the band pickers and gestures
-//   radio.js     what's on a frequency: the info panels shared by Radio and Explore, Nearby, Near me
+//   radio.js     what's on a frequency: the info panels shared by Radio and Explore, Nearby, Near me; Explore's
+//                dial and band strip, pins, Share, reminders and Discover
 //   memories.js  the Memories view: list, runs, Store here, Start fresh, backup, list builders
 //   more.js      tests and developer tools, the connection, keys and the keyboard
 // Each module only declares things when it loads; its init() runs what has to happen at start-up, here, in this

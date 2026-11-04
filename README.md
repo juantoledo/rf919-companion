@@ -31,17 +31,18 @@ light or dark setting, or the theme picked in **More › Appearance** (System, L
 | Tab | What's there |
 |---|---|
 | **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store here** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
-| **Explore** | Look up any frequency, with or without the radio |
+| **Explore** | Look up any frequency, with or without the radio; step along a band; find what's on air now or near you |
 | **Memories** | Memory lists for the radio, one band at a time |
 | **More** | Connection, settings, the radio's text lines, tools and the log |
 
 On every tab but Radio, a **mini player** above the tabs keeps the radio at hand: band, frequency,
 what's on the air there, and ◀ ▶. Tap it (or swipe it up) for the **Remote**, with every key of the
 radio. The Remote opens half height on its keys; **Keypad** and **Tune** open it full height. On a
-wide screen or sideways it comes in from the side.
+wide screen or sideways it comes in from the side. With no radio connected it shrinks to a small
+**Connect radio · Demo** pill at the tab bar's edge.
 
 **Gestures** (each also has a button): swipe a frequency **left to step up, right to step down**,
-and flick it further to seek; swipe the mini player **up** to open the Remote; drag a sheet's top
+and flick it further to seek (in Explore, to the next frequency with data, or ten along); swipe the mini player **up** to open the Remote; drag a sheet's top
 edge between half and full height, or down to close it; on a phone, swipe a memory **left** to
 delete it; swipe a snackbar sideways to dismiss it.
 
@@ -50,18 +51,38 @@ delete it; swipe a snackbar sideways to dismiss it.
 The page asks [radiomap.cl](https://www.radiomap.cl/) what is on a frequency (its per-frequency
 JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 
-- **Explore** looks up any frequency: `9580` (kHz), or `9.58`, `146.73`, `101.3` (MHz).
-  The address becomes `…/#f=9580`, so a lookup can be bookmarked or shared. Recent lookups are
-  chips under the search.
-  **Tune radio to…** sends the radio there.
+- **Explore** has two screens. Its **home** has the search, pinned and recent lookups, a shelf of
+  bands and Discover. A frequency opens as a **detail** screen: ← (or the phone's Back, or tapping
+  the Explore tab again) returns home, and 🔍 goes to the search.
+  The search takes `9580` (kHz), or `9.58`, `146.73`, `101.3` (MHz).
+  The address becomes `…/#f=9580`, so a lookup can be bookmarked or shared (**Share** ⇪ opens the
+  phone's share sheet, or copies the link). Recent lookups are chips under the search; **Pin** ☆
+  keeps one there, ahead of them (up to 12).
+  Under the station's name: **Tune radio** (sends the radio there), **+ Memory**, Pin, Share and the
+  Near me filter, in one row.
+- **The dial** (Explore): ◀ ▶ beside the frequency, or a swipe on it, step to the previous or next
+  frequency radiomap.cl has data for. Under it, a strip of the band (the SW meter band, or the gap
+  between two) shows a tick for each of them; tap or drag it to jump, or use ←/→, Page Up/Down,
+  Home/End. Explore's home has a chip per band with how many frequencies it has.
+  Stepping doesn't fill Recent, and Back still goes straight home.
+- **Discover** (Explore's home): **On air now** lists who's on air across one meter band
+  (optionally only what's aimed at your region, or what starts within the hour); **Near me** lists the
+  stations of a band nearest to you (FM, AM, VHF, UHF, AIR; by kind and distance). radiomap.cl has one
+  file per frequency, so nothing is fetched until you tap **Scan** (about 100 files for a busy meter
+  band); a scan is kept until the page is reloaded. Tap a row to look it up.
 - **Radio** shows the same for the frequency the radio is on, and follows the dial.
 - **Shortwave**: the station on air (or the next one) with its flag, transmitter site, language
-  and target, today's transmissions on a UTC bar, and the full EiBi schedule.
+  and target, today's transmissions on a UTC bar, and what's coming up (**Full schedule** opens all
+  of EiBi's entries in a sheet). When the next
+  broadcast starts within a day, **Remind me** shows a snackbar (and a notification, if allowed) when
+  it does, as long as the page is open.
 - **Stations**: Chilean broadcasters, amateur repeaters (output/input, CTCSS tone, shift, DMR,
   EchoLink) and ATC, each linked to the radiomap.cl map.
-- **Nearby**: the closest frequencies with data and what's on them. Tap one to tune the radio
+- **Nearby**: the closest frequencies with data and what's on them (on a phone, cards that scroll
+  sideways). Tap one to tune the radio
   there (or to look it up when no radio is connected).
-- **Near me** filters by your location as well as sorting stations by distance. It hides stations
+- **Near me** filters by your location as well as sorting stations by distance, and shows the
+  distance with the great-circle bearing (`18,240 km · NE 45°`) for aiming an antenna. It hides stations
   farther than the radius you pick next to it (25–500 km, or any), and on shortwave it keeps the
   broadcasts aimed at your region (EiBi target: South America from Chile). Nearby only lists
   neighbours that pass. **Show all** lifts the filter for the frequency you're on. The target

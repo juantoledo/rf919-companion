@@ -30,6 +30,17 @@ export function nearby(freqs, k, n = 4, win = nearWindow(k)) {
   return out.sort((x, y) => x - y);
 }
 
+// The n-th kHz with data above (dir 1) or below (dir -1) k, or the last one that way when fewer are left; null at the end
+export function stepKnown(freqs, k, dir, n = 1) {
+  let lo = 0, hi = freqs.length;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (freqs[mid] < k) lo = mid + 1; else hi = mid; }
+  const first = dir > 0 ? (freqs[lo] === k ? lo + 1 : lo) : lo - 1;
+  if (first < 0 || first >= freqs.length) return null;
+  return freqs[Math.max(0, Math.min(freqs.length - 1, first + (dir > 0 ? n - 1 : 1 - n)))];
+}
+// The kHz with data in [lo, hi], for the band strip
+export const stripTicks = (freqs, lo, hi) => freqs.filter((k) => k >= lo && k <= hi);
+
 // ---- EiBi schedule: is it on the air? ----
 export const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];  // API weekday 0 = Monday
 export const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -114,6 +125,21 @@ export function daysText(e) {
   }
   return SEASON[e.season] ? `${t} · ${SEASON[e.season]}` : t;
 }
+// Shortwave across many frequencies (pairs: [[kHz, lookup]]): the entry on air on each, else the next to start
+// within win minutes; only those aimed at targets when given. In the order of pairs
+export function swOnAir(pairs, {now = Date.now(), win = 0, targets = null} = {}) {
+  const out = [];
+  for (const [k, d] of pairs) {
+    if (!d || !d.shortwave || !d.shortwave.length) continue;
+    const rows = d.shortwave.filter((e) => !targets || aimedAt(e, targets)).map((e) => ({e, air: swAir(e, now)}));
+    const on = rows.find((r) => r.air.on);
+    const soon = rows.filter((r) => !r.air.on && r.air.startsIn != null && r.air.startsIn <= win)
+      .sort((a, b) => a.air.startsIn - b.air.startsIn)[0];
+    const r = on || soon;
+    if (r) out.push({k, e: r.e, air: r.air, data: d});
+  }
+  return out;
+}
 export const dur = (min) => min < 60 ? `${min} min` : min < 2880 ? `${Math.floor(min / 60)} h${min % 60 ? ` ${min % 60} min` : ""}` : `${Math.round(min / 1440)} days`;
 
 // ---- stations ----
@@ -122,6 +148,16 @@ export function haversineKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2;
   return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
+// Initial great-circle course from a to b, degrees clockwise from north (0–360)
+export function bearingDeg(a, b) {
+  const r = Math.PI / 180, p1 = a.lat * r, p2 = b.lat * r, dl = (b.lon - a.lon) * r;
+  const y = Math.sin(dl) * Math.cos(p2), x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
+const POINTS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+export const compass = (deg) => POINTS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+// "18,240 km · NW 312°"
+export const kmBearing = (from, to, km = haversineKm(from, to)) => `${Math.round(km).toLocaleString()} km · ${compass(bearingDeg(from, to))} ${Math.round(bearingDeg(from, to)) % 360}°`;
 // Repeater shift: input (tx) relative to output (rx)
 export function fmtShift(rx, tx) {
   const d = Math.round(tx - rx);
