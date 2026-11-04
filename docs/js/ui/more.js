@@ -272,6 +272,16 @@ export async function startDemo() {
   link.connect();
 }
 
+// Theme: "system" follows the phone; "light" or "dark" sets <html data-theme> (index.html applies it before the page draws)
+const THEME_BG = {light: "#eef2f6", dark: "#070d15"};  // --bg in tokens.css, for the browser's own bars
+export function applyTheme(t) {
+  const root = document.documentElement;
+  if (t === "light" || t === "dark") root.dataset.theme = t; else delete root.dataset.theme;
+  for (const m of document.querySelectorAll('meta[name="theme-color"]')) {
+    m.content = THEME_BG[t] || THEME_BG[m.media.includes("light") ? "light" : "dark"];
+  }
+}
+
 // Screen wake lock
 // quiet: no error toast (a run asks for it in passing)
 export async function setWake(on, quiet = false) {
@@ -293,6 +303,7 @@ export function init() {
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (t.name === "memband") { mem.viewBand = t.value; renderMem(); }
+    else if (t.name === "theme") { store.set("rf919.theme", t.value); applyTheme(t.value); }
     else if (t.matches("[data-swband]")) {
       if (t.checked) mem.swSel.add(t.value); else mem.swSel.delete(t.value);
       store.set("rf919.swbands", [...mem.swSel]);
@@ -333,6 +344,10 @@ export function init() {
       case "t-recall": testRun("recall", true); break;
     }
   });
+  const theme = store.get("rf919.theme", "system");
+  const pick = $("theme-seg").querySelector(`input[value="${theme}"]`);
+  if (pick) pick.checked = true;
+  applyTheme(theme);
   for (const b of MEM_BANDS) $("t-band").add(new Option(b, b, b === "SW", b === "SW"));
   renderSwChips();
   $("mem-text").addEventListener("input", () => { $("mem-errs").textContent = ""; });
@@ -381,7 +396,6 @@ export function init() {
     }
   });
   $("connect").addEventListener("click", startBle);
-  $("storehere").addEventListener("click", storeHere);
   $("disconnect").addEventListener("click", () => link && link.close(true));
   $("demo").addEventListener("click", startDemo);
   $("wake").addEventListener("change", () => setWake($("wake").checked));

@@ -12,6 +12,8 @@ body {
   overflow-x: hidden;
 }
 body.with-radiobar { --radiobar-h: 72px; }
+/* the Radio tab's controls take the same slot above the tabs (the two never show together) */
+body.on-radio:has(#radio-controls:not([hidden])) { --radiobar-h: 72px; }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
 a { color: var(--amber); text-underline-offset: 3px; }
@@ -148,7 +150,7 @@ main[data-dir="back"] .view { animation-name: view-in-back; }
 .banner b { font-weight: 600; color: var(--warn); }
 
 /* ---- floating bars: glass capsules over the content ---- */
-.tabbar, .radiobar {
+.tabbar, .radiobar, .dock {
   position: fixed; left: calc(var(--rail-w) + (100% - var(--rail-w)) / 2); translate: -50% 0; width: min(440px, calc(100% - var(--rail-w) - 2 * var(--s3)));
   background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow-float);
   -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
@@ -191,6 +193,16 @@ main[data-dir="back"] .view { animation-name: view-in-back; }
 .radiobar:not(.off) .rb-off { display: none; }
 .radiobar.off > :not(.rb-off) { display: none; }
 
+/* ---- the controls' dock: the Radio tab's keys, on screen however far the page scrolls ---- */
+.dock {
+  z-index: 9; bottom: calc(var(--bar-bottom) + var(--tabbar-h)); height: 64px; border-radius: var(--r3);
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; gap: 2px; padding: 0 var(--s1);
+}
+body:not(.on-radio) .dock { display: none; }
+.dock > button { min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: var(--r2); }
+.dock > [data-key="UP"], .dock > [data-key="DOWN"] { font-size: 1.25rem; }
+.dock > [data-key="MEMO"] { background: var(--amber-soft); color: var(--amber); }
+
 /* ---- the rail: wide screens, and phones held sideways (short), put the tabs down the side ---- */
 @media (min-width: 900px), (orientation: landscape) and (max-height: 540px) {
   :root { --rail-w: calc(80px + env(safe-area-inset-left)); --tabbar-h: 0px; --gutter-l: var(--s5); }
@@ -206,7 +218,7 @@ main[data-dir="back"] .view { animation-name: view-in-back; }
     transform: translateY(calc(var(--i, 0) * 68px));
   }
   .tabbar a { justify-content: flex-start; gap: 4px; padding-top: 12px; border-radius: 0; }
-  .radiobar { bottom: var(--bar-bottom); width: min(640px, calc(100% - var(--rail-w) - 2 * var(--s4))); }
+  .radiobar, .dock { bottom: var(--bar-bottom); width: min(640px, calc(100% - var(--rail-w) - 2 * var(--s4))); }
   .view { max-width: 760px; }
 }
 /* phones held sideways: no room for a large title, the bar shows the small one from the start */
@@ -273,6 +285,9 @@ main { transition: transform var(--slow) var(--ease-sheet), border-radius var(--
 .seg.seg-fill { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; margin: 0; padding: 2px; border-radius: var(--r2); background: var(--surface-2); overflow: visible; }
 .seg-fill label { min-width: 0; }
 .seg-fill span { justify-content: center; min-height: 36px; padding: 0 var(--s2); border: 0; border-radius: 10px; font: 600 var(--fs-small) var(--font-ui); letter-spacing: 0; color: var(--dim); }
+/* the theme picker: under its label, full width */
+.item:has(.theme-seg) { flex-wrap: wrap; padding-top: var(--s3); padding-bottom: var(--s3); }
+.item:has(.theme-seg) > * { flex: 1 1 100%; }
 .seg-fill input:checked + span { background: light-dark(var(--surface), var(--surface-3)); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
 
 /* ---- ask(): an alert; the verbs full width, the answer first and Cancel last ---- */
@@ -386,16 +401,9 @@ label.item { cursor: pointer; }
 .cell .v { white-space: nowrap; }
 .swipe-hint { margin: var(--s2) 0 0; font-size: var(--fs-caption); color: var(--faint); }
 .nudge-l { transform: translateX(-10px); } .nudge-r { transform: translateX(10px); }
-/* the controls: a transport row (step, Memo, step) over the secondary keys, then Store here */
-.controls { display: grid; gap: var(--s2); }
-.tune3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.tune3 button[data-key="UP"], .tune3 button[data-key="DOWN"] { font-size: 1.25rem; }
-.controls .tune3 button { min-height: 56px; border-color: transparent; border-radius: var(--round); background: var(--surface); }
-.controls .grid:not(.tune3) button { min-height: var(--hit); border-radius: var(--round); background: transparent; }
-.controls #storehere { min-height: 52px; border-radius: var(--round); }
 #view-radio { max-width: 1120px; }
-/* Two panes when the info has the room (a tablet, a desktop, a phone held sideways): the card on the left; the
-   controls, Also on and Nearby on the right. The last row is flexible so a tall card doesn't spread them apart */
+/* Two panes when the info has the room (a tablet, a desktop, a phone held sideways): the card on the left;
+   Also on and Nearby on the right. The last row is flexible so a tall card doesn't spread them apart */
 .info-host { container-type: inline-size; min-width: 0; }
 @container (min-width: 640px) {
   .info { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; align-items: start; }

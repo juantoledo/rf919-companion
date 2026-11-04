@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#eef2f6" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#070d15" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
+<script>
+  // The theme picked in More › Appearance, set before the page draws so it doesn't flash the other one
+  try { const t = JSON.parse(localStorage.getItem("rf919.theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+</script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -65,20 +69,6 @@
           </div>
           <div id="dossier" aria-live="polite"></div>
         </section>
-        <div class="controls" id="radio-controls" hidden>
-          <div class="grid tune3">
-            <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
-            <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
-            <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
-          </div>
-          <div class="grid">
-            <button data-key="SUBBAND" aria-label="Sub-band (the radio's MODE key)">Sub</button>
-            <button data-key="VOL-" aria-label="Volume down">Vol −</button>
-            <button data-key="VOL+" aria-label="Volume up">Vol +</button>
-            <button class="key" type="button" id="open-remote" aria-haspopup="dialog">Keys</button>
-          </div>
-          <button class="primary wide" type="button" id="storehere" title="Saves what the radio is tuned to on the channel after the last one in use">Store here · next channel</button>
-        </div>
         <section class="panel" id="stations" hidden></section>
         <section class="panel" id="nearby" hidden></section>
       </div>
@@ -140,6 +130,17 @@
       <label class="item"><span class="label">Hold next key<small>The next key you tap is sent as a long press</small></span><input type="checkbox" role="switch" switch id="hold"></label>
       <div class="item"><span class="label">Radio clock<small>Set it to this phone's time</small></span><button class="small" type="button" id="settime">Sync</button></div>
     </section>
+    <section class="panel group" aria-labelledby="g-look">
+      <h2 id="g-look">Appearance</h2>
+      <div class="item">
+        <span class="label">Theme<small>System follows the phone's light or dark setting</small></span>
+        <fieldset class="seg seg-fill theme-seg" id="theme-seg"><legend>Theme</legend>
+          <label><input type="radio" name="theme" value="system" checked><span>System</span></label>
+          <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+          <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+        </fieldset>
+      </div>
+    </section>
     <section class="panel group" aria-labelledby="g-display">
       <h2 id="g-display">The radio's display</h2>
       <div class="lines"><div id="field11"></div><div id="field12"></div><div id="statusline"></div></div>
@@ -158,6 +159,16 @@
     </section>
   </section>
 </main>
+
+<!-- ======== the radio's controls: a dock on the Radio tab that stays on screen while the page scrolls ======== -->
+<div class="dock" id="radio-controls" role="region" aria-label="The radio's controls" hidden>
+  <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
+  <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
+  <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
+  <button data-key="VOL-" aria-label="Volume down">Vol−</button>
+  <button data-key="VOL+" aria-label="Volume up">Vol+</button>
+  <button class="key" type="button" id="open-remote" aria-haspopup="dialog" aria-label="All the radio's keys">Keys</button>
+</div>
 
 <!-- ======== the radio, one tap away (every view but Radio) ======== -->
 <div class="radiobar" id="radiobar" role="region" aria-label="The radio" hidden>

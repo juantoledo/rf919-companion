@@ -184,12 +184,12 @@ export async function runJob(kind, from = 0) {
 
 // ---- Store here: what the radio is on, on the channel after the last one in use ----
 // f: the radio's frequency (waiters.freq; passed by the freq handler, which runs before waiters is fed)
+// Store here's button is in the card (radio.js actionsHtml), which asks canStoreHere when it renders
+export const canStoreHere = (f = waiters.freq) => state.ok && !mem.run && !!f && !f.alert && !!toKHz(f) && MEM_BANDS.includes(f.band);
 export function renderStoreHere(f = waiters.freq) {
   // The Memories tab follows the radio: a band change on the radio brings the view to it
   const rb = f && MEM_BANDS.includes(f.band) ? f.band : null;
   if (rb && rb !== mem.radioBand) { mem.radioBand = rb; mem.viewBand = null; renderMem(); }
-  const b = $("storehere"), k = f && !f.alert ? toKHz(f) : null;
-  b.disabled = !state.ok || !!mem.run || !k || !MEM_BANDS.includes(f.band);
 }
 export async function storeHere() {
   const f = waiters.freq, k = f && toKHz(f), band = f && f.band;
@@ -201,7 +201,7 @@ export async function storeHere() {
   const guard = (n) => { const r = mem.record[memKey(band, n)]; return r && r.kHz !== k ? `the radio proposes CH ${n}, which holds ${fmtKHz(r.kHz)} per this app's record` : null; };
   mem.run = new MemoryRun(link, waiters, {note: memNote});
   Object.assign(mem, {kind: "next", nextItems: [{band, kHz: k}], from: 0, pos: 0, done: 0, step: "", t0: Date.now()});
-  renderMem(); renderStoreHere();
+  renderMem(); renderView();
   toast(`Storing ${fmtKHz(k)} on the next ${band} channel…`, 8000);
   try {
     const n = await mem.run.storeNext(band, guard);

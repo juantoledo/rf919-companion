@@ -69,7 +69,8 @@ assert.equal(await page.locator("#readout").isVisible(), true);
 assert.equal(await page.locator("#connect-card").isHidden(), true);
 assert.equal(await E(() => document.getElementById("host-radio").contains(document.getElementById("dossier"))), true);
 assert.equal(await E(() => { const now = document.getElementById("now"); return now.contains(document.getElementById("readout")) && now.contains(document.getElementById("dossier")); }), true);
-assert.match(await E(() => document.getElementById("now").style.getPropertyValue("--flag")), /\/us\.svg/);
+// whoever is on air on 11620 changes with the UTC hour, so any country's flag will do
+assert.match(await E(() => document.getElementById("now").style.getPropertyValue("--flag")), /\/[a-z]{2}(-[a-z]{2})?\.svg/);
 assert.equal(await page.locator("#dossier .d-freq").count(), 0);  // the readout shows the frequency
 ok("Radio: readout + controls; one card holds the readout and what's on the dial (11620), the station's flag behind");
 await tab("explore");
@@ -90,6 +91,15 @@ await swipe(80); assert.equal(await lastSent(), "ab 02 0c 10 c9");    // DOWN
 await swipe(-160); assert.equal(await lastSent(), "ab 02 0c 0f c8");  // UP long (seek)
 ok("swipes on the readout: left UP, right DOWN, long left seeks");
 
+// ---- the controls' dock: on screen however far the page scrolls, only on Radio ----
+await E(() => window.scrollTo(0, document.body.scrollHeight));
+await page.waitForTimeout(200);
+{ const d = await page.locator("#radio-controls").boundingBox(), vh = await E(() => innerHeight);
+  assert.ok(d && d.y >= 0 && d.y + d.height <= vh, `dock at ${JSON.stringify(d)} in a ${vh}px viewport`); }
+await page.click('#radio-controls [data-key="DOWN"]'); assert.equal(await lastSent(), "ab 02 0c 10 c9");
+await E(() => window.scrollTo(0, 0));
+ok("the controls' dock stays on screen scrolled to the bottom, and its keys send (DOWN)");
+
 // ---- band select (native) ----
 await page.selectOption("#readout [data-band-select]", "AIR");
 await page.waitForFunction(() => waiters.freq.band === "AIR");
@@ -105,6 +115,7 @@ assert.equal(await E(() => document.getElementById("remote").open), false);
 assert.equal(await E(() => document.activeElement.id), "open-remote");
 ok("Keys opens the Remote; Esc closes it and focus returns");
 await tab("memories");
+assert.equal(await page.locator("#radio-controls").isHidden(), true);  // the dock is the Radio tab's
 const rb = await page.locator("#rb-open").boundingBox();
 { const x = rb.x + rb.width / 2, y = rb.y + rb.height / 2; await page.mouse.move(x, y); await page.mouse.down(); await page.mouse.move(x, y - 60, {steps: 6}); await page.mouse.up(); }
 await page.waitForFunction(() => document.getElementById("remote").open);
@@ -183,6 +194,15 @@ assert.equal(await E(() => state.hold), true);
 await page.click('label:has(#hold)');
 assert.equal(await E(() => state.hold), false);
 ok("Hold next key is a native switch");
+await page.click('#theme-seg label:has(input[value="light"])');
+assert.deepEqual(await E(() => [document.documentElement.dataset.theme, getComputedStyle(document.body).colorScheme]), ["light", "light"]);
+{ const p3 = await ctx.newPage(); await p3.goto(URL + "#more");  // remembered, and applied before the page draws
+  assert.equal(await p3.evaluate(() => document.documentElement.dataset.theme), "light"); await p3.close(); }
+await page.click('#theme-seg label:has(input[value="dark"])');
+assert.equal(await E(() => getComputedStyle(document.body).colorScheme), "dark");
+await page.click('#theme-seg label:has(input[value="system"])');
+assert.equal(await E(() => document.documentElement.dataset.theme), undefined);
+ok("Appearance: Light and Dark override the system, remembered across pages; System hands it back");
 // Key capture: the test plays the radio, sending what its own buttons would make it report
 await tool("capbox");
 const caps = () => E(() => [...document.querySelectorAll("#cap-list .cap")].map((c) => c.textContent.replace(/\s+/g, " ")));

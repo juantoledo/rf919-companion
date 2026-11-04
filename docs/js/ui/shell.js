@@ -165,6 +165,7 @@ export function go(name, {focus = true} = {}) {
   // The radio bar shows on every view but Radio, which has the full readout
   $("radiobar").hidden = name === "radio";
   document.body.classList.toggle("with-radiobar", name !== "radio");
+  document.body.classList.toggle("on-radio", name === "radio");  // the controls' dock shows only here
   store.set("rf919.view", name);
   setHash(name === "explore" && view.k !== null ? view.k : name);
   if (changed) {

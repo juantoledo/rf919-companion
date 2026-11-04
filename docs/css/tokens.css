@@ -1,7 +1,8 @@
 /* Design tokens: the "Shortwave Atlas" identity, in a light and a dark theme that follow the system.
    Dark: cold blue ink with one warm dial-lamp amber for everything "lit". Light: paper and ink, the amber deepened
    so it still reads as text. Cool blue for information; warm red for danger.
-   Every colour is light-dark(light, dark); sizes are in rem so the phone's text-size setting carries through. */
+   Every colour is light-dark(light, dark); sizes are in rem so the phone's text-size setting carries through.
+   The theme follows the system unless More › Appearance picks one: <html data-theme="light|dark">. */
 :root {
   color-scheme: light dark;
 
@@ -91,8 +92,13 @@
   --gutter-l: max(var(--s4), env(safe-area-inset-left));
   --gutter-r: max(var(--s4), env(safe-area-inset-right));
 }
+/* a theme picked in the settings wins over the system's */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+/* what light-dark() can't hold (shadows, opacities), for the light theme however it was chosen */
 @media (prefers-color-scheme: light) {
-  :root { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
+  :root:not([data-theme="dark"]) { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
 }
+:root[data-theme="light"] { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
 @media (pointer: coarse) { :root { --hit: 48px; } }
 @media (prefers-reduced-motion: reduce) { :root { --fast: 0s; --med: 0s; --slow: 0s; } }

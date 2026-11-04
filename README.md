@@ -26,11 +26,11 @@ Open **https://juantoledo.github.io/rf919-companion/**
 
 The app has four tabs in a floating bar at the bottom; on wide screens, and on a phone held sideways,
 they move to a rail on the side so landscape keeps its height for the content. It follows the phone's
-light or dark setting.
+light or dark setting, or the theme picked in **More › Appearance** (System, Light, Dark).
 
 | Tab | What's there |
 |---|---|
-| **Radio** | The radio's frequency, band, preset and signal; ◀ ▶, Memo, Sub, volume, **Keys** (the Remote), **Store here**; and what's on the frequency the radio is tuned to |
+| **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store here** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
 | **Explore** | Look up any frequency, with or without the radio |
 | **Memories** | Memory lists for the radio, one band at a time |
 | **More** | Connection, settings, the radio's text lines, tools and the log |

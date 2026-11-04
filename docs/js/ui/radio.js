@@ -3,7 +3,7 @@ import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, f
 import {addToList, bandFor} from "../memories.js";
 import {errText} from "../link.js";
 import {$, current, esc, go, goTo, log, lookUp, renderMini, route, state, toast, tuneHere} from "./shell.js";
-import {addMem, renderStoreHere, renderSwChips} from "./memories.js";
+import {addMem, canStoreHere, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {startBle, startDemo} from "./more.js";
 
 // ---- What's on a frequency (radiomap.cl) ----
@@ -143,8 +143,9 @@ export function dossierHtml() {
   }
   // On Radio the readout above shows the frequency; Explore shows the one looked up in the same big digits
   const freq = following() ? "" : `<p class="d-freq">${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></p>`;
-  if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>`;
-  if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>`;
+  // The actions don't wait for radiomap.cl: Store here and + Memory work whatever it answers
+  if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>` + actionsHtml();
+  if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>` + actionsHtml();
   const {stations, shortwave} = view.data;
   let body;
   if (shortwave.length) body = swHtml(shortwave);
@@ -186,14 +187,17 @@ export function actionsHtml() {
   const band = bandFor(k), inList = band && mem.list.find((e) => e.band === band && e.kHz === k);
   const add = !band ? "" : inList ? `<button class="small" type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
     : `<button class="small" type="button" data-act="addmem">+ Memory</button>`;
-  const has = d.stations.length || d.shortwave.length;
+  // On Radio: store what the radio is on, on the channel after the last one in use
+  const here = following() ? `<button class="small" type="button" id="storehere" data-act="storehere"${canStoreHere() ? "" : " disabled"} ` +
+    `title="Saves what the radio is tuned to on the channel after the last one in use">Store here</button>` : "";
+  const has = d && (d.stations.length || d.shortwave.length);
   const near = has ? `<button class="small toggle" type="button" data-act="nearme" aria-pressed="${nearMe}">Near me</button>` : "";
   const radSel = has && located() && d.stations.length
     ? `<select class="radius" data-act="radius" aria-label="Distance">` +
       RADII.map((r) => `<option value="${r}"${r === radius ? " selected" : ""}>${r ? `≤ ${r} km` : "any km"}</option>`).join("") + `</select>` : "";
   const refilter = has && located() && view.showAll ? `<button class="small" type="button" data-act="refilter">Near only</button>` : "";
   const ver = view.idx ? ` v${esc(view.idx.version)} · EiBi ${esc(view.idx.shortwaveSeason)}` : "";
-  return `<div class="d-actions">${tune}${add}${near}${radSel}${refilter}` +
+  return `<div class="d-actions">${tune}${add}${here}${near}${radSel}${refilter}` +
     `<p class="note">Data: <a href="${RADIOMAP_SITE}" target="_blank" rel="noopener">radiomap.cl</a>${ver} · times in UTC</p></div>`;
 }
 // A flag-icons key the card can show behind the station ("" for none: the globe, or no country)
@@ -424,6 +428,7 @@ export function init() {
     else if (t.dataset.act === "refilter") { view.showAll = false; renderView(); }
     else if (t.dataset.act === "tunehere") tuneHere();
     else if (t.dataset.act === "addmem") addMem([{band: bandFor(view.k), kHz: view.k, ch: null, name: dossierName()}]);
+    else if (t.dataset.act === "storehere") storeHere();
     else if (t.dataset.act === "connect") startBle();
     else if (t.dataset.act === "demo") startDemo();
   });
