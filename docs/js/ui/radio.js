@@ -2,7 +2,7 @@ import {pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {SW_METERS, addToList, bandChips, bandFor, nearestStations, stripRange} from "../memories.js";
 import {errText} from "../link.js";
-import {$, autoTuneOn, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
+import {$, autoTuneOn, bandIco, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {swipeTune} from "./gestures.js";
 import {heardHtml, logFreq, showLogFor} from "./log.js";
@@ -200,7 +200,7 @@ function stripHtml(k) {
     `aria-label="${r.label}: ${ticks.length} frequencies with data" aria-valuemin="${r.lo}" aria-valuemax="${r.hi}" aria-valuenow="${k}" ` +
     `aria-valuetext="${fmtKHz(k)}, ${r.label}"><div class="strip-track">${ticks.map((x) => `<i style="left:${pct(x)}%"></i>`).join("")}` +
     `<b class="strip-mark" style="left:${pct(k)}%"></b><span class="strip-tip" hidden></span></div>` +
-    `<div class="strip-axis"><span>${end(r.lo)}</span><span>${r.label} · ${ticks.length}</span><span>${end(r.hi)}</span></div></div>`;
+    `<div class="strip-axis"><span>${end(r.lo)}</span><span>${bandIco(bandFor(k))}${r.label} · ${ticks.length}</span><span>${end(r.hi)}</span></div></div>`;
 }
 // The known kHz nearest to a point on the strip
 function stripAt(strip, x) {
@@ -305,7 +305,8 @@ export function renderBands() {
   const chips = view.idx ? bandChips(view.idx.freqs) : [];
   const examples = [[9580, "9580"], [11620, "11620"], [146730, "146.730"], [101300, "101.3"], [118100, "118.1"]];
   $("bands").innerHTML = chips.length
-    ? chips.map((c) => `<button class="chip" type="button" data-act="dial" data-to="${c.k}" aria-label="${c.label}: ${c.n} frequencies with data">${c.label}<small>${c.n}</small></button>`).join("")
+    ? chips.map((c) => `<button class="chip" type="button" data-act="dial" data-to="${c.k}" aria-label="${c.label}: ${c.n} frequencies with data">` +
+      `${bandIco(bandFor(c.k))}${c.label}<small>${c.n}</small></button>`).join("")
     : examples.map(([k, t]) => `<button class="chip" type="button" data-look="${k}" aria-label="Look up ${fmtKHz(k)}">${t}</button>`).join("");
   renderOnAir();
 }

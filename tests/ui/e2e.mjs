@@ -54,6 +54,8 @@ for (const s of ["#search", "#bands"]) { const r = await page.locator(s).boundin
 assert.equal(await page.locator("#radiobar").isVisible(), true);
 assert.equal(await page.locator("#radiobar .rb-off").isVisible(), true);
 { const r = await page.locator("#radiobar").boundingBox(); assert.ok(r.width < 260, `idle mini player ${r.width}px wide`); }
+assert.equal(await page.getAttribute('#bands .chip:has-text("AIR") use', "href"), "#i-b-air");
+assert.equal(await page.getAttribute('#bands .chip:has-text("31m") use', "href"), "#i-b-sw");
 ok("Explore home: search and bands above the fold; with no radio the mini player is a pill (Connect radio · Demo)");
 await page.fill("#q", "9580"); await page.press("#q", "Enter");
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
@@ -114,6 +116,8 @@ await page.waitForFunction(() => state.ok && waiters.freq, null, {timeout: 10000
 assert.equal(await page.locator("#radiobar .rb-off").isHidden(), true);
 assert.equal(await page.textContent("#radiobar [data-freq]"), "11.6200");
 assert.equal(await page.textContent("#radiobar [data-band-chip]"), "SW");
+assert.equal(await page.getAttribute("#radiobar [data-band-chip] use", "href"), "#i-b-sw");
+assert.equal(await page.getAttribute("#band use", "href"), "#i-b-sw");
 ok("Demo from the radio bar: it shows SW 11.6200");
 await tab("radio");
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
@@ -289,7 +293,10 @@ await page.selectOption("#readout [data-band-select]", "AIR");
 await page.waitForFunction(() => waiters.freq.band === "AIR");
 assert.equal(await lastSent(), "ab 06 10 03 00 00 00 00 c4");
 assert.equal(await page.textContent("#band"), "AIR");
-ok("the readout's native band select switches the radio to AIR");
+assert.equal(await page.getAttribute("#band use", "href"), "#i-b-air");
+// every symbol the page uses exists in the sprite (no blank icons), the bands' among them
+assert.deepEqual(await E(() => [...new Set([...document.querySelectorAll("use")].map((u) => u.getAttribute("href")))].filter((h) => !document.querySelector(h))), []);
+ok("the readout's native band select switches the radio to AIR, its chip to the aircraft");
 
 // ---- Remote dialog ----
 await page.click("#open-remote");

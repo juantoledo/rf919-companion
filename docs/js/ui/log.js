@@ -2,7 +2,8 @@ import {Logbook, Signal, toAdif, toCsv} from "../logbook.js";
 import {flagHtml, fmtKHz, ituFlag} from "../radiomap.js";
 import {waiters} from "../state.js";
 import {ReplayLink, errText} from "../link.js";
-import {$, current, esc, go, lookUp, state, tabDir, toast, vt} from "./shell.js";
+import {$, bandIco, current, esc, go, lookUp, state, tabDir, toast, vt} from "./shell.js";
+import {bandFor} from "../memories.js";
 import {mem, nameOf, rm, store, swPick, view} from "./radio.js";
 import {link} from "./more.js";
 import {swipeRows} from "./gestures.js";
@@ -124,7 +125,7 @@ function rowHtml(e) {
   return `<li class="mem-row log-row${live ? " live" : ""}" data-id="${esc(e.id)}"><div class="mr-fg">` +
     `<span class="log-time"><b>${hhmmUTC(e.start)}</b><small>${live ? "now" : mins(e.end - e.start)}</small></span>` +
     `<a class="mr-main log-open" href="#f=${e.k}" data-log-open="${e.k}" aria-label="${esc(name)}, ${fmtKHz(e.k)}, ${hhmmUTC(e.start)} UTC: listen again">` +
-    `<b>${flagHtml(e.flag, e.country || "")}${esc(name)}</b><small>${esc(sub)}</small></a>` +
+    `<b>${flagHtml(e.flag, e.country || "")}${esc(name)}</b><small>${bandIco(e.band || bandFor(e.k))}${esc(sub)}</small></a>` +
     `<button class="icon log-star" type="button" data-log="star" data-id="${esc(e.id)}" aria-pressed="${!!e.star}" aria-label="Star ${esc(name)}">` +
     `<svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg></button>` +
     `<button class="mr-del" type="button" data-log="del" data-id="${esc(e.id)}" aria-label="Delete ${esc(name)} at ${hhmmUTC(e.start)}">✕</button></div>` +
@@ -138,7 +139,7 @@ export function renderLog() {
   const bands = [...new Set(all.map((e) => e.band).filter(Boolean))];
   if (!["all", "star", ...bands].includes(lf.filter)) lf.filter = "all";
   const chip = (v, label) => `<label><input type="radio" name="logf" value="${v}"${lf.filter === v ? " checked" : ""}><span>${label}</span></label>`;
-  $("log-filter").innerHTML = `<legend>Show</legend>` + chip("all", "All") + chip("star", "Starred") + bands.map((b) => chip(b, b)).join("") +
+  $("log-filter").innerHTML = `<legend>Show</legend>` + chip("all", "All") + chip("star", "Starred") + bands.map((b) => chip(b, `${bandIco(b)}${b}`)).join("") +
     (lf.k != null ? `<button class="chip" type="button" data-log="unk" aria-label="Show every frequency">${fmtKHz(lf.k)} ✕</button>` : "");
   $("log-filter").hidden = !all.length;
   $("log-export").hidden = !all.length;
