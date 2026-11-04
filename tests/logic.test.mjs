@@ -4,6 +4,9 @@ import assert from "node:assert/strict";
 import * as protocol from "../docs/js/protocol.js";
 import * as radiomap from "../docs/js/radiomap.js";
 import * as memories from "../docs/js/memories.js";
+import {Tuner} from "../docs/js/tuner.js";
+import {NameIndex, norm} from "../docs/js/names.js";
+import {Logbook, Signal, toAdif, toCsv, adifBand} from "../docs/js/logbook.js";
 
 const T = {...protocol, ...radiomap, ...memories};
 const H = (b) => T.hex(b).toUpperCase();
@@ -453,5 +456,126 @@ ok("nearestStations: kind, radius, repeaters heard on their output, the nearest 
   deq(T.nearestStations(pairs, {band: "VHF", pos}).map((r) => [r.k, r.s.nombre]), [[146730, "Rpt"]]);
   deq(T.nearestStations(pairs, {band: "FM", kind: "amateur", pos}), []);
   deq(T.nearestStations(pairs, {band: "FM"}).map((r) => r.k), [88100, 99900, 101300]);  // no position: by kHz
+});
+
+// ---- Tuner: Explore's picks tune the radio, one tune at a time, the latest pick wins ----
+{
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (runMs = 30, fail = () => false) => {
+    const runs = [], states = [];
+    const t = new Tuner(async (k) => { runs.push(k); await wait(runMs); if (fail(k)) throw new Error("no echo"); return {k}; },
+      {settleMs: 20, onState: (s) => states.push([s.k, s.state])});
+    return {t, runs, states};
+  };
+  let a = mk();
+  for (const k of [9500, 9510, 9520, 9530, 9540]) a.t.request(k);
+  await wait(80);
+  deq(a.runs, [9540]);
+  deq(a.states.filter(([, s]) => s !== "pending"), [[9540, "tuning"], [9540, "done"]]);
+  ok("Tuner: a swipe through 5 frequencies tunes once, to the last", () => {});
+  a = mk(60);
+  a.t.request(9500, {now: true});
+  await wait(10);
+  a.t.request(9600);
+  await wait(30);  // 9600 has settled, 9500 is still tuning
+  assert.equal(a.t.busy, true);
+  deq(a.runs, [9500]);
+  await wait(120);
+  deq(a.runs, [9500, 9600]);
+  ok("Tuner: a pick during a tune runs after it, never alongside", () => {});
+  a = mk(10, (k) => k === 9500);
+  a.t.request(9500, {now: true});
+  await wait(30);
+  a.t.request(9600, {now: true});
+  await wait(30);
+  deq(a.states.filter(([, s]) => s === "failed" || s === "done"), [[9500, "failed"], [9600, "done"]]);
+  ok("Tuner: a failed tune is reported and the next pick still tunes", () => {});
+  a = mk();
+  a.t.request(9500);
+  a.t.cancel();
+  await wait(60);
+  deq(a.runs, []);
+  ok("Tuner: cancel drops the pick still settling", () => {});
+}
+
+// ---- Logbook: a frequency held 30 s is logged, with its best signal ----
+ok("Logbook: nothing before 30 s, then one entry that grows; peaks kept; a sweep never logs", () => {
+  const ev = [], lb = new Logbook([], {onChange: (type, e) => ev.push([type, e.k])});
+  const t0 = Date.UTC(2026, 10, 4, 14, 30);
+  for (let i = 0; i < 10; i++) lb.feed(9500 + i * 5, "SW", t0 + i * 1000);  // a scan: 1 s each
+  lb.feed(9580, "SW", t0 + 10000, {mode: "AM"});
+  lb.signal({rssi: 20, snr: 5}, t0 + 15000);
+  lb.tick(t0 + 39000);
+  assert.equal(lb.entries.length, 0);
+  lb.signal({rssi: 32, snr: 3}, t0 + 40000);
+  assert.equal(lb.entries.length, 1);
+  deq(ev, [["open", 9580]]);
+  lb.signal({rssi: 25, snr: 12}, t0 + 70000);
+  lb.tick(t0 + 90000);
+  const e = lb.entries[0];
+  deq([e.k, e.band, e.mode, e.start, e.end, e.rssi, e.snr], [9580, "SW", "AM", t0 + 10000, t0 + 90000, 32, 12]);
+});
+ok("Logbook: back within 10 min carries on the same entry; later, a new one; Demo entries apart and dropped", () => {
+  const lb = new Logbook([]), t0 = 1e12;
+  lb.feed(9580, "SW", t0); lb.tick(t0 + 31000);
+  lb.feed(11620, "SW", t0 + 32000);
+  lb.feed(9580, "SW", t0 + 5 * 60000);
+  assert.equal(lb.entries.length, 1);
+  assert.equal(lb.entries[0].end, t0 + 5 * 60000);
+  lb.feed(null, null, t0 + 6 * 60000);
+  lb.feed(9580, "SW", t0 + 30 * 60000); lb.tick(t0 + 31 * 60000);
+  assert.equal(lb.entries.length, 2);
+  lb.feed(9580, "SW", t0 + 32 * 60000, {demo: true}); lb.tick(t0 + 33 * 60000);
+  assert.equal(lb.entries.length, 3);
+  assert.equal(lb.entries[2].demo, true);
+  deq(lb.heard(9580).n, 3);
+  assert.equal(lb.dropDemo(), 1);
+  deq(lb.heard(9580).n, 2);
+  assert.equal(lb.entries.length, 2);
+  const r = lb.remove(lb.entries[0].id);
+  assert.equal(lb.entries.length, 1);
+  lb.restore(r);
+  assert.equal(lb.entries[0].id, r.e.id);
+});
+ok("Signal: keeps the last 60 s; best and last", () => {
+  const s = new Signal();
+  s.add(10, 1, 0); s.add(30, null, 30000); s.add(20, 4, 70000);
+  deq(s.pts.map((p) => p.t), [30000, 70000]);
+  assert.equal(s.best("rssi"), 30); assert.equal(s.last("snr"), 4); assert.equal(s.best("snr"), 4);
+});
+ok("export: CSV quotes what needs it; ADIF counts its fields, drops accents, a band only for amateur frequencies", () => {
+  const t = Date.UTC(2026, 10, 4, 14, 30);
+  const es = [{k: 9580, band: "SW", mode: "AM", start: t, end: t + 22 * 60000, rssi: 32, snr: 12, station: "IBRA Radio, Sweden", star: true},
+    {k: 7150, band: "SW", mode: "LSB", start: t, end: t + 60000, rssi: null, snr: null, station: "Radio Bío-Bío", star: false}];
+  assert.equal(toCsv(es), "date_utc,start_utc,end_utc,khz,band,mode,station,rssi,snr,starred\n" +
+    "20261104,1430,1452,9580,SW,AM,\"IBRA Radio, Sweden\",32,12,yes\n20261104,1430,1431,7150,SW,LSB,Radio Bío-Bío,,,\n");
+  const lines = toAdif(es).split("\n");
+  assert.equal(lines[1], "<ADIF_VER:5>3.1.4 <PROGRAMID:15>RF919 Companion <PROGRAMVERSION:1>1 <EOH>");
+  assert.equal(lines[2], "<CALL:18>IBRA Radio, Sweden <QSO_DATE:8>20261104 <TIME_ON:4>1430 <TIME_OFF:4>1452 <FREQ:5>9.580 " +
+    "<MODE:2>AM <SWL:1>Y <COMMENT:14>RSSI 32 SNR 12 <EOR>");
+  assert.equal(lines[3], "<CALL:13>Radio Bio-Bio <QSO_DATE:8>20261104 <TIME_ON:4>1430 <TIME_OFF:4>1431 <FREQ:5>7.150 <BAND:3>40m " +
+    "<MODE:3>SSB <SUBMODE:3>LSB <SWL:1>Y <EOR>");
+  assert.equal(adifBand(146730), "2m"); assert.equal(adifBand(101300), "");
+});
+
+// ---- NameIndex: station names → frequencies, for Explore's search ----
+ok("NameIndex: accents and case don't matter; words in any order; whole words, then starts, then inside", () => {
+  const ix = new NameIndex();
+  ix.add(9580, {shortwave: [{station: "Radio Romania Int.", itu: "ROU"}, {station: "IBRA Radio", itu: "S"}], stations: []});
+  ix.add(11620, {shortwave: [{station: "Radio Romania Int.", itu: "ROU"}], stations: []});
+  ix.add(101300, {shortwave: [], stations: [{nombre: "Radio Bío-Bío", signal: "CB-101", category: "broadcast"}]});
+  ix.add(146730, {shortwave: [], stations: [{nombre: "", signal: "CE3RPT", category: "amateur"}]});
+  ix.add(7777, null);
+  assert.equal(norm("Radio Bío-Bío"), "radio bio bio");
+  deq(ix.search("bio bio").map((h) => [h.name, h.ks, h.flag]), [["Radio Bío-Bío", [101300], "cl"]]);
+  deq(ix.search("romania radio")[0].ks, [9580, 11620]);
+  deq(ix.search("radio").map((h) => h.name), ["IBRA Radio", "Radio Bío-Bío", "Radio Romania Int."]);
+  deq(ix.search("rom").map((h) => h.name), ["Radio Romania Int."]);
+  deq(ix.search("e3rp").map((h) => h.name), ["CE3RPT"]);  // inside a word
+  deq(ix.search("radio xyz"), []);
+  assert.equal(ix.seen.size, 5);
+  const back = NameIndex.fromJSON(JSON.parse(JSON.stringify(ix)));
+  deq(back.search("radio").map((h) => [h.name, h.ks]), ix.search("radio").map((h) => [h.name, h.ks]));
+  assert.equal(back.seen.has(7777), true);
 });
 console.log(`\n${n} checks passed`);

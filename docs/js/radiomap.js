@@ -247,13 +247,17 @@ export function flagHtml(key, title = "") {
 }
 
 export class RadioMap {
-  constructor(base = RADIOMAP) { this.base = base; this.cache = new Map(); this.idx = null; }
+  // onData(k, data): every frequency file read, by whichever path (the name index learns from them; null = 404)
+  constructor(base = RADIOMAP) { this.base = base; this.cache = new Map(); this.idx = null; this.onData = null; }
 
   async get(path) {
     const r = await fetch(this.base + path);
-    if (r.status === 404) return null;
+    const m = this.onData && path.match(/^freq\/(\d+)\.json$/);
+    if (r.status === 404) { if (m) this.onData(+m[1], null); return null; }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
+    const data = await r.json();
+    if (m) this.onData(+m[1], data);
+    return data;
   }
 
   // index.json, fetched once

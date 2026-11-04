@@ -1,5 +1,5 @@
 // End-to-end checks of the web app in its Demo (the simulated radio): tabs and links, the Remote, gestures,
-// band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me, Explore (dial, strip, pins, Share, Discover, reminders),
+// band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me, Explore (dial, strip, pins, Share, Discover, reminders, tune as you explore),
 // keyboard. See tests/ui/README.md.
 import {chromium} from "playwright-core";
 import fs from "node:fs";
@@ -24,13 +24,16 @@ const confirmAsk = async () => {
   await page.waitForSelector("#ask[open]"); await page.click("#ask-ok");
   await page.waitForFunction(() => !document.getElementById("ask").open); await page.waitForTimeout(150);
 };
-const tab = (t) => page.click(`#tabbar [data-tab="${t}"]`);
+// With View Transitions a tab's view shows a frame after the tap (once the old picture is taken)
+const tab = async (t) => { await page.click(`#tabbar [data-tab="${t}"]`); await page.waitForFunction((t) => !document.getElementById(`view-${t}`).hidden && !document.documentElement.classList.contains("vt-run"), t); };
+// Back/Forward and taps on Explore's home run a View Transition too: wait for it to end before the next gesture
+const settled = () => page.waitForFunction(() => !document.documentElement.classList.contains("vt-run"));
 // The tools of Memories and More open in one sheet; a modal sheet has to close before the page behind takes taps
 const toolsOpen = () => E(() => document.getElementById("tools").open);
 const closeTool = async () => { if (await toolsOpen()) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open); } };
 const tool = async (id) => { await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction(() => document.getElementById("tools").open); };
 const mode = () => E(() => document.getElementById("view-explore").dataset.mode);
-const atHome = () => page.waitForFunction(() => location.hash === "#explore" && document.getElementById("view-explore").dataset.mode === "home");
+const atHome = () => page.waitForFunction(() => location.hash === "#explore" && document.getElementById("view-explore").dataset.mode === "home" && !document.documentElement.classList.contains("vt-run"));
 const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
 
 await page.goto(URL); await E(() => localStorage.clear()); await page.goto(URL);
@@ -46,11 +49,12 @@ assert.equal(await E(() => location.hash), "#explore");
 assert.equal(await mode(), "home");
 await page.waitForSelector('#bands .chip[data-act="dial"]', {timeout: 15000});
 const fold = 844 - 140;  // the tab bar and the mini player
-for (const s of ["#search", "#bands", "#discover"]) { const r = await page.locator(s).boundingBox(); assert.ok(r && r.y < fold, `${s} at ${r && r.y}`); }
+// (Discover may go below it once On air now has cards to show)
+for (const s of ["#search", "#bands"]) { const r = await page.locator(s).boundingBox(); assert.ok(r && r.y < fold, `${s} at ${r && r.y}`); }
 assert.equal(await page.locator("#radiobar").isVisible(), true);
 assert.equal(await page.locator("#radiobar .rb-off").isVisible(), true);
 { const r = await page.locator("#radiobar").boundingBox(); assert.ok(r.width < 260, `idle mini player ${r.width}px wide`); }
-ok("Explore home: search, bands and Discover above the fold; with no radio the mini player is a pill (Connect radio · Demo)");
+ok("Explore home: search and bands above the fold; with no radio the mini player is a pill (Connect radio · Demo)");
 await page.fill("#q", "9580"); await page.press("#q", "Enter");
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 assert.equal(await E(() => location.hash), "#f=9580");
@@ -61,9 +65,40 @@ ok("a search opens 9580 as Explore's detail (#f=9580), its actions on the first 
 await page.goBack(); await atHome();
 assert.equal(await E(() => document.activeElement.dataset.look), "9580");
 ok("system Back returns to Explore's home, the focus on 9580's chip");
+// Record which elements carry the "freq" name in each View Transition's old and new pictures
+await E(() => {
+  const start = document.startViewTransition.bind(document);
+  const named = () => [...document.querySelectorAll("#app *")].filter((e) => getComputedStyle(e).viewTransitionName === "freq")
+    .map((e) => e.dataset.look || e.className);
+  window.vtLog = [];
+  document.startViewTransition = (cb) => { const old = named(); return start(() => { cb(); window.vtLog.push({old, new: named()}); }); };
+});
 await page.click('#recent [data-look="9580"]'); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+await settled();
 await page.click("#x-back"); await atHome();
 ok("the bar's ← does the same");
+assert.deepEqual(await E(() => window.vtLog), [{old: ["9580"], new: ["d-freq"]}, {old: ["d-freq"], new: ["9580"]}]);
+ok("View Transitions: the tapped chip grows into the dial's digits, and Back shrinks them into it again");
+
+// ---- search by name, On air now ----
+await page.fill("#q", "radio");
+await page.waitForSelector("#q-results .qr [data-look]", {timeout: 15000});
+assert.match(await page.textContent("#q-results .qr-foot"), /^\d+ stations? · from \d+ of \d+ frequencies Search all$/);
+const kq = +await page.getAttribute("#q-results .qr [data-look]", "data-look");
+assert.match(await page.textContent("#q-results .qr .qr-name"), /radio/i);
+await page.press("#q", "Enter");
+await page.waitForFunction((k) => view.k === k && view.data, kq, {timeout: 15000});
+assert.equal(await page.inputValue("#q"), "");
+await settled(); await page.click("#x-back"); await atHome();
+assert.equal(await page.locator("#q-results").isHidden(), true);
+ok(`a station's name finds its frequencies (radio → ${kq}); Enter opens the first`);
+await page.waitForSelector("#onair .oa-card", {timeout: 20000});
+const ko = +await page.getAttribute("#onair .oa-card", "data-look");
+assert.match(await page.textContent("#onair .oa-card small"), /until \d\d:\d\d UTC|pinned|recent/);
+await page.click("#onair .oa-card");
+await page.waitForFunction((k) => view.k === k && view.data, ko, {timeout: 15000});
+await settled(); await page.click("#x-back"); await atHome();
+ok(`On air now: cards for what's on air, from what's been looked up; a card opens its frequency (${ko})`);
 await page.goto(URL + "#f=11620"); await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await visibleView(), "explore");
 assert.equal(await mode(), "detail");
@@ -95,12 +130,142 @@ assert.equal(await page.locator("#readout").isHidden(), true);
 await page.click('#recent [data-look="9580"]');
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 assert.equal((await page.textContent("#dossier .d-freq")).replace(/\D/g, ""), "9580");
-assert.equal(await page.locator('#dossier [data-act="tunehere"]').isVisible(), true);
 assert.equal(await page.locator("#radio-controls").isHidden(), true);
+ok("Explore hides the readout and controls while connected and shows the looked-up frequency");
+
+// ---- Tune as you explore: a pick tunes the radio, Explore stays put ----
+// FREQ presses the radio was sent (two per tune: open the entry, then enter it)
+const freqKeys = () => E(() => {
+  const f = [...frame(0x0C, [KEYS.FREQ])].map((x) => x.toString(16).padStart(2, "0")).join(" ");
+  return [...document.querySelectorAll("#log div")].filter((d) => d.textContent.toLowerCase().endsWith("would send " + f)).length;
+});
+await page.waitForFunction(() => view.radioK === 9580 && document.querySelector("#dossier .tune-state.on"), null, {timeout: 15000});
+assert.equal(await visibleView(), "explore");
+assert.match(await page.textContent("#dossier .tune-state"), /On the radio/);
+assert.match(await page.textContent("#toast-text"), /Explore tunes the radio/);
+assert.equal(await page.textContent("#toast-act"), "Turn off");
+ok("a pick on Explore tunes the radio (9580) and stays there; the card says On the radio; a first-time snackbar offers Turn off");
+await page.waitForSelector('.dial-step[data-keep="dial1"]:not(:disabled)', {timeout: 15000});
+const fk0 = await freqKeys();
+for (let i = 0; i < 3; i++) await page.click('.dial-step[data-keep="dial1"]');
+const kd = await E(() => view.k);
+assert.ok(kd > 9580);
+await page.waitForFunction((k) => view.radioK === k && document.querySelector("#dossier .tune-state.on"), kd, {timeout: 15000});
+assert.equal(await freqKeys() - fk0, 2);
+ok(`three quick steps along the dial tune once, to where it stops (${kd})`);
+await page.click("#x-search"); await atHome();
+await page.fill("#q", "101.3"); await page.press("#q", "Enter");
+await page.waitForFunction(() => view.radioK === 101300 && waiters.freq.band === "FM", null, {timeout: 20000});
+ok("a pick on another band (FM 101.3 from SW) switches the band first, then tunes");
+await page.waitForFunction(() => /^Back to /.test(document.getElementById("toast-act").textContent), null, {timeout: 5000});
+assert.match(await page.textContent("#toast-text"), /^Tuned 101300 kHz|^Tuned 101\.3/);
+assert.equal(await page.textContent("#toast-act"), `Back to ${await E((k) => fmtKHz(k), kd)}`);
+await page.click("#toast-act");
+await page.waitForFunction((k) => view.radioK === k && waiters.freq.band === "SW", kd, {timeout: 20000});
+ok("a pick from home offers Back to where the radio was; it retunes there (and back to SW)");
+await E(() => { const t = document.getElementById("autotune"); t.click(); });
+assert.equal(await E(() => localStorage.getItem("rf919.autotune")), "false");
+await page.click("#x-back"); await atHome();
+await page.click('#recent [data-look="11620"]');
+await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
+await page.waitForTimeout(900);
+assert.equal(await E(() => view.radioK), kd);
+assert.equal(await page.locator('#dossier [data-act="tunehere"]').isVisible(), true);
+ok("with Tune as you explore off, a pick only looks up; Tune radio is back");
+await page.click('#dossier [data-act="tunehere"]');
+await page.waitForFunction(() => !document.getElementById("view-radio").hidden);
+await page.waitForFunction(() => view.radioK === 11620, null, {timeout: 20000});
+await page.goBack();
+await page.waitForFunction(() => location.hash === "#f=11620" && document.getElementById("view-explore").dataset.mode === "detail");
+assert.equal(await visibleView(), "explore");
+ok("Tune radio goes to Radio, tuned; system Back returns to the frequency on Explore");
+assert.equal(await page.locator("#x-back .bar-back-label").isVisible(), true);
+assert.equal(await page.textContent("#x-back .bar-back-label"), "Explore");
+await E(() => window.scrollTo(0, document.documentElement.scrollHeight));
+await page.waitForTimeout(200);
+if (await E(() => document.getElementById("view-explore").classList.contains("collapsed"))) assert.equal(await page.locator("#x-back .bar-back-label").isHidden(), true);
+await E(() => window.scrollTo(0, 0));
+await E(() => document.getElementById("autotune").click());
+ok("the detail's back button reads ‹ Explore, the name giving way to the title once it collapses");
 await tab("radio");
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await page.locator("#readout").isVisible(), true);
-ok("Explore hides the readout and controls while connected and shows the looked-up frequency; back on Radio they return");
+ok("back on Radio the readout and controls return");
+
+// ---- the Log: what the radio stays on (a 30 s dwell, made short here), and the signal meter ----
+await E(() => { logbook.dwellMs = 300; logbook.tick(Date.now()); });
+await page.waitForFunction(() => logbook.entries.some((e) => e.k === 11620 && e.demo), null, {timeout: 6000});
+await E(() => { link.onEvent({kind: "field", data: {name: "rssi", value: "28"}}); link.onEvent({kind: "field", data: {name: "snr", value: "9"}}); });
+await page.waitForTimeout(150);
+await E(() => { link.onEvent({kind: "field", data: {name: "rssi", value: "34"}}); link.onEvent({kind: "field", data: {name: "snr", value: "11"}}); });
+await page.waitForSelector("#sig .sig-tile svg polyline");
+assert.match(await page.getAttribute("#sig .sig-tile", "aria-label"), /^RSSI 34, best 34 in the last minute, rising/);
+assert.equal(await page.locator("#sig .sig-tile").count(), 2);
+ok("the signal meter: RSSI and SNR, each its value, its best and the last minute, under the readout");
+await tab("log");
+await page.waitForSelector(".log-row");
+await page.waitForFunction(() => !/kHz/.test(document.querySelector(".log-row .log-open b").textContent), null, {timeout: 15000});
+assert.match(await page.textContent(".log-row .log-open small"), /11620 kHz.*RSSI 34 · SNR 11.*Demo/);
+assert.match(await page.textContent("#log-total"), /^Today · \d+/);
+await page.click(".log-row .log-star");
+assert.equal(await page.getAttribute(".log-row .log-star", "aria-pressed"), "true");
+const nLog = await page.locator(".log-row").count();
+// In one go: the Demo's recorded session shows the radio's own messages as snackbars every few seconds
+assert.deepEqual(await E(() => {
+  document.querySelector(".log-row .mr-del").click();
+  const after = [document.querySelectorAll(".log-row").length, document.getElementById("toast-act").textContent];
+  document.getElementById("toast-act").click();
+  return [...after, document.querySelectorAll(".log-row").length];
+}), [nLog - 1, "Undo", nLog]);
+ok("the Log: an entry named from radiomap.cl, with its best signal; star it; ✕ deletes and Undo brings it back");
+const [adi] = await Promise.all([page.waitForEvent("download"), page.click('#log-export [data-log="adif"]')]);
+assert.match(adi.suggestedFilename(), /^rf919-log-\d{8}\.adi$/);
+assert.match(fs.readFileSync(await adi.path(), "utf8"), /<FREQ:6>11\.620 .*<SWL:1>Y .*<EOR>/);
+ok("the Log exports ADIF for logbook programs");
+await page.click('#log-list .log-open');
+await page.waitForFunction(() => view.k === 11620 && document.querySelector("#dossier .d-heard"), null, {timeout: 15000});
+assert.match(await page.textContent("#dossier .d-heard"), /^Logged (once|\d+×) · last \d+ min ago/);
+await page.click("#dossier .d-heard");
+await page.waitForFunction(() => !document.getElementById("view-log").hidden);
+assert.match(await page.textContent("#log-filter"), /11620 kHz ✕/);
+await settled();
+await tab("radio");
+ok("a row opens its frequency on Explore; its card says Logged once, which opens the Log on it");
+
+// ---- Liquid Glass: the blue accent, glass bars that shrink on scroll, search from anywhere, light under the finger ----
+await tab("more");
+assert.equal(await E(() => getComputedStyle(document.querySelector('#tabbar [aria-current="page"]')).color), "rgb(0, 98, 204)");
+assert.match(await E(() => getComputedStyle(document.getElementById("tabbar")).backdropFilter), /blur\(20px\)/);
+await E(() => window.scrollTo(0, 0)); await page.waitForTimeout(100);
+await page.mouse.move(195, 400); await page.mouse.wheel(0, 700);
+await page.waitForFunction(() => document.body.classList.contains("bars-min"));
+await page.waitForTimeout(450);  // the bars settle
+{ const tb = await page.locator("#tabbar").boundingBox(), rb = await page.locator("#radiobar").boundingBox(), sb = await page.locator("#tab-search").boundingBox();
+  assert.ok(tb.width <= 64, `tab bar ${tb.width}px`);
+  assert.ok(Math.abs((rb.y + rb.height / 2) - (tb.y + tb.height / 2)) < 4 && rb.x > tb.x + tb.width && rb.x + rb.width < sb.x, "mini player between"); }
+await page.click('#tabbar [aria-current="page"]');
+await page.waitForFunction(() => !document.body.classList.contains("bars-min"));
+assert.equal(await visibleView(), "more");
+ok("scrolled down, the tab bar shrinks to its current tab and the mini player rides beside it; a tap brings it back");
+await page.click("#tab-search");
+await page.waitForFunction(() => !document.getElementById("view-explore").hidden && document.activeElement.id === "q"); await settled();
+await page.fill("#q", "9580"); await page.press("#q", "Enter");
+await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000}); await settled();
+await page.click("#tab-search"); await atHome();
+assert.equal(await E(() => document.activeElement.id), "q");
+ok("the glass search button: from any tab, or a frequency on Explore, to the search field");
+{ const r = await page.locator('#tabbar [data-tab="log"]').boundingBox();
+  await page.mouse.move(r.x + 10, r.y + 12); await page.mouse.down();
+  assert.deepEqual(await E(() => { const s = document.querySelector('#tabbar [data-tab="log"]').style; return [s.getPropertyValue("--px"), s.getPropertyValue("--py")]; }), ["10px", "12px"]);
+  await page.mouse.up(); await settled(); }
+ok("glass answers the finger: the light sits where it's pressed");
+{ const cdp = await ctx.newCDPSession(page);
+  await cdp.send("Emulation.setEmulatedMedia", {features: [{name: "prefers-reduced-transparency", value: "reduce"}]});
+  assert.equal(await E(() => getComputedStyle(document.getElementById("tabbar")).backdropFilter), "none");
+  assert.equal(await E(() => getComputedStyle(document.body, "::before").display), "none");
+  await cdp.send("Emulation.setEmulatedMedia", {features: []}); }
+ok("Reduce Transparency: solid bars, no blur, no ambient light");
+await tab("radio");
 
 // ---- swipe on the readout (left = up, right = down; long = seek) ----
 const box = await page.locator("#freqbox").boundingBox();
@@ -129,10 +294,15 @@ ok("the readout's native band select switches the radio to AIR");
 // ---- Remote dialog ----
 await page.click("#open-remote");
 assert.equal(await E(() => document.getElementById("remote").open), true);
+await settled(); await page.waitForTimeout(400);
 await page.keyboard.press("Escape");
 assert.equal(await E(() => document.getElementById("remote").open), false);
+// closed, but still sliding away: display and the top layer are held until the transition ends
+assert.ok(await E(() => document.getElementById("remote").getAnimations().length > 0));
+assert.notEqual(await E(() => getComputedStyle(document.getElementById("remote")).display), "none");
+await page.waitForFunction(() => getComputedStyle(document.getElementById("remote")).display === "none");
 assert.equal(await E(() => document.activeElement.id), "open-remote");
-ok("Keys opens the Remote; Esc closes it and focus returns");
+ok("Keys opens the Remote; Esc closes it (it slides away) and focus returns");
 await tab("memories");
 assert.equal(await page.locator("#radio-controls").isHidden(), true);  // the dock is the Radio tab's
 const rb = await page.locator("#rb-open").boundingBox();
@@ -225,7 +395,8 @@ ok("Appearance: Light and Dark override the system, remembered across pages; Sys
 // Key capture: the test plays the radio, sending what its own buttons would make it report
 await tool("capbox");
 const caps = () => E(() => [...document.querySelectorAll("#cap-list .cap")].map((c) => c.textContent.replace(/\s+/g, " ")));
-const sentBefore = (await sent()).length;
+// Count what the page sends from here (the log keeps only its last lines, so counting them can go down)
+await E(() => { window.sentN = 0; const send = link.send.bind(link); link.send = (p) => { window.sentN++; return send(p); }; });
 await page.click("#cap-btn");
 assert.match(await page.textContent("#cap-field"), /Press a button on the radio/);
 await page.waitForTimeout(6500);  // a full round of the Demo's routine status updates: none of it is a press
@@ -247,7 +418,7 @@ has(/^Scan or seek: the frequency is moving.*Frequency moving: 4 changes/);
 has(/^A setting: STEP: 2\.50K → 5K/);
 has(/^Unknown message: perhaps the key itself.*cmd 0b.*ab 02 0b 01 b9/);
 assert.equal(got.length, 4, got.join(" | "));
-assert.equal((await sent()).length, sentBefore);  // the capture never sends anything
+assert.equal(await E(() => window.sentN), 0);  // the capture never sends anything
 await page.click("#cap-btn");
 assert.equal(await page.textContent("#cap-field"), "Off");
 await page.locator("#capbox").scrollIntoViewIfNeeded();
@@ -317,11 +488,11 @@ await confirmAsk();
 assert.equal(await has33(), true);
 ok("Remote: Scan sends 1A; holding Play or the SCAN-slot key asks first (Cancel sends nothing, Hold SCAN sends 33)");
 await page.keyboard.press("Escape");
-const before = (await sent()).length;
+const before = await E(() => window.sentN);
 await page.keyboard.press("s"); await page.waitForTimeout(200);
 assert.equal(await lastSent(), "ab 02 0c 1a d3");
 await page.keyboard.press("Shift+S"); await page.waitForTimeout(200);
-assert.equal((await sent()).length, before + 1);  // Shift+S ("S") isn't a shortcut: nothing more sent
+assert.equal(await E(() => window.sentN), before + 1);  // Shift+S ("S") isn't a shortcut: nothing more sent
 ok("keyboard: s scans (1A); Shift+S sends nothing");
 
 // ---- keyboard ----
@@ -330,13 +501,14 @@ await page.keyboard.press("r");
 assert.equal(await E(() => document.getElementById("remote").open), true);
 await page.keyboard.press("Escape");
 await page.keyboard.press("/");
-assert.equal(await visibleView(), "explore");
-assert.equal(await E(() => document.activeElement.id), "q");
+await page.waitForFunction(() => !document.getElementById("view-explore").hidden && document.activeElement.id === "q");
+await settled();
 ok("keyboard: r opens the Remote, / goes to the search");
 
 // ---- Explore: reminders, the dial and the band strip, pins, Share, Discover ----
 await E(() => localStorage.setItem("rf919.reminders", JSON.stringify([{k: 9580, at: Date.now() - 60000, station: "Test Radio"}])));
 await page.goto("about:blank"); await page.goto(URL + "#explore");  // a fresh start (goto to another hash only routes)
+assert.deepEqual(await E(() => JSON.parse(localStorage.getItem("rf919.log") || "[]")), []);  // the Demo's log is never kept
 await page.waitForFunction(() => /Test Radio starts now on 9580 kHz/.test(document.getElementById("toast-text").textContent), null, {timeout: 5000});
 assert.equal(await page.textContent("#toast-act"), "Look up");
 assert.equal(await E(() => localStorage.getItem("rf919.reminders")), "[]");
@@ -409,6 +581,23 @@ const kn = +await page.getAttribute("#disc-results [data-go]", "data-go");
 await page.click("#disc-results [data-go]");
 await page.waitForFunction((k) => view.k === k && location.hash === `#f=${k}`, kn);
 ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its frequency");
+
+// ---- wide screens: Explore's home and the frequency side by side ----
+{
+  const wide = await (await b.newContext({viewport: {width: 1280, height: 800}})).newPage();
+  wide.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  await wide.goto(URL + "#explore");
+  await wide.waitForSelector('#bands .chip[data-act="dial"]', {timeout: 15000});
+  assert.match(await wide.evaluate(() => getComputedStyle(document.getElementById("host-explore"), "::before").content), /Pick a frequency/);
+  const y0 = await wide.evaluate(() => { window.scrollTo(0, 120); return window.scrollY; });
+  await wide.click('#bands .chip[data-act="dial"]:has-text("31m")');
+  await wide.waitForFunction(() => view.k && view.data, null, {timeout: 15000});
+  assert.equal(await wide.locator("#x-home").isVisible(), true);
+  assert.equal(await wide.locator("#dossier .d-freq").isVisible(), true);
+  assert.equal(await wide.evaluate(() => window.scrollY), y0);  // the list kept its place
+  await wide.close();
+  ok("wide screens: the list and the frequency side by side; opening one keeps the list where it was");
+}
 
 console.log(`\n${n} checks passed`, "| page errors:", errors.length ? errors : "none");
 await b.close();

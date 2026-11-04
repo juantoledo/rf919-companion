@@ -2,9 +2,11 @@ import {pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {SW_METERS, addToList, bandChips, bandFor, nearestStations, stripRange} from "../memories.js";
 import {errText} from "../link.js";
-import {$, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openTool, renderMini, route, state, toast, tuneHere, tuneKHz} from "./shell.js";
+import {$, autoTuneOn, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {swipeTune} from "./gestures.js";
+import {heardHtml, logFreq, showLogFor} from "./log.js";
+import {firstHit, indexVersion, pinState, renderOnAir, renderResults} from "./find.js";
 import {startBle, startDemo} from "./more.js";
 
 // ---- What's on a frequency (radiomap.cl) ----
@@ -21,8 +23,9 @@ export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e
 // radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
 // near: nearby frequencies with their lookups
 // flag: the flag-icons key of the station the card headlines (its background), "" for none
+// tuning: the page's last tune of the radio, {k, state} (see Tuner)
 export const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, showAll: false, timer: 0, unit: "MHz", flag: "", radioName: ""};
+  all: false, showAll: false, timer: 0, unit: "MHz", flag: "", radioName: "", tuning: null};
 export let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
 export const following = () => view.follow && state.ok;
 // Near me filters as well as sorts: stations beyond the radius, and shortwave not aimed at the listener's region.
@@ -55,6 +58,7 @@ export function radioFreq(k) {
   clearTimeout(view.timer);
   view.timer = setTimeout(() => {
     view.radioK = k;
+    logFreq(k);
     nameRadio(k);
     if (view.follow && k !== null && k !== view.k) show(k);
     else renderView();
@@ -92,6 +96,7 @@ export function loadIndex() {
   rm.index().then((idx) => {
     const had = view.idx;
     view.idx = idx;
+    indexVersion(idx.version);
     if (!had && !view.follow) renderView();
     renderBands();
     renderDiscover();
@@ -170,7 +175,7 @@ export function dossierHtml() {
     else hero = `<div class="d-empty"><p class="empty-t">Nothing near</p><p class="empty-d">No station on ${fmtKHz(k)} within ${radius} km; ` +
       `${hidden} farther away.</p><div class="intro-act">${showAllBtn(`Show ${hidden === 1 ? "it" : `all ${hidden}`}`)}</div></div>`;
   } else hero = `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
-  return freq + hero + actionsHtml(filtersHtml()) + rest;
+  return freq + hero + heardHtml(k) + actionsHtml(filtersHtml()) + rest;
 }
 
 // ---- the dial: Explore steps through the frequencies radiomap.cl knows, without a radio ----
@@ -204,9 +209,12 @@ function stripAt(strip, x) {
   return stripTicks(view.idx.freqs, lo, hi).reduce((b, k) => Math.abs(k - want) < Math.abs(b - want) ? k : b);
 }
 function stripPreview(strip, k) {
-  const lo = +strip.dataset.lo, hi = +strip.dataset.hi, left = `${(k - lo) / (hi - lo) * 100}%`, tip = strip.querySelector(".strip-tip");
-  strip.querySelector(".strip-mark").style.left = left;
-  tip.style.left = left; tip.textContent = fmtKHz(k); tip.hidden = false;
+  const lo = +strip.dataset.lo, hi = +strip.dataset.hi, f = (k - lo) / (hi - lo), tip = strip.querySelector(".strip-tip");
+  strip.querySelector(".strip-mark").style.left = `${f * 100}%`;
+  tip.textContent = fmtKHz(k); tip.hidden = false;
+  // Over the mark, but never past the strip's ends (it used to hang off the screen at the band's edges)
+  const w = tip.offsetWidth / 2, W = strip.querySelector(".strip-track").clientWidth;
+  tip.style.left = `${Math.max(w, Math.min(W - w, f * W))}px`;
 }
 function wireStrip(box) {
   let drag = null;
@@ -260,11 +268,26 @@ export function togglePin(k) {
 }
 export function renderRecent() {
   const pins = pinned(), list = store.get("rf919.recent", []).filter((k) => k > 0 && !pins.includes(k)), box = $("recent");
-  const chip = (k, pin) => `<button class="chip${pin ? " pinned" : ""}" type="button" data-look="${k}" aria-label="${pin ? "Pinned: " : "Look up "}${fmtKHz(k)}">` +
-    `${pin ? icon("pin") : ""}${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small></button>`;
+  // A pin says when it's on: a lamp on air, "20m" when it starts within the hour (find.js pinState)
+  const chip = (k, pin) => {
+    const st = pin && pinState(k), lamp = st && st.on ? `<span class="lit" aria-hidden="true"></span>` : "";
+    const soon = st && !st.on ? `<small class="pin-soon">${st.startsIn}m</small>` : "";
+    const say = st ? (st.on ? ", on air" : `, on in ${st.startsIn} min`) : "";
+    return `<button class="chip${pin ? " pinned" : ""}" type="button" data-look="${k}" aria-label="${pin ? "Pinned: " : "Look up "}${fmtKHz(k)}${say}">` +
+      `${pin ? icon("pin") : ""}${lamp}${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small>${soon}</button>`;
+  };
   box.hidden = !pins.length && !list.length;
-  box.innerHTML = pins.map((k) => chip(k, true)).join("") + list.map((k) => chip(k, false)).join("");
+  keepFocus(box, pins.map((k) => chip(k, true)).join("") + list.map((k) => chip(k, false)).join(""));
   $("x-hint").hidden = !box.hidden;  // nothing looked up yet: how to type a frequency
+}
+// Redraws a box of chips only when it changed, and gives the focus back to the same frequency (the pins' lamps and On
+// air now redraw as lookups come in, often right after Back has put the focus on one of them)
+export function keepFocus(box, html) {
+  if (box.dataset.html === html) return;
+  const k = box.contains(document.activeElement) ? document.activeElement.dataset.look : null;
+  box.innerHTML = box.dataset.html = html;
+  const el = k && box.querySelector(`[data-look="${k}"]`);
+  if (el) el.focus({preventScroll: true});
 }
 // The system's share sheet with a link to the lookup (#f=9580); else the link goes to the clipboard
 export async function shareFreq(k = view.k) {
@@ -284,14 +307,14 @@ export function renderBands() {
   $("bands").innerHTML = chips.length
     ? chips.map((c) => `<button class="chip" type="button" data-act="dial" data-to="${c.k}" aria-label="${c.label}: ${c.n} frequencies with data">${c.label}<small>${c.n}</small></button>`).join("")
     : examples.map(([k, t]) => `<button class="chip" type="button" data-look="${k}" aria-label="Look up ${fmtKHz(k)}">${t}</button>`).join("");
+  renderOnAir();
 }
 
 // What to do with the frequency, under its name: tune, keep, pin, share, then the filters (one row that scrolls
 // rather than wraps)
 export function actionsHtml(filters = "") {
   const k = view.k;
-  const tune = state.ok && k !== view.radioK
-    ? `<button class="small filled" type="button" data-act="tunehere" aria-label="Tune the radio to ${fmtKHz(k)}">Tune radio</button>` : "";
+  const tune = !state.ok || following() ? "" : tuneHtml(k);
   const band = bandFor(k), inList = band && mem.list.find((e) => e.band === band && e.kHz === k);
   const add = !band ? "" : inList ? `<button class="small" type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
     : `<button class="small" type="button" data-act="addmem">+ Memory</button>`;
@@ -304,6 +327,15 @@ export function actionsHtml(filters = "") {
     `<button class="small icon" type="button" data-act="share" aria-label="Share ${fmtKHz(k)}" title="Share a link to this lookup">${icon("share")}</button>`;
   return `<div class="d-actions" role="group" aria-label="Actions">${tune}${add}${here}${keep}` +
     `${filters ? `<span class="d-sep" aria-hidden="true"></span>${filters}` : ""}</div>`;
+}
+// Explore: where the radio is with this frequency. On it; on the way (the tune, then the radio's report of it,
+// which settles 500 ms later); else Tune radio (the switch is off, or the tune failed or landed elsewhere)
+function tuneHtml(k) {
+  const t = view.tuning && view.tuning.k === k ? view.tuning : null;
+  const busy = t && (t.state === "pending" || t.state === "tuning" || (t.state === "done" && view.pendingK === k && view.radioK !== k));
+  if (k === view.radioK && !busy) return `<span class="small tune-state on">${icon("check")}On the radio</span>`;
+  if (busy) return `<span class="small tune-state"><i class="tune-spin" aria-hidden="true"></i>Tuning…</span>`;
+  return `<button class="small filled" type="button" data-act="tunehere" aria-label="Tune the radio to ${fmtKHz(k)}">Tune radio</button>`;
 }
 // Filters for what the card and the lists show: by distance and by where shortwave is aimed
 function filtersHtml() {
@@ -458,11 +490,11 @@ export function stationTags(s, inGrid = false) {
     if (s.rxKHz && s.txKHz) tags.push(tag(fmtShift(s.rxKHz, s.txKHz)));
   }
   if (s.category === "amateur" && s.rxKHz && s.matchedOn && !s.matchedOn.includes("rx")) {
-    tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "amber"));
+    tags.push(tag(`Input · listen on ${fmtKHz(Math.round(s.rxKHz))}`, "accent"));
   }
   if (!inGrid && s.category === "atc") tags.push(tag("ATC"));
   if (!inGrid && s.isDMR) tags.push(tag(`DMR ${dmrText(s)}`.trim(), "cool"));
-  if (s.isEcholink) tags.push(tag("EchoLink", "amber"));
+  if (s.isEcholink) tags.push(tag("EchoLink", "accent"));
   const url = radiomapUrl(s.url);
   if (url) tags.push(`<a class="tag" href="${esc(url)}" target="_blank" rel="noopener">radiomap ↗</a>`);
   return tags.join("");
@@ -520,7 +552,8 @@ export function renderNearby() {
   const rows = loc ? view.near.filter((n) => !n.data || nearPasses(n.data)).slice(0, 6) : view.near;
   // Shortwave neighbours are filtered by where they're aimed, the rest by distance
   const head = !loc ? "Nearby" : `Nearby · ${bandFor(view.k) === "SW" ? `to ${myRegion()}` : radius ? `≤ ${radius} km` : "near me"}`;
-  box.innerHTML = `<h2 class="h"><span>${head}</span><span>${fol ? "tap to tune the radio" : "tap to look up"}</span></h2>` +
+  const hint = fol ? "tap to tune the radio" : state.ok && autoTuneOn() ? "tap to tune" : "tap to look up";
+  box.innerHTML = `<h2 class="h"><span>${head}</span><span>${hint}</span></h2>` +
     (rows.length ? `<ul class="list">${rows.map((n) => nearRow(n, fol, loc)).join("")}</ul>`
       : `<p class="of-msg">Nothing nearby within ${radius} km or aimed at ${esc(myRegion())}.</p>`);
 }
@@ -664,12 +697,13 @@ export function init() {
 
   $("search").addEventListener("submit", (e) => {
     e.preventDefault();
-    const k = parseFreqInput($("q").value);
-    if (k === null) { toast("Type a frequency: 9580 (kHz), or 9.58 / 146.73 (MHz)", 4000, true); return; }
-    $("q").value = ""; $("q").blur();
-    lookUp(k);
+    // A frequency, else the first station whose name matches (find.js)
+    const k = parseFreqInput($("q").value) ?? firstHit();
+    if (k === null) { toast("Type a frequency (9580, 9.58, 146.73) or a station's name", 4000, true); return; }
+    $("q").value = ""; $("q").blur(); renderResults();
+    openFrom($("q"), k);
   });
-  $("q-clear").addEventListener("click", () => { $("q").value = ""; $("q").focus(); });
+  $("q-clear").addEventListener("click", () => { $("q").value = ""; renderResults(); $("q").focus(); });
   renderRecent();
   document.addEventListener("change", (e) => {
     const t = e.target;
@@ -701,11 +735,12 @@ export function init() {
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-go], [data-look], [data-act]");
     if (!t) return;
-    if (t.dataset.go) goTo(+t.dataset.go);
-    else if (t.dataset.look) lookUp(+t.dataset.look);
+    if (t.dataset.go) goTo(+t.dataset.go, t);
+    else if (t.dataset.look) openFrom(t, +t.dataset.look);
     else if (t.dataset.act === "more") { view.all = true; renderStations(); }
-    else if (t.dataset.act === "dial") { if (t.dataset.to) lookUp(+t.dataset.to, {recent: false}); }
+    else if (t.dataset.act === "dial") { if (t.dataset.to) openFrom(t, +t.dataset.to, {recent: false}); }
     else if (t.dataset.act === "pin") togglePin(view.k);
+    else if (t.dataset.act === "logk") showLogFor(+t.dataset.k);
     else if (t.dataset.act === "share") shareFreq();
     else if (t.dataset.act === "sched") openSchedule();
     else if (t.dataset.act === "remind") toggleReminder(view.k, +t.dataset.at);
@@ -725,16 +760,18 @@ export function init() {
     const img = e.target;
     if (img instanceof HTMLImageElement && img.classList.contains("flag")) img.outerHTML = globeSvg(img.alt);
   }, true);
-  window.addEventListener("hashchange", route);
+  window.addEventListener("hashchange", () => route({animate: true}));
   // Tabs switch at once (no wait for hashchange) and still add a history entry, so Back returns to the previous tab
   $("tabbar").addEventListener("click", (e) => {
     const a = e.target.closest("[data-tab]");
     if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return;
     e.preventDefault();
+    // The small tab bar (scrolled down): a tap brings the whole bar back
+    if (document.body.classList.contains("bars-min")) { setBarsMin(false); return; }
     // Tap the open tab again: Explore's detail goes back to its home, otherwise back to the top
     if (a.dataset.tab === current) { if (current === "explore" && inDetail()) exploreBack(); else window.scrollTo({top: 0, behavior: "smooth"}); return; }
     try { history.pushState(null, "", `#${a.dataset.tab}`); } catch { /* sandboxed */ }
-    go(a.dataset.tab);
+    vt(() => go(a.dataset.tab), {dir: tabDir(a.dataset.tab)});
   });
   // Keep the on-air state, the "now" marker and the current slot moving
   setInterval(() => {
