@@ -30,6 +30,8 @@
   <symbol id="i-next" viewBox="0 0 24 24"><path d="m9.5 5.5 6.5 6.5-6.5 6.5"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="m12 3.6 2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 14.5V3.8M8 7.6l4-3.8 4 3.8M8.5 10.5H6v9.7h12v-9.7h-2.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-log" viewBox="0 0 24 24"><rect x="4.5" y="3.5" width="15" height="17" rx="2.5"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
 </svg>
 
@@ -69,6 +71,7 @@
               <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
               <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
             </div>
+            <div class="sig" id="sig" hidden></div>
             <p class="swipe-hint" id="swipe-hint">Swipe the frequency to step · flick to seek</p>
           </div>
           <div id="dossier" aria-live="polite"></div>
@@ -84,7 +87,7 @@
   <!-- Two screens: home (search, bands, Discover) and detail (one frequency, Back returns home) -->
   <section class="view" id="view-explore" data-view="explore" data-mode="home" aria-labelledby="t-explore" hidden>
     <header class="appbar topbar">
-      <button class="icon quiet bar-btn x-detail" type="button" id="x-back" aria-label="Back to Explore"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg></button>
+      <button class="quiet bar-btn x-detail" type="button" id="x-back" aria-label="Back to Explore"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg><span class="bar-back-label" aria-hidden="true">Explore</span></button>
       <span class="topbar-title" id="x-title" aria-hidden="true">Explore</span>
       <span class="topbar-end x-detail"><button class="icon quiet bar-btn" type="button" id="x-search" aria-label="Look up another frequency"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg></button></span>
     </header>
@@ -93,18 +96,20 @@
       <div class="x-find">
         <form class="search" id="search" role="search">
           <span class="search-field">
-            <input type="search" id="q" inputmode="decimal" enterkeyhint="search" autocomplete="off" spellcheck="false"
-                   placeholder="9580 · 9.58 · 146.73" aria-label="Look up a frequency, in kHz or in MHz with a dot">
+            <input type="search" id="q" inputmode="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
+                   placeholder="9580 · 9.58 · BBC" aria-label="Look up a frequency (in kHz, or MHz with a dot) or a station" aria-controls="q-results">
             <button class="search-clear" type="button" id="q-clear" aria-label="Clear">✕</button>
             <button class="search-go" type="submit" aria-label="Look up"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
           </span>
         </form>
+        <div class="q-results" id="q-results" hidden></div>
         <div class="chips recent" id="recent" aria-label="Pinned and recent lookups" hidden></div>
-        <p class="hint x-hint" id="x-hint">Type a frequency in kHz (9580) or in MHz with a dot (9.58, 146.73) to see who's on it.</p>
+        <p class="hint x-hint" id="x-hint">Type a frequency in kHz (9580) or in MHz with a dot (9.58, 146.73) to see who's on it, or a station's name.</p>
         <section class="shelf" aria-labelledby="g-bands">
           <h2 class="h" id="g-bands"><span>Browse a band</span><span>then step along it</span></h2>
           <div class="chips" id="bands"></div>
         </section>
+        <section class="shelf onair" id="onair" aria-labelledby="g-onair" hidden></section>
       </div>
     <section class="panel" id="discover" aria-labelledby="g-discover">
       <h2 class="h" id="g-discover"><span>Discover</span></h2>
@@ -155,6 +160,22 @@
     <p class="hint footnote">+ Memory, under a frequency in Radio or Explore, adds it to the list.</p>
   </section>
 
+  <!-- ======== Log: what the radio stayed on ======== -->
+  <section class="view" id="view-log" data-view="log" aria-labelledby="t-log" hidden>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Log</span><span class="topbar-end"><span class="clock" id="log-total"></span></span></header>
+    <h1 class="large-title" id="t-log" tabindex="-1">Log</h1>
+    <fieldset class="seg chips" id="log-filter" hidden><legend>Show</legend></fieldset>
+    <div class="log-list" id="log-list"></div>
+    <section class="group" id="log-export" aria-labelledby="g-logx" hidden>
+      <h2 id="g-logx">Export</h2>
+      <div class="item-actions">
+        <button type="button" data-log="csv">CSV</button>
+        <button type="button" data-log="adif" title="Amateur Data Interchange Format, for logbook programs">ADIF</button>
+      </div>
+    </section>
+    <p class="hint footnote">A frequency the radio stays on for 30 seconds is logged, with who was on air and the best RSSI and SNR. Times in UTC.</p>
+  </section>
+
   <!-- ======== More: connection, settings, tools ======== -->
   <section class="view" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
     <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">More</span></header>
@@ -172,6 +193,7 @@
     </section>
     <section class="panel group" aria-labelledby="g-radio">
       <h2 id="g-radio">Radio</h2>
+      <label class="item"><span class="label">Tune as you explore<small>Picking a frequency in Explore tunes the radio to it</small></span><input type="checkbox" role="switch" switch id="autotune"></label>
       <label class="item"><span class="label">Keep screen on<small>While this page is open</small></span><input type="checkbox" role="switch" switch id="wake"></label>
       <label class="item"><span class="label">Hold next key<small>The next key you tap is sent as a long press</small></span><input type="checkbox" role="switch" switch id="hold"></label>
       <div class="item"><span class="label">Radio clock<small>Set it to this phone's time</small></span><button class="small" type="button" id="settime">Sync</button></div>
@@ -235,8 +257,10 @@
   <a href="#radio" data-tab="radio"><svg class="ico" aria-hidden="true"><use href="#i-radio"/></svg>Radio</a>
   <a href="#explore" data-tab="explore"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg>Explore</a>
   <a href="#memories" data-tab="memories"><svg class="ico" aria-hidden="true"><use href="#i-memories"/></svg>Memories</a>
+  <a href="#log" data-tab="log"><svg class="ico" aria-hidden="true"><use href="#i-log"/></svg>Log</a>
   <a href="#more" data-tab="more"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg>More</a>
 </nav>
+<button class="tab-search" type="button" id="tab-search" aria-label="Search frequencies and stations" title="Search ( / )"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg></button>
 
 <!-- ======== the Remote: every key of the radio ======== -->
 <dialog class="sheet" id="remote" aria-labelledby="remote-title">

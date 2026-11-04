@@ -41,12 +41,13 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 const SURFACES = ["bg", "surface", "surface-2", "surface-3"];
 const PAIRS = [
   ...["text", "dim"].flatMap((t) => SURFACES.map((s) => [t, s, "bg"])),
-  ...["amber", "cool", "warn"].flatMap((t) => ["bg", "surface", "surface-2"].map((s) => [t, s, "bg"])),
+  ...["accent", "cool", "warn"].flatMap((t) => ["bg", "surface", "surface-2"].map((s) => [t, s, "bg"])),
   ["dim", "glass", "bg"], ["text", "glass", "bg"],          // the floating bars, over the page
-  ["amber", "amber-soft", "surface"],                       // chips, tonal buttons, the tab pill
+  ["text", "glass-strong", "bg"], ["dim", "glass-strong", "bg"], ["accent", "glass", "bg"],  // the snackbar, the selected tab
+  ["accent", "accent-soft", "surface"],                       // chips, tonal buttons, the tab pill
   ["cool", "cool-soft", "surface"],
   ["warn", "warn-soft", "surface"], ["on-warn-soft", "warn-soft", "surface"],
-  ["on-amber", "amber", "surface"],                         // filled buttons
+  ["on-accent", "accent", "surface"],                         // filled buttons
   ["on-inverse", "inverse", "bg"],                          // the snackbar
   ["freq-ink", "surface", "bg"],
 ];

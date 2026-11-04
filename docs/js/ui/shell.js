@@ -1,11 +1,13 @@
 import {BAND_CODES, hex, pad2, splitFreq} from "../protocol.js";
 import {fmtKHz, span, toKHz} from "../radiomap.js";
-import {memKey} from "../memories.js";
+import {MemoryRun, bandFor, bandUnit, memKey} from "../memories.js";
+import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
 import {BleLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
-import {addRecent, following, loadIndex, mem, radioFreq, renderView, show, store, view} from "./radio.js";
+import {addRecent, following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
+import {logOff, logSignal, renderLog} from "./log.js";
 import {link, pressKey, send} from "./more.js";
 
 // ---- UI ----
@@ -23,7 +25,7 @@ export function setStatus(kind, text) {
   $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
   $("connect").disabled = kind === "ok" || kind === "busy" || !navigator.bluetooth;
   log({kind: "link", text: "● " + text, raw: new Uint8Array()});
-  if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); }
+  if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); logOff(); }
   renderView();
   renderMem();
 }
@@ -95,6 +97,7 @@ export const handlers = {
     const base = d.name.replace(/_label$/, "");
     if (["demod", "bw", "snr", "rssi"].includes(base)) {
       d.name.endsWith("_label") ? cell(base, v) : cell(base, undefined, v);
+      if (d.name === "snr" || d.name === "rssi") logSignal();
     } else if (d.name === "field9") cell("field9", v);
     else if (d.name === "field10") cell("field9", undefined, v);
     else if (d.name === "field11" || d.name === "field12") $(d.name).textContent = d.value;
@@ -116,7 +119,7 @@ export const handlers = {
   button_blink(d) { setBlink(document.querySelector(`[data-fn="${d.button}"]`), d.blink); },
   mode(d) { state.mode = d.mode; renderStat(); },
   battery(d) {
-    const color = ["var(--warn)", "var(--amber)", "var(--cool)", "var(--cool)"][Math.min(d.level, 3)];
+    const color = ["var(--warn)", "var(--accent)", "var(--cool)", "var(--cool)"][Math.min(d.level, 3)];
     state.battery = `<span style="color:${color}">${"▮".repeat(d.level)}${"▯".repeat(Math.max(0, 3 - d.level))}</span>${d.charging ? " ⚡" : ""}`;
     renderStat();
   },
@@ -140,8 +143,53 @@ export function statusLine() {
   $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
 }
 
+// ---- View Transitions: tabs slide, and the frequency tapped on Explore's home grows into the dial (and back) ----
+// Only what the user starts (a tap, Back) goes through them: their DOM update runs a frame later, and code that calls
+// go() or lookUp() expects the page to have changed when they return. Without them (or with reduced motion) nothing
+// slides; html.has-vt turns the views' own keyframes off where they exist
+const canVT = () => !!document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+let vtRun = null;
+// dir: "fwd" | "back" (which way the page slides); named: [element, name] pairs to morph, named for the old picture
+// (their names are cleared in the update, so the new picture can give the name to another element)
+export function vt(update, {dir = "fwd", named = [], cls = ""} = {}) {
+  if (!canVT()) { update(); return; }
+  const root = document.documentElement;
+  root.dataset.vtDir = dir;
+  for (const [el, n] of named) el.style.viewTransitionName = n;
+  root.classList.add("vt-run");  // until it's over: taps land on the transition's picture, not the page
+  if (cls) root.classList.add(cls);
+  const t = vtRun = document.startViewTransition(() => {
+    for (const [el] of named) el.style.viewTransitionName = "";
+    update();
+  });
+  t.finished.finally(() => {
+    if (vtRun !== t) return;
+    vtRun = null;
+    root.classList.remove("vt-run", "vt-freq");
+    document.querySelectorAll("[data-vt-name]").forEach((el) => { el.style.viewTransitionName = ""; delete el.dataset.vtName; });
+  });
+}
+// Explore's home and the frequency side by side (a tablet, a desktop): nothing slides or morphs, the list keeps its place
+export const twoPane = () => matchMedia("(min-width: 840px) and (min-height: 520px)").matches;
+// What opened a frequency on Explore's home: a chip, a band, a Discover or Nearby row
+const opener = (k) => document.querySelector(`#x-home :is([data-look="${k}"], [data-to="${k}"], [data-go="${k}"])`);
+// A tap on Explore's home: the tapped thing grows into the dial
+export function openFrom(el, k, opts) {
+  if (!el || current !== "explore" || inDetail() || !el.closest("#x-home") || twoPane()) { lookUp(k, opts); return; }
+  vt(() => lookUp(k, opts), {named: [[el, "freq"]], cls: "vt-freq"});
+}
+// Back from the detail: the dial shrinks into what opened it
+function closeToHome() {
+  if (twoPane()) { exploreHome(); return; }
+  vt(() => {
+    exploreHome();
+    const from = openerK != null && opener(openerK);
+    if (from) { from.style.viewTransitionName = "freq"; from.dataset.vtName = ""; }
+  }, {dir: "back", cls: "vt-freq"});
+}
+
 // ---- views: Radio follows the dial, Explore looks up any frequency; both show the same info panels ----
-export const VIEWS = ["radio", "explore", "memories", "more"];
+export const VIEWS = ["radio", "explore", "memories", "log", "more"];
 export let current = null;
 const scrollMem = {};  // each tab comes back where it was left
 export function go(name, {focus = true} = {}) {
@@ -157,6 +205,7 @@ export function go(name, {focus = true} = {}) {
   if (name === "radio" && !view.follow) followRadio();
   if (name === "explore" && view.follow) exploreMode();
   if (name === "explore") loadIndex();  // the dial, the band strip and the band chips need it
+  if (name === "log") renderLog();
   // The new view slides in from the side its tab is on; the tab bar's pill slides to it
   $("app").dataset.dir = prev && VIEWS.indexOf(name) < VIEWS.indexOf(prev) ? "back" : "fwd";
   $("tabbar").style.setProperty("--i", VIEWS.indexOf(name));
@@ -174,7 +223,29 @@ export function go(name, {focus = true} = {}) {
     window.scrollTo(0, scrollMem[name] || 0);
     if (focus) { if (name === "explore" && inDetail()) focusDetail(); else $(`t-${name}`).focus({preventScroll: true}); }
   }
+  setBarsMin(false);
   barState();
+}
+// Search, from anywhere (the glass button by the tab bar, the / key): Explore's home, in its search field
+export function focusSearch() {
+  if (current === "explore") { if (inDetail()) exploreBack({search: true}); else $("q").focus(); return; }
+  try { history.pushState(null, "", "#explore"); } catch { /* sandboxed */ }
+  vt(() => { go("explore", {focus: false}); if (inDetail()) exploreHome(); $("q").focus(); }, {dir: tabDir("explore")});
+}
+// ---- scrolled down, the tab bar shrinks to the current tab and the mini player rides beside it (iOS 26) ----
+// Not on Radio (its controls dock stays), with a rail, or under a sheet; back at the top, or scrolled up a little, it
+// comes back. acc: how far the page has moved the same way since it last turned
+let lastY = 0, acc = 0;
+const canShrink = () => current !== "radio" && !matchMedia(SIDE_SHEETS).matches && !document.body.classList.contains("sheet-open") &&
+  document.documentElement.scrollHeight - innerHeight > 200;  // a page that barely scrolls keeps its bars
+export function setBarsMin(on) { document.body.classList.toggle("bars-min", !!on); }
+function barsOnScroll() {
+  const y = window.scrollY, dy = y - lastY;
+  lastY = y;
+  if (!canShrink() || y < 80) { acc = 0; setBarsMin(false); return; }
+  acc = Math.sign(dy) === Math.sign(acc) ? acc + dy : dy;
+  if (acc > 12) setBarsMin(true);
+  else if (acc < -12) setBarsMin(false);
 }
 // The top bar turns to glass once the page scrolls under it; a large title hands over to the bar's small one
 export function barState() {
@@ -210,7 +281,7 @@ export const inDetail = () => $("view-explore").dataset.mode === "detail";
 function exploreScreen(detail) {
   const v = $("view-explore"), mode = detail ? "detail" : "home";
   if (v.dataset.mode === mode) return false;
-  if (current === "explore") {
+  if (current === "explore" && !twoPane()) {
     if (detail) homeScroll = window.scrollY;
     $("app").dataset.dir = detail ? "fwd" : "back";
     v.style.animation = "none"; void v.offsetWidth; v.style.animation = "";
@@ -220,8 +291,8 @@ function exploreScreen(detail) {
 }
 const focusDetail = () => { const f = document.querySelector("#dossier .d-freq"); if (f) f.focus({preventScroll: true}); };
 // A search, a shared link, a band, a Discover or Nearby row, the dial. Stepping along the dial doesn't fill Recent.
-// push: a history entry (default: when coming from home or another tab)
-export function lookUp(k, {recent = true, push} = {}) {
+// push: a history entry (default: when coming from home or another tab). tune: the radio follows (see autoTune)
+export function lookUp(k, {recent = true, push, tune = true} = {}) {
   if (recent) addRecent(k);
   const fromHome = !(current === "explore" && inDetail());
   if (fromHome) openerK = k;
@@ -231,9 +302,10 @@ export function lookUp(k, {recent = true, push} = {}) {
   const entering = exploreScreen(true);
   if (push ?? fromHome) { try { history.pushState({detail: true}, "", `#f=${k}`); } catch { /* sandboxed */ } }
   else setHash(k);
+  if (tune) autoTune(k, {undo: fromHome});
   if (k !== view.k) show(k);
   else renderView();
-  if (entering) { window.scrollTo(0, 0); focusDetail(); barState(); }
+  if (entering) { if (!twoPane()) window.scrollTo(0, 0); focusDetail(); barState(); }
 }
 // Back to Explore's home: the detail's entry if this page added it, else in place (a shared link opened straight in)
 // search: land in the search field (the bar's search button)
@@ -250,32 +322,97 @@ export function exploreHome() {
   if (current !== "explore") return;
   setHash("explore");
   if (changed) {
-    window.scrollTo(0, homeScroll);
+    if (!twoPane()) window.scrollTo(0, homeScroll);
     // The focus goes back to what opened the frequency (a chip, a row), else to the title
-    const from = openerK != null && document.querySelector(`#x-home :is([data-look="${openerK}"], [data-to="${openerK}"], [data-go="${openerK}"])`);
+    const from = openerK != null && opener(openerK);
     (toSearch ? $("q") : from || $("t-explore")).focus({preventScroll: true});
   }
   toSearch = false;
   barState();
 }
-export function route() {
+// animate: Back/Forward (a hashchange); the first route at start-up doesn't slide
+export function route({animate = false} = {}) {
   const k = fromHash(), h = location.hash.slice(1);
-  if (k) lookUp(k, {push: false});
-  else if (h === "explore" && current === "explore" && inDetail()) exploreHome();
-  else go(VIEWS.includes(h) ? h : store.get("rf919.view", "radio"), {focus: false});
+  if (k) lookUp(k, {push: false, tune: false});  // a shared link or Back/Forward doesn't move the radio
+  else if (h === "explore" && current === "explore" && inDetail()) { if (animate) closeToHome(); else exploreHome(); }
+  else {
+    const to = VIEWS.includes(h) ? h : store.get("rf919.view", "radio");
+    if (animate && current && to !== current) vt(() => go(to, {focus: false}), {dir: tabDir(to)});
+    else go(to, {focus: false});
+  }
 }
+export const tabDir = (to) => current && VIEWS.indexOf(to) < VIEWS.indexOf(current) ? "back" : "fwd";
 // Nearby rows "go there": tune the radio while following it, otherwise just look
-export function goTo(k) { if (following()) tuneKHz(k); else lookUp(k); }
+export function goTo(k, el = null) { if (following()) tuneKHz(k); else openFrom(el, k); }
+// Tune radio on the card: with Tune as you explore it stays on Explore (a retry); without, it goes to Radio, and
+// Back returns to the frequency
 export function tuneHere() {
   tuneKHz(view.k);
+  if (autoTuneOn()) return;
   view.exploreK = view.k;
-  go("radio");
+  try { history.pushState(null, "", "#radio"); } catch { /* sandboxed */ }
+  vt(() => go("radio"), {dir: "back"});
 }
-// Type the frequency on the radio's keypad, in the unit its current band shows
+
+// ---- Tuning: Explore tunes the radio to what's picked; Tune, Nearby on Radio and reminders tune at once ----
+export const autoTuneOn = () => store.get("rf919.autotune", true);
+export function setAutoTune(on) {
+  store.set("rf919.autotune", on);
+  if (!on) { tuner.cancel(); view.tuning = null; }
+  $("autotune").checked = on;
+  renderView();
+}
+// Switch band if needed (10 with no frequency), then type the frequency on the keypad, in the unit the band shows
+async function tuneTo(k) {
+  if (!link || !state.ok) throw new Error("not connected");
+  if (mem.run || (mem.test && mem.test.busy)) throw new Error("the radio is busy with memories");
+  const band = bandFor(k);
+  if (!band) throw new Error(`${fmtKHz(k)} is outside the radio's bands`);
+  if (waiters.freq && toKHz(waiters.freq) === k) return waiters.freq;
+  await new MemoryRun(link, waiters).toBand(band);
+  const unit = waiters.freq && waiters.freq.band === band ? waiters.freq.unit : bandUnit(band);
+  return link.typeFreq(unit === "MHz" ? String(k / 1000) : String(k));
+}
+let manualK = null;  // a tap on Tune: its failure gets a snackbar wherever the page is
+// The pick being tuned from Explore: prev is where the radio was before a run of picks (a swipe along the dial is one
+// run); undo: a pick from home (a search, a chip, a row) gets "Back to …" once it's tuned
+let pick = null;
+const tuner = new Tuner(tuneTo, {onState(t) {
+  view.tuning = t;
+  if (t.state === "failed") {
+    log({kind: "link", text: `tune ${fmtKHz(t.k)}: ${t.err && t.err.message || t.err}`});
+    if (t.k === manualK || (current === "explore" && view.k === t.k)) toast(`Couldn't tune ${fmtKHz(t.k)}: ${t.err && t.err.message || t.err}`, 4000, true);
+  }
+  if (t.state === "done" && t.k !== manualK && pick && pick.k === t.k) {
+    const {prev, undo} = pick;
+    pick = null;
+    if (!store.get("rf919.autotune.hinted", false)) {
+      store.set("rf919.autotune.hinted", true);
+      toast("Explore tunes the radio to what you pick", 6000, false, {label: "Turn off", run: () => setAutoTune(false)});
+    } else if (undo && prev != null && prev !== t.k) {
+      const name = view.k === t.k && view.data ? nameOf(view.data) : "";
+      toast(`Tuned ${fmtKHz(t.k)}${name ? ` · ${name}` : ""}`, 5000, false, {label: `Back to ${fmtKHz(prev)}`, run: () => tuneKHz(prev)});
+    }
+  }
+  if (t.state === "failed" && pick && pick.k === t.k) pick = null;
+  if (t.state === "done" || t.state === "failed") { if (t.k === manualK) manualK = null; }
+  if (current === "explore" || current === "radio") renderDossier();
+}});
+// Explore's picks: the radio follows once the dial settles, unless it's off, busy, or already there
+export function autoTune(k, {undo = false} = {}) {
+  if (!autoTuneOn() || !state.ok || !link || mem.run || (mem.test && mem.test.busy) || !bandFor(k)) return;
+  if (k === view.radioK && !tuner.busy) { tuner.cancel(); view.tuning = null; pick = null; return; }
+  const prev = pick && (tuner.busy || tuner.want !== null) ? pick.prev : view.radioK;
+  pick = {k, prev, undo};
+  tuner.request(k);
+}
 export function tuneKHz(k) {
-  const text = view.unit === "MHz" ? String(k / 1000) : String(k);
+  if (!link || !state.ok) { toast("Not connected — tap Connect", 3500, true); return; }
+  if (mem.run || (mem.test && mem.test.busy)) { toast("The radio is busy with memories", 3500, true); return; }
+  manualK = k;
+  pick = null;
   toast(`Tuning ${fmtKHz(k)}…`, 2000);
-  send(() => link ? link.typeFreq(text) : Promise.reject(new Error("not connected")));
+  tuner.request(k, {now: true});
 }
 
 // A number: the frequency looked up (#f=9580); a string: a view (#memories)
@@ -360,8 +497,22 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
 // What ran at load in the single-script page, in the same order; app.js calls it once every module is loaded
 export function init() {
   handlers.entry = handlers.freq;
+  if (document.startViewTransition) document.documentElement.classList.add("has-vt");
   let barFrame = 0;
-  window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(barState); }, {passive: true});
+  window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(() => { barState(); barsOnScroll(); }); }, {passive: true});
+  $("tab-search").addEventListener("click", focusSearch);
+  $("tabbar").addEventListener("focusin", () => setBarsMin(false));  // the keyboard finds the whole bar
+  // Glass that answers the finger: where it's pressed, for the light in app.css
+  const GLASS_I = ".tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button, .oa-card";
+  const lightAt = (e) => {
+    const el = e.target.closest && e.target.closest(GLASS_I);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--px", `${Math.round(e.clientX - r.left)}px`);
+    el.style.setProperty("--py", `${Math.round(e.clientY - r.top)}px`);
+  };
+  document.addEventListener("pointerdown", lightAt, {passive: true});
+  document.addEventListener("pointermove", (e) => { if (e.buttons) lightAt(e); }, {passive: true});
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
   for (const d of [$("remote"), $("tools")]) d.addEventListener("close", () => document.body.classList.remove("sheet-open"));
   $("tools").addEventListener("click", (e) => { if (e.target === $("tools") || e.target.closest("[data-close]")) $("tools").close(); });

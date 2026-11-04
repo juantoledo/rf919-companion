@@ -3,7 +3,7 @@ import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, errText, linkOpts, sleep} from "../link.js";
-import {$, ask, esc, exploreHome, go, handlers, inDetail, log, openRemote, openTool, route, setStatus, state, toast} from "./shell.js";
+import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, route, setAutoTune, setStatus, state, toast} from "./shell.js";
 import {mem, nearPasses, renderView, show, store, view} from "./radio.js";
 import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
@@ -273,7 +273,7 @@ export async function startDemo() {
 }
 
 // Theme: "system" follows the phone; "light" or "dark" sets <html data-theme> (index.html applies it before the page draws)
-const THEME_BG = {light: "#eef2f6", dark: "#070d15"};  // --bg in tokens.css, for the browser's own bars
+const THEME_BG = {light: "#eef2f6", dark: "#070d15"};  // keep in step with --bg  // --bg in tokens.css, for the browser's own bars
 export function applyTheme(t) {
   const root = document.documentElement;
   if (t === "light" || t === "dark") root.dataset.theme = t; else delete root.dataset.theme;
@@ -398,6 +398,8 @@ export function init() {
   $("connect").addEventListener("click", startBle);
   $("disconnect").addEventListener("click", () => link && link.close(true));
   $("demo").addEventListener("click", startDemo);
+  $("autotune").checked = autoTuneOn();
+  $("autotune").addEventListener("change", (e) => setAutoTune(e.target.checked));
   $("wake").addEventListener("change", () => setWake($("wake").checked));
   document.addEventListener("visibilitychange", () => { if (!document.hidden && $("wake").checked) setWake(true); });
   if (!("wakeLock" in navigator)) $("wake").disabled = true;
@@ -406,7 +408,7 @@ export function init() {
     if (e.target.matches("button") && (e.key === "Enter" || e.key === " ")) return;
     if (document.querySelector("dialog.ask[open]")) return;
     // The search lives on Explore's home
-    const search = () => { go("explore"); if (inDetail()) exploreHome(); $("q").focus(); };
+    const search = focusSearch;
     if (e.key === "/") { e.preventDefault(); search(); return; }
     if (e.key === "r" && !$("remote").open) { e.preventDefault(); openRemote(); return; }
     if (!state.ok && /^[0-9.]$/.test(e.key)) { e.preventDefault(); search(); $("q").value += e.key; return; }
@@ -427,6 +429,6 @@ export function init() {
 
   // The page's state and a few helpers, on window as the single-script page had them: for the browser checks
   // and for poking around in the console. link is a getter, since the page replaces it on Connect/Demo
-  Object.assign(window, {state, view, mem, waiters, capture, frame, toKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask});
+  Object.assign(window, {state, view, mem, waiters, capture, frame, toKHz, fmtKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask});
   Object.defineProperty(window, "link", {get: () => link, configurable: true});
 }

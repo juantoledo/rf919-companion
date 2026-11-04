@@ -11,11 +11,16 @@ const SIZES = [[360, 780, true], [412, 915, true], [780, 360, true], [915, 412, 
 const report = {};
 for (const scheme of ["dark", "light"]) for (const [w, h, touch] of SIZES) {
   const ctx = await b.newContext({viewport: {width: w, height: h}, colorScheme: scheme, deviceScaleFactor: touch ? 2 : 1, hasTouch: touch, isMobile: touch});
+  // A log to lay out: two saved entries (one starred), and the Demo's own once the radio has stayed a moment
+  await ctx.addInitScript(() => { if (!localStorage.getItem("rf919.log")) localStorage.setItem("rf919.log", JSON.stringify([
+    {id: "a", k: 9580, band: "SW", mode: "AM", start: Date.now() - 864e5, end: Date.now() - 862e5, rssi: 30, snr: 11, station: "Radio Romania International", flag: "ro", star: true},
+    {id: "b", k: 101300, band: "FM", mode: "FM", start: Date.now() - 3e6, end: Date.now() - 2e6, rssi: 52, snr: 30, station: "Radio Bío-Bío", flag: "cl", star: false}])); });
   const page = await ctx.newPage();
   await page.goto(`${BASE}?demo#f=11620`);
   await page.waitForFunction(() => state.ok && waiters.freq && view.data, null, {timeout: 20000});
   await page.waitForTimeout(1500);
-  for (const t of ["radio", "explore-home", "explore", "memories", "more", "remote", "tools"]) {
+  await page.evaluate(() => { logbook.dwellMs = 100; });
+  for (const t of ["radio", "explore-home", "explore", "memories", "log", "more", "remote", "tools"]) {
     if (t === "remote") await page.evaluate(() => {
       document.getElementById("remote").showModal();
       document.querySelectorAll("#remote [data-pane]").forEach((p) => { p.hidden = false; });
