@@ -147,6 +147,16 @@ main { view-transition-name: page; }
 ::view-transition-new(page) { animation: vt-in var(--med) var(--ease) both; }
 :root[data-vt-dir="back"]::view-transition-old(page) { animation-name: vt-out-back; }
 :root[data-vt-dir="back"]::view-transition-new(page) { animation-name: vt-in-back; }
+/* The floating bars stay put while the page slides: each gets its own layer (else they're part of the root picture,
+   drawn under the sliding page, and blink out and back), shown live (the tab pill slides in place, no second ghost
+   pill fading out) and above the page */
+.tabbar { view-transition-name: tabbar; }
+.tab-search { view-transition-name: tab-search; }
+.radiobar { view-transition-name: radiobar; }
+.dock { view-transition-name: dock; }
+::view-transition-group(tabbar), ::view-transition-group(tab-search), ::view-transition-group(radiobar), ::view-transition-group(dock) { z-index: 2; animation: none; }
+::view-transition-old(tabbar), ::view-transition-old(tab-search), ::view-transition-old(radiobar), ::view-transition-old(dock) { display: none; }
+::view-transition-new(tabbar), ::view-transition-new(tab-search), ::view-transition-new(radiobar), ::view-transition-new(dock) { animation: none; }
 html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: freq; }
 ::view-transition-group(freq) { z-index: 1; animation-duration: var(--slow); animation-timing-function: var(--ease-sheet); }
 ::view-transition-old(freq), ::view-transition-new(freq) { height: 100%; animation-duration: var(--slow); }
