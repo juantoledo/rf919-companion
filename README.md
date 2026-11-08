@@ -39,7 +39,7 @@ On every tab but Radio, a **mini player** above the tabs keeps the radio at hand
 what's on the air there, and ◀ ▶. Tap it (or swipe it up) for the **Remote**, with every key of the
 radio. The Remote opens half height on its keys; **Keypad** and **Tune** open it full height. On a
 wide screen or sideways it comes in from the side. With no radio connected it shrinks to a small
-**Connect radio · Demo** pill at the tab bar's edge.
+**Connect radio · No radio** pill at the tab bar's edge.
 
 **Gestures** (each also has a button): swipe a frequency **left to step up, right to step down**,
 and flick it further to seek (in Explore, to the next frequency with data, or ten along); swipe the mini player **up** to open the Remote; drag a sheet's top
@@ -110,8 +110,15 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 - **More › Tools › Key capture** shows what the radio reports when you press one of *its own*
   buttons: a guess at the button, what changed, and the raw messages. It's informational and sends
   nothing. The RF919 doesn't send key codes, only what changed (frequency, channel mode, a setting…).
-- **Demo** (on the Radio tab, the mini player or More) shows the radio side with recorded data, no
-  radio needed. It also pretends to be a radio for what you send, so Memories can be tried without one.
+- **No radio** (on the Radio tab, the mini player, the Log or More › Connection) runs a virtual
+  RF919, so the whole app can be used without one. It answers every key as the radio does: ◀ ▶ step
+  by the band's step and hold to seek (to the next frequency radiomap.cl knows), Scan, Band, the
+  keypad, volume, squelch, demodulation, bandwidth, step, power. Its signal (RSSI, SNR) comes from
+  what's on air there now, by the EiBi schedules, so the meter and the **Log** behave as with a
+  radio. **Memories** store into it and read back from it. It starts where you left it, memories
+  included, and comes back on the next visit until you **Disconnect** or connect a real radio. Its
+  lamp is a ring, its Log entries are tagged *No radio*, and what it stores is recorded apart from
+  the real radio's memories.
 - **More › Connection › Disconnect** forgets the radio, so the next **Connect** lets you pick a
   different one.
 
@@ -184,5 +191,5 @@ frequency on the radio's keypad (direct tune) is untested so far. See
 [PROTOCOL.md](PROTOCOL.md) for what's confirmed and what's inferred.
 
 `samples/` holds packets recorded from the radio, one `<seconds> <hex bytes>` line per packet.
-`replay_demo.txt` (the source of the web app's Demo mode) also contains a few packets
+`replay_demo.txt` (the source of the recorded session the browser checks replay, `?demo`) also contains a few packets
 rebuilt from decoded values; its header explains which.

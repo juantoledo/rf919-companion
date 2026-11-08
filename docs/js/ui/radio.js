@@ -1,13 +1,13 @@
 import {pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
-import {SW_METERS, addToList, bandChips, bandFor, nearestStations, stripRange} from "../memories.js";
+import {SW_METERS, addToList, bandChips, bandFor, bandRange, nearestStations, stripRange} from "../memories.js";
 import {errText} from "../link.js";
 import {$, autoTuneOn, bandIco, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {swipeTune} from "./gestures.js";
 import {heardHtml, logFreq, showLogFor} from "./log.js";
 import {firstHit, indexVersion, pinState, renderOnAir, renderResults} from "./find.js";
-import {startBle, startDemo} from "./more.js";
+import {startBle, startNoRadio} from "./more.js";
 
 // ---- What's on a frequency (radiomap.cl) ----
 // Per-viewer conveniences only; the page works the same when storage is unavailable
@@ -18,7 +18,7 @@ export const store = {
 export const rm = new RadioMap();
 // Memories: the list to store, this app's record of what it stored per band:channel, and the running job
 export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e) => e && e.band && e.kHz > 0)).list,
-  record: store.get("rf919.memories", {}), run: null, pos: -1, step: "", t0: 0, from: 0, fail: null, check: null,
+  recordKey: "rf919.memories", record: store.get("rf919.memories", {}), run: null, pos: -1, step: "", t0: 0, from: 0, fail: null, check: null,
   job: null, picks: {sw: null, near: null}, test: null};
 // radioK: where the radio is; k: what the page shows; follow: k tracks the radio (a search pins k instead).
 // near: nearby frequencies with their lookups
@@ -73,7 +73,21 @@ function nameRadio(k) {
   rm.lookup(k).then((d) => { if (view.radioK === k) { view.radioName = nameOf(d); renderMini(); } }, () => {});
 }
 
+// Radio: a station change redraws the card and the lists under it from empty (Also on and Nearby go, the card turns
+// to a skeleton) before they fill again. The page got shorter than the screen for a moment, which scrolled it to the
+// top and jolted the bars; the info keeps its height until Nearby has its rows (or 2.5 s at most)
+let holdT = 0;
+function holdHeight() {
+  const info = $("info");
+  clearTimeout(holdT);
+  if (!following()) { info.style.minHeight = ""; return; }
+  info.style.minHeight = `${Math.max(info.offsetHeight, parseFloat(info.style.minHeight) || 0)}px`;
+  holdT = setTimeout(releaseHeight, 2500);
+}
+function releaseHeight() { clearTimeout(holdT); $("info").style.minHeight = ""; }
+
 export async function show(k) {
+  holdHeight();
   Object.assign(view, {k, data: null, err: null, near: [], all: false, showAll: false});
   renderView();
   try {
@@ -88,6 +102,33 @@ export async function show(k) {
   }
   renderView();
   loadNearby(k);
+}
+
+// ---- No radio: what the virtual radio (virtual.js) hears, from radiomap.cl ----
+// airSeek: the next frequency with data in the band (wrapping); null until the index is in
+export function airSeek(band, k, dir) {
+  const r = bandRange(band);
+  if (!view.idx) { loadIndex(); return null; }
+  const fs = r ? view.idx.freqs.filter((f) => f >= r[1] && f <= r[2]) : [];
+  if (!fs.length) return null;
+  return stepKnown(fs, k, dir) ?? (dir > 0 ? fs[0] : fs.at(-1));
+}
+// airSignal: 0..1. Nothing known there: noise. Shortwave: strong while a broadcast is on air, faint between them.
+// Anything else known: steady, a little different per frequency. Lookups are fetched once and kept (heard)
+const heard = new Map();
+let known = null, knownOf = null;
+export function airSignal(k) {
+  if (!view.idx) { loadIndex(); return .04; }
+  if (knownOf !== view.idx) { known = new Set(view.idx.freqs); knownOf = view.idx; }
+  if (!known.has(k)) return .04;
+  if (!heard.has(k)) {
+    if (heard.size >= 300) heard.delete(heard.keys().next().value);
+    heard.set(k, null);
+    rm.lookup(k).then((d) => heard.set(k, d), () => heard.delete(k));
+  }
+  const d = heard.get(k);
+  if (d && d.shortwave && d.shortwave.length) return swOnAir([[k, d]]).length ? .85 : .12;
+  return .55 + (k % 7) / 20;
 }
 
 // The list of kHz with data, for the dial, the band strip, the band chips and Discover (Nearby loads it too)
@@ -113,11 +154,12 @@ export async function loadNearby(k) {
     // Filtering by location hides some neighbours, so look at more of them
     const near = view.near = nearby(idx.freqs, k, located() ? 14 : 6).map((f) => ({k: f, data: null}));
     renderNearby();
+    releaseHeight();  // the lists have their rows (loading ones hold their height too)
     await Promise.all(near.map(async (n) => {
       try { n.data = await rm.lookup(n.k); } catch { n.data = EMPTY_FREQ; }
       if (view.near === near) renderNearby();
     }));
-  } catch { /* nearby is optional */ }
+  } catch { releaseHeight(); /* nearby is optional */ }
 }
 
 // ---- rendering ----
@@ -754,7 +796,7 @@ export function init() {
     else if (t.dataset.act === "addmem") addMem([{band: bandFor(view.k), kHz: view.k, ch: null, name: dossierName()}]);
     else if (t.dataset.act === "storehere") storeHere();
     else if (t.dataset.act === "connect") startBle();
-    else if (t.dataset.act === "demo") startDemo();
+    else if (t.dataset.act === "noradio") startNoRadio();
   });
   // A flag the CDN can't serve becomes the globe
   document.addEventListener("error", (e) => {

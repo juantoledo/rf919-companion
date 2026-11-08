@@ -181,7 +181,7 @@ export async function typeEntry(link, w, text, cfg = MEMO_CFG, exact = true) {
   return ev.data;
 }
 
-// Stores and reads back memories through a link (BleLink or ReplayLink). note(text) marks each step in the log
+// Stores and reads back memories through a link (BleLink, VirtualLink or ReplayLink). note(text) marks each step in the log
 export class MemoryRun {
   constructor(link, waiters, {note = () => {}, cfg = MEMO_CFG} = {}) {
     Object.assign(this, {link, w: waiters, note, cfg, stopped: false, reason: ""});
@@ -389,7 +389,7 @@ export function nearestStations(pairs, {band, kind = "all", pos = null, radius =
   return [...best.values()].sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.k - b.k);
 }
 
-// The demo's pretend radio: answers tune (10) and key (0C) frames the way the store sequence expects,
+// The pretend radio behind the tests' replay, and the base of No radio's VirtualRadio (virtual.js): answers tune (10) and key (0C) frames the way the store sequence expects,
 // with 8 banks of MAX_CH channels. emit(frame) gets the radio's replies as raw frames
 export class RadioSim {
   constructor(emit) {

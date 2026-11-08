@@ -30,7 +30,7 @@ body {
 }
 body.with-radiobar { --radiobar-h: 72px; }
 /* the Radio tab's controls take the same slot above the tabs (the two never show together) */
-body.on-radio:has(#radio-controls:not([hidden])) { --radiobar-h: 72px; }
+body.on-radio:has(#radio-controls:not([hidden])) { --radiobar-h: 60px; }  /* the dock (52) and the gap */
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
 a { color: var(--accent); text-underline-offset: 3px; }
@@ -187,8 +187,8 @@ html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: f
 .lamp.ok { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
 .lamp.busy { background: var(--cool); box-shadow: 0 0 8px var(--cool-line); animation: blink .5s steps(2, jump-none) infinite; }
 .lamp.cool { background: var(--cool); box-shadow: 0 0 8px var(--cool-line); }
-.banner { display: grid; gap: 3px; padding: var(--s3); border: 1px solid var(--warn-line); border-left-width: 3px; border-radius: var(--r2); background: var(--warn-soft); font-size: var(--fs-small); }
-.banner b { font-weight: 600; color: var(--warn); }
+/* No radio: the virtual radio's lamp is a ring, so it never reads as a radio connected */
+.lamp.ok.virtual { background: transparent; box-shadow: inset 0 0 0 2px var(--accent); }
 
 /* ---- floating bars: Liquid Glass capsules over the content ----
    The glass: translucent, blurring and saturating what's behind; a lit rim, a soft shadow, and a sheen across its
@@ -246,7 +246,7 @@ html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: f
 .rb-sub { font: 500 var(--fs-caption)/1.3 var(--font-ui); color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rb-sub b { color: var(--accent); font-weight: 600; }
 .radiobar > button[data-key] { min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: 50%; font-size: 1.125rem; }
-/* No radio: the bar shrinks to a pill at the tab bar's trailing edge (Connect radio · Demo) */
+/* Not connected: the bar shrinks to a pill at the tab bar's trailing edge (Connect radio · No radio) */
 .radiobar.off {
   left: auto; translate: none; right: calc((100% - var(--rail-w) - min(440px, 100% - var(--rail-w) - 2 * var(--s3))) / 2);
   display: flex; width: max-content; height: auto; padding: 4px; border-radius: var(--round); bottom: calc(var(--bar-bottom) + var(--tabbar-h) + var(--s1));
@@ -287,12 +287,14 @@ body.bars-min .radiobar.off { bottom: var(--bar-bottom); right: calc((100% - var
 :is(.tabbar a, .tab-search, .radiobar > button, .dock > button):active { scale: 1.06; transform: none; }
 
 /* ---- the controls' dock: the Radio tab's keys, on screen however far the page scrolls ---- */
+/* Slim (52 px round 48 px keys) and a fixed box: nothing it holds, nor the page re-rendering behind it, resizes it */
 .dock {
-  z-index: 9; bottom: calc(var(--bar-bottom) + var(--tabbar-h)); height: 64px; border-radius: var(--r3);
-  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; gap: 2px; padding: 0 var(--s1);
+  z-index: 9; bottom: calc(var(--bar-bottom) + var(--tabbar-h)); height: 52px; box-sizing: border-box; border-radius: var(--round);
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); align-items: center; gap: 2px; padding: 2px 6px;
+  contain: layout style; overflow: hidden;
 }
 body:not(.on-radio) .dock { display: none; }
-.dock > button { min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: var(--r2); }
+.dock > button { height: 48px; min-height: 48px; padding: 0; border-color: transparent; background: transparent; border-radius: var(--round); white-space: nowrap; }
 .dock > [data-key="UP"], .dock > [data-key="DOWN"] { font-size: 1.25rem; }
 .dock > [data-key="MEMO"] { background: var(--accent-soft); color: var(--accent); }
 
@@ -490,11 +492,16 @@ label.item { cursor: pointer; }
 /* a tool, in the tools sheet */
 .tool { display: grid; gap: var(--s3); align-content: start; }
 .tool > * { margin-top: 0; margin-bottom: 0; }
+.nobt p { color: var(--dim); }
+.nobt p b { color: var(--text); font-weight: 600; }
 
 /* ================= Radio view ================= */
 .connect-card { display: grid; gap: var(--s3); padding: var(--s5) var(--s4); text-align: left; }
 .connect-card p { margin: 0; color: var(--dim); }
 .connect-card .row button { min-height: 52px; font-size: var(--fs-body); }
+/* each as wide as its label needs, sharing what's left; on a narrow phone No radio goes under Connect radio */
+.connect-card .row { flex-wrap: wrap; }
+.connect-card .row button { flex: 1 0 auto; }
 .connect-card > h2 { display: block; margin: 0; font: 800 1.75rem/1 var(--font-display); letter-spacing: .02em; text-transform: uppercase; color: var(--text); }
 /* ---- the "now" card: the radio's readout over what's on its frequency, the station's flag faded in behind both ---- */
 #now { position: relative; isolation: isolate; overflow: hidden; }
@@ -525,6 +532,9 @@ label.item { cursor: pointer; }
 .cell { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .cell .l { font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .cell .v { white-space: nowrap; }
+/* RSSI and SNR have their tiles just under (.sig): the cells stay for the radio's blink and the tests, out of sight, so
+   Demod, BW and SQL fit on one line and a reading's width can't re-wrap the row */
+#c-rssi, #c-snr { display: none; }
 .swipe-hint { margin: var(--s2) 0 0; font-size: var(--fs-caption); color: var(--faint); }
 /* the signal meter (log.js): a tile per measure, each its value and the last minute; muted line, the latest in accent */
 .sig { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: var(--s2); margin-top: var(--s3); }
@@ -912,6 +922,7 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
   .tabbar a[aria-current="page"] { color: HighlightText; forced-color-adjust: none; }
   .lamp, .dot, .lit, .pill::before, .bar .win, .progress i { forced-color-adjust: none; background: CanvasText; }
   .lamp.ok, .dot.on { background: Highlight; }
+  .lamp.ok.virtual { background: Canvas; box-shadow: inset 0 0 0 2px Highlight; }
   input[type=checkbox][role=switch] { forced-color-adjust: none; background: GrayText; border: 1px solid CanvasText; }
   input[type=checkbox][role=switch]:checked { background: Highlight; }
   #now.flagged::before { display: none; }

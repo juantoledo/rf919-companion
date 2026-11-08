@@ -1,4 +1,5 @@
-// End-to-end checks of the web app in its Demo (the simulated radio): tabs and links, the Remote, gestures,
+// End-to-end checks of the web app through the test replay (?demo / startDemo(): a recorded session and a simulated
+// radio), and of No radio (the virtual radio) on its own: tabs and links, the Remote, gestures,
 // band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, key capture, Near me, Explore (dial, strip, pins, Share, Discover, reminders, tune as you explore),
 // keyboard. See tests/ui/README.md.
 import {chromium} from "playwright-core";
@@ -56,7 +57,7 @@ assert.equal(await page.locator("#radiobar .rb-off").isVisible(), true);
 { const r = await page.locator("#radiobar").boundingBox(); assert.ok(r.width < 260, `idle mini player ${r.width}px wide`); }
 assert.equal(await page.getAttribute('#bands .chip:has-text("AIR") use', "href"), "#i-b-air");
 assert.equal(await page.getAttribute('#bands .chip:has-text("31m") use', "href"), "#i-b-sw");
-ok("Explore home: search and bands above the fold; with no radio the mini player is a pill (Connect radio · Demo)");
+ok("Explore home: search and bands above the fold; with no radio the mini player is a pill (Connect radio · No radio)");
 await page.fill("#q", "9580"); await page.press("#q", "Enter");
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 assert.equal(await E(() => location.hash), "#f=9580");
@@ -109,16 +110,17 @@ ok("a shared #f= link opens the detail; ← goes home without leaving the page")
 await page.goBack(); await page.waitForTimeout(300);
 ok("back button works without errors (" + await visibleView() + ")");
 
-// ---- connect the demo from the radio bar ----
+// ---- start the test replay (no button: startDemo) ----
 await page.goto(URL + "#explore");
-await page.click('#radiobar [data-act="demo"]');
+assert.equal(await page.locator('button:text-is("Demo")').count(), 0);
+await E(() => startDemo());
 await page.waitForFunction(() => state.ok && waiters.freq, null, {timeout: 10000});
 assert.equal(await page.locator("#radiobar .rb-off").isHidden(), true);
 assert.equal(await page.textContent("#radiobar [data-freq]"), "11.6200");
 assert.equal(await page.textContent("#radiobar [data-band-chip]"), "SW");
 assert.equal(await page.getAttribute("#radiobar [data-band-chip] use", "href"), "#i-b-sw");
 assert.equal(await page.getAttribute("#band use", "href"), "#i-b-sw");
-ok("Demo from the radio bar: it shows SW 11.6200");
+ok("the test replay from Explore: the radio bar shows SW 11.6200; no Demo button anywhere");
 await tab("radio");
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await page.locator("#readout").isVisible(), true);
@@ -209,7 +211,7 @@ ok("the signal meter: RSSI and SNR, each its value, its best and the last minute
 await tab("log");
 await page.waitForSelector(".log-row");
 await page.waitForFunction(() => !/kHz/.test(document.querySelector(".log-row .log-open b").textContent), null, {timeout: 15000});
-assert.match(await page.textContent(".log-row .log-open small"), /11620 kHz.*RSSI 34 · SNR 11.*Demo/);
+assert.match(await page.textContent(".log-row .log-open small"), /11620 kHz.*RSSI 34 · SNR 11.*Replay/);
 assert.match(await page.textContent("#log-total"), /^Today · \d+/);
 await page.click(".log-row .log-star");
 assert.equal(await page.getAttribute(".log-row .log-star", "aria-pressed"), "true");
@@ -604,6 +606,116 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
   assert.equal(await wide.evaluate(() => window.scrollY), y0);  // the list kept its place
   await wide.close();
   ok("wide screens: the list and the frequency side by side; opening one keeps the list where it was");
+}
+
+// ---- No radio: a virtual RF919 where every feature works (its own context: fresh storage) ----
+{
+  const nc = await b.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2});
+  const p = await nc.newPage();
+  p.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  const PE = (fn, arg) => p.evaluate(fn, arg);
+  const radioK = () => PE(() => toKHz(waiters.freq));
+  // A browser without Web Bluetooth (Firefox, Safari): no banner; Connect opens a sheet that says so and offers No radio
+  await p.addInitScript(() => { delete Navigator.prototype.bluetooth; });
+  await p.goto(URL + "#radio");
+  assert.equal(await p.locator("#nobt").count(), 0);
+  await p.click('#connect-card [data-act="connect"]');
+  await p.waitForFunction(() => document.getElementById("tools").open);
+  assert.equal(await p.locator("#nobt-pane").isVisible(), true);
+  assert.equal(await p.textContent("#tools-title"), "No Bluetooth in this browser");
+  await p.click('#nobt-pane button:not([data-act])');
+  await p.waitForFunction(() => !document.getElementById("tools").open);
+  assert.equal(await PE(() => state.ok), false);
+  await p.click('#tabbar [data-tab="more"]');
+  assert.equal(await p.isDisabled("#connect"), false);
+  await p.click("#connect");
+  await p.waitForFunction(() => document.getElementById("tools").open && !document.getElementById("nobt-pane").hidden);
+  await p.keyboard.press("Escape");
+  await p.waitForFunction(() => !document.getElementById("tools").open);
+  ok("no Web Bluetooth: no banner; Connect (the card, More) opens a sheet saying so, which closes");
+  await p.goto(URL + "#explore");
+  await p.click('#radiobar [data-act="noradio"]');
+  await p.waitForFunction(() => state.ok && state.virtual && waiters.freq, null, {timeout: 10000});
+  assert.equal(await p.locator("#radiobar .rb-off").isHidden(), true);
+  assert.equal(await radioK(), 9580);
+  assert.equal(await p.textContent("#radiobar [data-band-chip]"), "SW");
+  assert.equal(await PE(() => localStorage.getItem("rf919.link")), '"virtual"');
+  assert.match(await p.getAttribute("#radiobar .lamp, [data-lamp]", "class"), /virtual/);
+  ok("No radio from the mini player: a virtual radio on SW 9580, its lamp a ring, remembered");
+
+  await p.click('#radiobar [data-key="UP"]');
+  await p.waitForFunction(() => toKHz(waiters.freq) === 9585);
+  await p.click('#radiobar [data-key="DOWN"]');
+  await p.waitForFunction(() => toKHz(waiters.freq) === 9580);
+  await p.click('#tabbar [data-tab="radio"]');
+  await p.waitForFunction(() => !document.getElementById("readout").hidden);
+  assert.equal(await p.locator("#connect-card").isHidden(), true);
+  await p.waitForFunction(() => document.querySelector("#c-rssi .v").textContent !== "–", null, {timeout: 6000});
+  assert.equal(await p.textContent("#c-demod .v"), "AM");
+  ok("◀ ▶ step 5 kHz on SW; the Radio tab has the readout, demodulation and a signal reading");
+
+  // A station change keeps the page where it is: scrolled to the bottom, ▶ doesn't jump it to the top, the dock doesn't
+  // move and the signal tiles stay (they used to go until the next reading)
+  await p.waitForFunction(() => view.data && view.near.length && document.documentElement.scrollHeight > innerHeight + 300, null, {timeout: 15000});
+  await PE(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
+  { const dock0 = await p.locator("#radio-controls").boundingBox(), y0 = await PE(() => scrollY);
+    assert.ok(y0 > 100, `scrolled to ${y0}`);
+    assert.ok(dock0.height <= 52, `dock ${dock0.height}px tall`);
+    await PE(() => { window.__low = Infinity; window.__sigGone = false; const t0 = performance.now();
+      const tick = () => { window.__low = Math.min(window.__low, scrollY); if (document.getElementById("sig").hidden) window.__sigGone = true;
+        if (performance.now() - t0 < 1500) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick); });
+    const k0 = await radioK();
+    await p.click('#radio-controls [data-key="UP"]');
+    await p.waitForFunction((k) => toKHz(waiters.freq) !== k, k0);
+    await p.waitForTimeout(1600);
+    assert.deepEqual(await p.locator("#radio-controls").boundingBox(), dock0);
+    assert.ok(await PE(() => window.__low) > 100, `scrolled up to ${await PE(() => window.__low)} on a station change`);
+    assert.equal(await PE(() => window.__sigGone), false);
+    assert.equal(await p.locator("#sig .sig-tile").count(), 2);
+    await p.click('#radio-controls [data-key="DOWN"]');  // back where it was, for the checks after
+    await p.waitForFunction((k) => toKHz(waiters.freq) === k, k0); }
+  await PE(() => window.scrollTo(0, 0));
+  ok("a station change keeps the scroll, the dock in place and the signal tiles");
+
+  await PE(() => link.press("BAND"));
+  await p.waitForFunction(() => waiters.freq.band === "LW");
+  await PE(() => link.tune("SW", 0));
+  await p.waitForFunction(() => waiters.freq.band === "SW" && toKHz(waiters.freq) === 9580);
+  await PE(() => link.typeFreq("11.62"));
+  await p.waitForFunction(() => toKHz(waiters.freq) === 11620, null, {timeout: 10000});
+  ok("BAND goes to LW and back to SW where it was; the keypad tunes 11.62 MHz");
+
+  await p.click('#tabbar [data-tab="memories"]');
+  await PE(() => { addMem([{band: "SW", kHz: 9580, ch: 1, name: "A"}, {band: "SW", kHz: 15140, ch: 2, name: "B"}]); renderMem(); });
+  await p.check('#mem-counts input[value="SW"]');
+  await p.click('[data-mem="store"]');
+  await p.waitForFunction(() => !mem.run && Object.keys(mem.record).length === 2, null, {timeout: 30000});
+  assert.equal(await PE(() => link.radio.bank.get("SW:2")), 15140);
+  assert.equal(await PE(() => mem.recordKey), "rf919.memories.virtual");
+  ok("Memories: Store writes the list into the virtual radio, recorded apart from a real radio's");
+
+  await p.reload();
+  await p.waitForFunction(() => state.ok && state.virtual && waiters.freq, null, {timeout: 10000});
+  assert.equal(await PE(() => link.radio.bank.get("SW:2")), 15140);
+  assert.equal(await PE(() => Object.keys(mem.record).length), 2);
+  ok("a reload brings the virtual radio back, its memories kept");
+
+  await PE(() => { logbook.dwellMs = 1500; });
+  await p.waitForFunction(() => logbook.entries.some((e) => e.virtual), null, {timeout: 8000});
+  await p.waitForFunction(() => JSON.parse(localStorage.getItem("rf919.log") || "[]").some((e) => e.virtual), null, {timeout: 5000});
+  ok("the Log records what the virtual radio stays on, and keeps it (tagged No radio)");
+
+  await p.click('#tabbar [data-tab="more"]');
+  assert.equal(await p.textContent("#conn-state"), "No radio (virtual)");
+  assert.equal(await p.isDisabled("#noradio"), true);
+  await p.click("#disconnect");
+  await p.waitForFunction(() => !state.ok);
+  assert.equal(await PE(() => localStorage.getItem("rf919.link")), "null");
+  await p.reload(); await p.waitForTimeout(500);
+  assert.equal(await PE(() => state.ok), false);
+  ok("Disconnect ends No radio, and the next visit starts without it");
+  await nc.close();
 }
 
 console.log(`\n${n} checks passed`, "| page errors:", errors.length ? errors : "none");

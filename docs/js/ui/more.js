@@ -2,13 +2,14 @@ import {DEMOD, EQ, FUNC_BUTTONS, KEYS, LONG, MAX_FRAME, REPEAT, frame, hex, pad2
 import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
-import {BleLink, ReplayLink, errText, linkOpts, sleep} from "../link.js";
+import {BleLink, ReplayLink, VirtualLink, errText, linkOpts, sleep} from "../link.js";
 import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, route, setAutoTune, setStatus, state, toast} from "./shell.js";
-import {mem, nearPasses, renderView, show, store, view} from "./radio.js";
+import {airSeek, airSignal, mem, nearPasses, renderView, show, store, view} from "./radio.js";
 import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
 // ---- Test one memory: fixed pauses, every step marked in the log ----
-// The connection to the radio (BleLink) or the Demo (ReplayLink); set by startBle / startDemo below
+// The connection: the radio (BleLink), No radio's virtual radio (VirtualLink) or the tests' replay (ReplayLink);
+// set by startBle / startNoRadio / startDemo below
 export let link = null;
 
 export function testEntry() {
@@ -186,7 +187,8 @@ function closeCapture() {
 export function renderCapture() {
   const f = $("cap-field");
   f.classList.toggle("on", capture.on);
-  f.textContent = !capture.on ? "Off" : state.ok ? "Press a button on the radio…" : "Connect the radio, then press one of its buttons…";
+  f.textContent = !capture.on ? "Off" : link instanceof VirtualLink && state.ok ? "Press a key in the Remote: the virtual radio reports it as the radio does…"
+    : state.ok ? "Press a button on the radio…" : "Connect the radio, then press one of its buttons…";
   $("cap-btn").textContent = capture.on ? "Stop" : "Capture";
   $("cap-btn").className = `small ${capture.on ? "danger" : "primary"}`;
 }
@@ -255,17 +257,37 @@ export async function doTune() {
 }
 
 export async function startBle() {
+  // No Web Bluetooth here (Firefox, Safari): a sheet says what to use instead, and offers No radio
+  if (!navigator.bluetooth) { openTool("nobt-pane", "No Bluetooth in this browser", "medium"); return; }
+  const wasVirtual = link instanceof VirtualLink;
   if (!(link instanceof BleLink)) { if (link) await link.close(); link = new BleLink(onEvent, setStatus); }
+  store.set("rf919.link", null);
   // Default: list every device, since some browsers (Bluefy) don't match the name filter
   try { await link.connect(!$("onlyRadio").checked); }
   catch (e) {
     if (e.name === "NotFoundError") {
       setStatus("bad", "no device chosen");
+      if (wasVirtual) { startNoRadio(); return; }  // the picker was cancelled: back to the virtual radio
       if ($("onlyRadio").checked) toast("Radio not in the list? Turn off \"Only list RF919 radios\" in More › Connection", 6000);
     }
     else { setStatus("bad", `failed: ${errText(e)}`); go("more"); openTool("logpanel"); }
   }
 }
+// No radio: a virtual RF919 (virtual.js), where it was left last time. Remembered, so the next visit starts it again.
+// Its state is saved a moment after each change, and at once when the page goes away
+let vSave = 0;
+const saveVirtual = (l) => { clearTimeout(vSave); vSave = 0; store.set("rf919.virtual", l.radio.toJSON()); };
+addEventListener("pagehide", () => { if (vSave && link instanceof VirtualLink) saveVirtual(link); });
+export async function startNoRadio() {
+  if (link instanceof VirtualLink && link.connected) return;
+  if (link) await link.close();
+  const l = link = new VirtualLink(onEvent, setStatus, {seek: airSeek, signal: airSignal,
+    save: () => { clearTimeout(vSave); vSave = setTimeout(() => saveVirtual(l), 400); }},
+    store.get("rf919.virtual", null));
+  store.set("rf919.link", "virtual");
+  await l.connect();
+}
+// The tests' recorded session (?demo, or startDemo() in the console): no button starts it
 export async function startDemo() {
   if (link) await link.close();
   link = new ReplayLink(onEvent, setStatus);
@@ -396,8 +418,8 @@ export function init() {
     }
   });
   $("connect").addEventListener("click", startBle);
-  $("disconnect").addEventListener("click", () => link && link.close(true));
-  $("demo").addEventListener("click", startDemo);
+  $("disconnect").addEventListener("click", () => { store.set("rf919.link", null); if (link) link.close(true); });
+  $("noradio").addEventListener("click", startNoRadio);
   $("autotune").checked = autoTuneOn();
   $("autotune").addEventListener("change", (e) => setAutoTune(e.target.checked));
   $("wake").addEventListener("change", () => setWake($("wake").checked));
@@ -416,7 +438,6 @@ export function init() {
     if (key) { e.preventDefault(); pressKey(key, e.shiftKey); }
   });
 
-  if (!navigator.bluetooth) $("nobt").hidden = false;
   setStatus("bad", navigator.bluetooth ? "not connected" : "no Web Bluetooth");
   debug(`page ${document.lastModified} · ${navigator.userAgent}`);
   debug(`secure context: ${window.isSecureContext} · Web Bluetooth: ${!!navigator.bluetooth}` +
@@ -426,9 +447,11 @@ export function init() {
   }
   route();
   if (new URLSearchParams(location.search).has("demo")) startDemo();
+  else if (store.get("rf919.link", null) === "virtual") startNoRadio();
 
   // The page's state and a few helpers, on window as the single-script page had them: for the browser checks
-  // and for poking around in the console. link is a getter, since the page replaces it on Connect/Demo
-  Object.assign(window, {state, view, mem, waiters, capture, frame, toKHz, fmtKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask});
+  // and for poking around in the console. link is a getter, since the page replaces it on Connect / No radio
+  Object.assign(window, {state, view, mem, waiters, capture, frame, toKHz, fmtKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask,
+    startDemo, startNoRadio});
   Object.defineProperty(window, "link", {get: () => link, configurable: true});
 }

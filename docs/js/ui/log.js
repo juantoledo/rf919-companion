@@ -1,7 +1,7 @@
 import {Logbook, Signal, toAdif, toCsv} from "../logbook.js";
 import {flagHtml, fmtKHz, ituFlag} from "../radiomap.js";
 import {waiters} from "../state.js";
-import {ReplayLink, errText} from "../link.js";
+import {ReplayLink, VirtualLink, errText} from "../link.js";
 import {$, bandIco, current, esc, go, lookUp, state, tabDir, toast, vt} from "./shell.js";
 import {bandFor} from "../memories.js";
 import {mem, nameOf, rm, store, swPick, view} from "./radio.js";
@@ -9,7 +9,7 @@ import {link} from "./more.js";
 import {swipeRows} from "./gestures.js";
 
 // ---- The Log tab: what the radio stayed on (logbook.js), named from radiomap.cl, with its best signal ----
-// Demo entries live only while the Demo runs: they're never saved, and go when it stops
+// The test replay's entries (?demo) live only while it runs: never saved, gone when it stops. No radio's are kept
 let saveTimer = 0, renderFrame = 0;
 const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => store.set("rf919.log", logbook.entries.filter((e) => !e.demo)), 1500); };
 const renderSoon = () => { cancelAnimationFrame(renderFrame); renderFrame = requestAnimationFrame(() => { if (current === "log") renderLog(); }); };
@@ -42,7 +42,7 @@ function nameEntry(e) {
 // The radio's settled frequency (radio.js radioFreq); nothing counts while it's busy with memories
 export function logFreq(k) {
   const f = waiters.freq, busy = mem.run || (mem.test && mem.test.busy);
-  logbook.feed(state.ok && !busy && f ? k : null, f && f.band, Date.now(), {mode: state.fields.demod || "", demo: link instanceof ReplayLink});
+  logbook.feed(state.ok && !busy && f ? k : null, f && f.band, Date.now(), {mode: state.fields.demod || "", demo: link instanceof ReplayLink, virtual: link instanceof VirtualLink});
   signal.reset();
   renderSignal();
   renderSoon();  // the row that was "now" gets its length
@@ -56,7 +56,7 @@ export function logSignal() {
   logbook.signal({rssi, snr}, t);
   cancelAnimationFrame(sigFrame); sigFrame = requestAnimationFrame(renderSignal);
 }
-// The link dropped or the Demo stopped
+// The link dropped or the replay stopped
 export function logOff() {
   logbook.feed(null, null, Date.now());
   if (logbook.dropDemo()) renderSoon();
@@ -87,7 +87,9 @@ function spark(key) {
 }
 function tileHtml(key, label) {
   const s = spark(key);
-  if (!s) return "";
+  // No reading yet (a frequency change resets the meter): the tile keeps its place and size, so the page doesn't jump
+  if (!s) return `<div class="sig-tile empty" role="img" aria-label="${label}: no reading yet"><span class="sig-l">${label}</span>` +
+    `<span class="sig-v"><b>–</b></span><svg viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg></div>`;
   const shown = s.hov || s.cur, ago = s.hov ? Math.round((s.cur.t - s.hov.t) / 1000) : 0;
   const trend = s.pts.length > 1 ? Math.sign(s.cur[key] - s.pts[0][key]) : 0;
   const aria = `${label} ${s.cur[key]}, best ${s.best} in the last minute${trend > 0 ? ", rising" : trend < 0 ? ", falling" : ""}`;
@@ -97,9 +99,10 @@ function tileHtml(key, label) {
 export function renderSignal() {
   const box = $("sig");
   if (!box) return;
+  // Both tiles always: the readout (and the meter in it) shows only while a radio is on
   const html = tileHtml("rssi", "RSSI") + tileHtml("snr", "SNR");
-  box.hidden = !html;
-  box.innerHTML = html;
+  box.hidden = false;
+  if (box.dataset.html !== html) box.innerHTML = box.dataset.html = html;
 }
 
 // ---- the list ----
@@ -121,7 +124,7 @@ const shownEntries = () => logbook.entries.filter((e) => (lf.k == null || e.k ==
 
 function rowHtml(e) {
   const name = e.station || fmtKHz(e.k), live = logbook.here && logbook.here.entry === e;
-  const sub = [fmtKHz(e.k), e.mode, e.rssi != null && `RSSI ${e.rssi}`, e.snr != null && `SNR ${e.snr}`, e.demo && "Demo"].filter(Boolean).join(" · ");
+  const sub = [fmtKHz(e.k), e.mode, e.rssi != null && `RSSI ${e.rssi}`, e.snr != null && `SNR ${e.snr}`, e.demo && "Replay", e.virtual && "No radio"].filter(Boolean).join(" · ");
   return `<li class="mem-row log-row${live ? " live" : ""}" data-id="${esc(e.id)}"><div class="mr-fg">` +
     `<span class="log-time"><b>${hhmmUTC(e.start)}</b><small>${live ? "now" : mins(e.end - e.start)}</small></span>` +
     `<a class="mr-main log-open" href="#f=${e.k}" data-log-open="${e.k}" aria-label="${esc(name)}, ${fmtKHz(e.k)}, ${hhmmUTC(e.start)} UTC: listen again">` +
@@ -146,7 +149,8 @@ export function renderLog() {
   const list = shownEntries();
   if (!all.length) {
     $("log-list").innerHTML = `<div class="panel empty-row"><b>Nothing logged yet</b><span>Stay on a frequency for 30 seconds and it's ` +
-      `logged here, with its station and its best signal.</span>${state.ok ? "" : `<div class="intro-act"><button class="filled" type="button" data-act="connect">Connect radio</button></div>`}</div>`;
+      `logged here, with its station and its best signal.</span>${state.ok ? "" : `<div class="intro-act"><button class="filled" type="button" data-act="connect">Connect radio</button>` +
+      `<button type="button" data-act="noradio">No radio</button></div>`}</div>`;
     return;
   }
   if (!list.length) { $("log-list").innerHTML = `<div class="panel empty-row"><b>Nothing here</b><span>No entry matches this filter.</span></div>`; return; }

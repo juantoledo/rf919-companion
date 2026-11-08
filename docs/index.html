@@ -59,17 +59,12 @@
     <h1 class="sr-only" id="t-radio" tabindex="-1">Radio</h1>
     <div class="status-line appbar"><span class="lamp" id="dot" data-lamp></span><span class="status" id="stat">not connected</span>
       <span class="clock" id="clock" title="Coordinated Universal Time"></span></div>
-    <div class="banner" id="nobt" hidden>
-      <b>No Web Bluetooth in this browser.</b>
-      <span>You can still look up frequencies in Explore. To control the radio use <b>Chrome on Android</b>, or the <b>Bluefy</b>
-      browser on iPhone, over https. The <b>Demo</b> plays a recorded session.</span>
-    </div>
     <div class="panel connect-card" id="connect-card">
       <h2 class="empty-t">Connect your RF919</h2>
-      <p>Turn the radio on and connect over Bluetooth. No radio at hand? The Demo plays a recorded session, and Explore looks up any frequency.</p>
+      <p>Turn the radio on and connect over Bluetooth. No radio at hand? <b>No radio</b> runs a virtual RF919: every key, Memories and the Log work, and it hears what radiomap.cl knows is on air.</p>
       <div class="row">
         <button class="filled" type="button" data-act="connect">Connect radio</button>
-        <button type="button" data-act="demo">Demo</button>
+        <button type="button" data-act="noradio">No radio</button>
       </div>
     </div>
     <div class="info-host" id="host-radio">
@@ -203,7 +198,7 @@
       <div class="item-actions">
         <button class="filled" type="button" id="connect">Connect</button>
         <button type="button" id="disconnect">Disconnect</button>
-        <button type="button" id="demo">Demo</button>
+        <button type="button" id="noradio">No radio</button>
       </div>
       <label class="item"><span class="label">Only list RF919 radios<small>When connecting. Off lists every Bluetooth device, as some iPhone browsers miss the name.</small></span>
         <input type="checkbox" role="switch" switch id="onlyRadio"></label>
@@ -266,7 +261,7 @@
   <!-- no radio: the bar shrinks to a pill -->
   <div class="rb-off"><span class="sr-only">No radio connected</span>
     <button class="small primary" type="button" data-act="connect"><span class="lamp" aria-hidden="true"></span>Connect radio</button>
-    <button class="small quiet" type="button" data-act="demo">Demo</button>
+    <button class="small quiet" type="button" data-act="noradio">No radio</button>
   </div>
 </div>
 
@@ -356,6 +351,15 @@
   </header>
   <div class="sheet-body">
     <section class="tool" id="sched-pane" hidden><div id="sched-body"></div></section>
+    <!-- Connect in a browser without Web Bluetooth (more.js startBle): what to use instead -->
+    <section class="tool nobt" id="nobt-pane" hidden>
+        <p>This browser can't reach the radio over Bluetooth. Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on
+        iPhone, over https.</p>
+        <p>Meanwhile, <b>No radio</b> runs a virtual RF919: every key, Memories and the Log work. Explore looks up any
+        frequency either way.</p>
+        <div class="row"><button class="filled" type="button" data-act="noradio" data-close>Use No radio</button>
+          <button type="button" data-close>Close</button></div>
+    </section>
     <section class="tool" id="mem-fresh" hidden>
         <div id="fresh-body"></div>
     </section>

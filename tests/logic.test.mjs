@@ -578,6 +578,143 @@ ok("NameIndex: accents and case don't matter; words in any order; whole words, t
   deq(back.search("radio").map((h) => [h.name, h.ks]), ix.search("radio").map((h) => [h.name, h.ks]));
   assert.equal(back.seen.has(7777), true);
 });
+// ---- No radio: the virtual radio (virtual.js), through the real decoder ----
+ok("Logbook: No radio's entries are their own (never joined with a radio's), tagged, and kept when the replay's go", () => {
+  const lb = new Logbook([], {dwellMs: 1000}), t0 = Date.now();
+  lb.feed(9580, "SW", t0); lb.tick(t0 + 2000);
+  lb.feed(9580, "SW", t0 + 3000, {virtual: true}); lb.tick(t0 + 5000);
+  lb.feed(9580, "SW", t0 + 6000, {demo: true}); lb.tick(t0 + 8000);
+  deq(lb.entries.map((e) => [!!e.virtual, !!e.demo]), [[false, false], [true, false], [false, true]]);
+  lb.feed(9580, "SW", t0 + 9000, {virtual: true}); lb.tick(t0 + 9500);
+  assert.equal(lb.entries.length, 3);  // back within joinMs: the same No radio entry carries on
+  assert.equal(lb.dropDemo(), 1);
+  assert.equal(lb.entries.filter((e) => e.virtual).length, 1);
+});
+{
+  const V = await import("../docs/js/virtual.js");
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const mk = (hooks = {}, saved = null) => {
+    const dec = new T.Decoder(), evs = [];
+    const r = new V.VirtualRadio((pkt) => { for (const ev of dec.feed(pkt)) evs.push(ev); }, hooks, saved);
+    const key = (k) => r.receive(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]]));
+    const last = (kind, name) => evs.findLast((e) => e.kind === kind && (!name || e.data.name === name));
+    return {r, evs, key, last, field: (name) => last("field", name)?.data.value};
+  };
+
+  ok("virtual radio: says hello like the RF919 (mode, bands, labels, settings, frequency)", () => {
+    const {r, last, field} = mk();
+    r.hello(); r.stop();
+    assert.equal(last("mode").data.mode, "radio");
+    assert.ok(last("bands").data.bands.includes("SW") && last("bands").data.bands.includes("FM"));
+    assert.ok(!last("bands").data.bands.includes("WB"));
+    assert.equal(field("demod_label"), "Demodulation");
+    assert.equal(field("demod"), "AM");
+    assert.equal(field("volume"), "8");
+    assert.equal(last("button_label").data.value, "FUNC");
+    assert.equal(T.toKHz(last("freq").data), 9580);
+    assert.ok(field("rssi") != null && field("snr") != null);
+  });
+
+  ok("virtual radio: ◀ ▶ step by the band's step and wrap; STEP changes it; off the grid snaps onto it", () => {
+    const {r, key, field} = mk();
+    key("UP"); assert.equal(r.kHz, 9585);
+    key("DOWN"); key("DOWN"); assert.equal(r.kHz, 9575);
+    r.kHz = 29995; key("UP"); assert.equal(r.kHz, 1711);
+    r.kHz = 9580; key("STEP"); key("UP"); assert.equal(r.kHz, 9581);
+    assert.match(field("field11"), /STEP:1K/);
+    r.band = "AM"; r.kHz = 999; key("STEP"); key("UP"); assert.equal(r.kHz, 1000);  // 9 → 10 kHz
+    key("DOWN"); assert.equal(r.kHz, 990);
+  });
+
+  ok("virtual radio: BAND goes through its bands and each keeps its frequency; a tune goes back", () => {
+    const {r, key, last} = mk();
+    key("BAND"); assert.equal(r.band, "LW"); assert.equal(r.kHz, 198);
+    key("UP"); key("BAND"); assert.equal(r.band, "AIR");
+    r.receive(T.frame(0x10, [T.BAND_CODES.LW, 0, 0, 0, 0])); assert.equal(r.band, "LW"); assert.equal(r.kHz, 207);
+    r.receive(T.frame(0x10, [T.BAND_CODES.SW, 0, 0, 0, 0])); assert.equal(r.kHz, 9580);
+    r.receive(T.frame(0x10, [T.BAND_CODES.FM, 0, 0, 0, 0])); assert.equal(r.kHz, 100100);  // a band not visited yet
+    r.receive(T.frame(0x10, [T.BAND_CODES.WB, 0, 0, 0, 0])); assert.equal(r.band, "FM");    // no WB here
+    assert.equal(last("field", "demod").data.value, "WFM");
+  });
+
+  ok("virtual radio: volume stays within 0–30; squelch and demodulation cycle", () => {
+    const {r, key, field} = mk();
+    r.vol = 29; key("VOL+"); key("VOL+"); assert.equal(r.vol, 30);
+    key(0x43); assert.equal(r.vol, 25);  // VOL- long: 5 down
+    assert.equal(field("volume"), "25");
+    key("SQ"); assert.equal(field("field10"), "1");
+    key("DEMOD"); assert.equal(field("demod"), "SSB");
+    key("BANDWIDTH"); assert.equal(field("bw"), "3.0K");
+  });
+
+  ok("virtual radio: standby ignores everything but POWER and stops the signal", () => {
+    const {r, key, evs, last} = mk({signal: () => 1});
+    key("POWER"); assert.equal(last("mode").data.mode, "standby");
+    const n = evs.length;
+    key("UP"); r.sendSignal(); assert.equal(evs.length, n); assert.equal(r.kHz, 9580);
+    key("POWER"); assert.equal(last("mode").data.mode, "radio");
+  });
+
+  ok("virtual radio: the signal follows hooks.signal; squelch closes on a faint one", () => {
+    const strong = mk({signal: () => 1}); strong.r.sendSignal();
+    assert.ok(+strong.field("rssi") >= 55 && +strong.field("snr") >= 25);
+    const faint = mk({signal: () => 0}); faint.r.sendSignal();
+    assert.ok(+faint.field("rssi") <= 10);
+    faint.r.sq = 5; faint.r.sendSignal(); assert.equal(faint.field("snr"), "0");
+  });
+
+  ok("virtual radio: memories store, recall, step in channel mode, and survive a save", () => {
+    const {r, key} = mk();
+    const store = (k, ch) => { r.kHz = k; key("MEMO_LONG"); for (const d of String(ch)) key(d); key("MEMO"); };
+    store(9580, 1); store(11620, 2); store(15140, 5);
+    clearTimeout(r.storeTimer);
+    deq([...r.bank], [["SW:1", 9580], ["SW:2", 11620], ["SW:5", 15140]]);
+    key("MEMO"); key("2"); key("FREQ"); assert.equal(r.kHz, 11620);
+    key("UP"); assert.equal(r.kHz, 15140);
+    key("UP"); assert.equal(r.kHz, 9580);  // wraps
+    key("DOWN"); assert.equal(r.kHz, 15140);
+    key("MEMO");  // leave channel mode
+    r.vol = 12;
+    const saved = JSON.parse(JSON.stringify(r));
+    const b = mk({}, saved).r;
+    deq([...b.bank], [...r.bank]);
+    assert.equal(b.kHz, 15140); assert.equal(b.vol, 12);
+    const bad = mk({}, {band: "XX", kHz: -1, bank: [["SW:999", 9580], ["SW:3", 99]], vol: 99}).r;
+    assert.equal(bad.band, "SW"); assert.equal(bad.bank.size, 0); assert.equal(bad.vol, 8);
+  });
+
+  ok("virtual radio: the store sequence (MemoryRun) works against it", () => {});
+  {
+    const w = new T.Waiters(), dec = new T.Decoder();
+    const r = new V.VirtualRadio((pkt) => { for (const ev of dec.feed(pkt)) w.feed(ev); });
+    r.storeTimeoutMs = 300;
+    const link = {
+      async send(pkt) { setTimeout(() => r.receive(pkt), 5); },
+      press(k) { return this.send(T.frame(0x0C, [typeof k === "number" ? k : T.KEYS[k]])); },
+      tune(band, raw = 0) { return this.send(T.frame(0x10, [T.BAND_CODES[band], raw & 255, raw >> 8 & 255, raw >> 16 & 255, raw >>> 24])); },
+      async typeFreq(text) { for (const k of ["FREQ", ...[...text].map((c) => c === "." ? "POINT" : c), "FREQ"]) { await this.press(k); await wait(2); } },
+    };
+    r.sendFreq(); await wait(20);
+    const run = new T.MemoryRun(link, w, {cfg: {...T.MEMO_CFG, stepMs: 2, pauseMs: 5, timeoutMs: 300, echoMs: 150}});
+    for (const e of [{band: "SW", ch: 3, kHz: 6000}, {band: "FM", ch: 1, kHz: 101300}]) await run.store(e);
+    assert.equal(r.bank.get("SW:3"), 6000); assert.equal(r.bank.get("FM:1"), 101300);
+    deq(await run.recall("SW", 3), {kHz: 6000, empty: false});
+    r.stop();
+  }
+
+  {
+    const {r, key} = mk({seek: (band, k, dir) => dir > 0 ? 9650 : 9500});
+    key("UP_LONG"); await wait(V.SEEK_FRAME_MS * 5 + 40); assert.equal(r.kHz, 9650);
+    key("DOWN_LONG"); await wait(V.SEEK_FRAME_MS * 5 + 40); assert.equal(r.kHz, 9500);
+    const plain = mk().r;
+    plain.receive(T.frame(0x0C, [T.KEYS.UP_LONG])); await wait(V.SEEK_FRAME_MS * 5 + 40); assert.equal(plain.kHz, 9630);  // 10 steps
+    key("PLAY"); assert.ok(r.scanTimer);
+    key("PLAY"); assert.equal(r.scanTimer, 0);  // SCAN again stops it
+    key("PLAY"); key("UP"); assert.equal(r.scanTimer, 0);  // so does any key
+    r.stop(); plain.stop();
+    ok("virtual radio: hold ◀ ▶ seeks to the next station (else 10 steps); SCAN starts and any key stops it", () => {});
+  }
+}
 {
   const fs = await import("node:fs");
   const html = fs.readFileSync(new URL("../docs/index.html", import.meta.url), "utf8");
