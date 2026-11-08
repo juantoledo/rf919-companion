@@ -381,9 +381,11 @@ export async function fetchAll(ks, box, key = "mem") {
   prog(0, ks.length);
   // rm.get, not rm.lookup: a long list mustn't push the dossier's lookups out of the cache
   const got = await pool(ks, 6, (k) => rm.get(`freq/${k}.json`), prog, ctl.signal);
-  if (jobs[key] === ctl) jobs[key] = null;
+  // A job replaced by a newer one leaves the box alone: it holds the new job's progress by now
+  const latest = jobs[key] === ctl;
+  if (latest) jobs[key] = null;
   if (mem.job === ctl) mem.job = null;
-  if (ctl.signal.aborted) { box.innerHTML = `<p class="hint">Cancelled.</p>`; return null; }
+  if (ctl.signal.aborted) { if (latest) box.innerHTML = `<p class="hint">Cancelled.</p>`; return null; }
   return got;
 }
 export async function radiomapIndex(box) {

@@ -74,6 +74,7 @@
             <div class="lcd-row">
               <label class="band-pick"><span class="band" id="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
               <span class="sub"><span class="scan-tag" aria-hidden="true">Scanning</span><span id="preset"></span><span class="alert" id="alert"></span></span>
+              <div class="sig" id="sig" hidden></div>
             </div>
             <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span><span class="unit" id="unit"></span></div>
             <div class="cells">
@@ -83,7 +84,6 @@
               <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
               <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
             </div>
-            <div class="sig" id="sig" hidden></div>
             <p class="swipe-hint" id="swipe-hint">Swipe the frequency to step · flick to seek</p>
           </div>
           <div id="dossier" aria-live="polite"></div>
@@ -121,6 +121,7 @@
           <h2 class="h" id="g-bands"><span>Browse a band</span><span>then step along it</span></h2>
           <div class="chips" id="bands"></div>
         </section>
+        <div class="conds" id="conds" hidden></div>
         <section class="shelf onair" id="onair" aria-labelledby="g-onair" hidden></section>
       </div>
     <section class="panel" id="discover" aria-labelledby="g-discover">
@@ -137,17 +138,18 @@
           <label><input type="radio" name="discwin" value="60"><span>+ 1 h</span></label>
         </fieldset>
         <label class="item" id="disc-aimed-row" hidden><span class="label">Only aimed at <span id="disc-aimed-name"></span></span>
-          <input type="checkbox" role="switch" switch id="disc-aimed" checked></label>
+          <input type="checkbox" role="switch" switch id="disc-aimed"></label>
+        <label class="item" id="disc-best-row" hidden><span class="label">Best reception first</span>
+          <input type="checkbox" role="switch" switch id="disc-best"></label>
       </div>
       <div class="disc-opts" id="disc-near" hidden>
-        <select id="disc-band" aria-label="Band"></select>
+        <fieldset class="seg wrap" id="disc-bands"><legend>Band</legend></fieldset>
         <select id="disc-kind" aria-label="Kind">
           <option value="all">All kinds</option><option value="broadcast">Broadcast</option>
           <option value="amateur">Amateur</option><option value="atc">Air traffic</option>
         </select>
         <select id="disc-radius" data-act="radius" aria-label="Distance"></select>
       </div>
-      <button class="primary disc-scan" type="button" id="disc-scan" data-act="disc-scan">Scan</button>
       <div id="disc-results" aria-live="polite"></div>
     </section>
     </div>
@@ -351,6 +353,7 @@
   </header>
   <div class="sheet-body">
     <section class="tool" id="sched-pane" hidden><div id="sched-body"></div></section>
+    <section class="tool" id="prop-pane" hidden><div id="prop-body"></div></section>
     <!-- Connect in a browser without Web Bluetooth (more.js startBle): what to use instead -->
     <section class="tool nobt" id="nobt-pane" hidden>
         <p>This browser can't reach the radio over Bluetooth. Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on

@@ -41,7 +41,7 @@ const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
 const SURFACES = ["bg", "surface", "surface-2", "surface-3"];
 const PAIRS = [
   ...["text", "dim"].flatMap((t) => SURFACES.map((s) => [t, s, "bg"])),
-  ...["accent", "cool", "warn"].flatMap((t) => ["bg", "surface", "surface-2"].map((s) => [t, s, "bg"])),
+  ...["accent", "cool", "warn", "prop-fair"].flatMap((t) => ["bg", "surface", "surface-2"].map((s) => [t, s, "bg"])),
   ["dim", "glass", "bg"], ["text", "glass", "bg"],          // the floating bars, over the page
   ["text", "glass-strong", "bg"], ["dim", "glass-strong", "bg"], ["accent", "glass", "bg"],  // the snackbar, the selected tab
   ["accent", "accent-soft", "surface"],                       // chips, tonal buttons, the tab pill

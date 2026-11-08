@@ -68,8 +68,9 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 - **Discover** (Explore's home): **On air now** lists who's on air across one meter band
   (optionally only what's aimed at your region, or what starts within the hour); **Near me** lists the
   stations of a band nearest to you (FM, AM, VHF, UHF, AIR; by kind and distance). radiomap.cl has one
-  file per frequency, so nothing is fetched until you tap **Scan** (about 100 files for a busy meter
-  band); a scan is kept until the page is reloaded. Tap a row to look it up.
+  file per frequency, so nothing is fetched until you tap a band (about 100 files for a busy meter
+  band); a scan is kept until the page is reloaded, and tapping the band again retries any files that
+  failed. Tap a row to look it up.
 - **Radio** shows the same for the frequency the radio is on, and follows the dial.
 - **Shortwave**: the station on air (or the next one) with its flag, transmitter site, language
   and target, today's transmissions on a UTC bar, and what's coming up (**Full schedule** opens all
@@ -89,6 +90,14 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   regions are rough boxes, and country targets are only known for the Americas.
   Your location is rounded to about 1 km and stays in the browser; the only thing sent to radiomap.cl is the frequency. Flags come from the
   flag-icons package on jsDelivr.
+- **Reception estimate**: below 30 MHz, signal bars (and **Likely**, **Possible** or **Unlikely**) say whether a station
+  can probably be heard from where you are, now or when it next starts. The bars are about reception; the lamp still says
+  whether it's on the air. They come from the solar flux, the Kp index and radio blackouts
+  ([NOAA SWPC](https://www.swpc.noaa.gov/), refreshed every 30 minutes), the sun along the path, the number of hops, and
+  where the broadcast is aimed. Tap the badge on a station for the reasons; the **Today** bar is tinted by the same
+  estimate, and Discover can sort by **Best reception first**. It needs your location, and asks once on Explore
+  (**Show reception estimates**). NOAA's requests carry no location: the estimate is worked out in the browser. It's a
+  simple model that doesn't know the transmitter's power, your antenna or the local noise, so take it as a hint.
 
 ### The radio's controls
 
@@ -173,7 +182,7 @@ connection and the radio stops advertising. Free it with `bluetoothctl disconnec
 ## Development
 
 The web app is static files in [`docs/`](docs/): `index.html`, `css/` (design tokens and styles) and
-`js/` as ES modules, with no build step. `js/protocol.js`, `js/radiomap.js` and `js/memories.js` hold
+`js/` as ES modules, with no build step. `js/protocol.js`, `js/radiomap.js`, `js/propagation.js` and `js/memories.js` hold
 the logic and touch no DOM; `js/ui/` holds the views; `js/app.js` starts them.
 
 ```sh

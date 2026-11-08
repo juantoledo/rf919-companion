@@ -64,7 +64,7 @@ export function logOff() {
   renderSignal();
 }
 
-// ---- the signal meter on Radio: two stat tiles (RSSI, SNR), each its value and the last 60 s ----
+// ---- the signal meter, top right of the Radio card: a line each for RSSI and SNR, its value and the last 60 s ----
 // Two measures on their own scales, so two small charts rather than one with two axes; the line in the muted ink,
 // the latest reading in the accent, a dashed line at the best. Hover or drag: the reading at that moment
 let sigFrame = 0, hoverT = null;
@@ -90,11 +90,11 @@ function tileHtml(key, label) {
   // No reading yet (a frequency change resets the meter): the tile keeps its place and size, so the page doesn't jump
   if (!s) return `<div class="sig-tile empty" role="img" aria-label="${label}: no reading yet"><span class="sig-l">${label}</span>` +
     `<span class="sig-v"><b>–</b></span><svg viewBox="0 0 ${W} ${H}" aria-hidden="true"></svg></div>`;
-  const shown = s.hov || s.cur, ago = s.hov ? Math.round((s.cur.t - s.hov.t) / 1000) : 0;
+  const shown = s.hov || s.cur;
   const trend = s.pts.length > 1 ? Math.sign(s.cur[key] - s.pts[0][key]) : 0;
   const aria = `${label} ${s.cur[key]}, best ${s.best} in the last minute${trend > 0 ? ", rising" : trend < 0 ? ", falling" : ""}`;
   return `<div class="sig-tile" role="img" aria-label="${aria}"><span class="sig-l">${label}</span>` +
-    `<span class="sig-v"><b>${shown[key]}</b><small>${ago ? `${ago} s ago` : `best ${s.best}`}</small></span>${s.svg}</div>`;
+    `<span class="sig-v"><b>${shown[key]}</b></span>${s.svg}</div>`;
 }
 export function renderSignal() {
   const box = $("sig");

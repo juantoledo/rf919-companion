@@ -4,6 +4,7 @@ import {SW_METERS, pool} from "../memories.js";
 import {$, current, esc, inDetail} from "./shell.js";
 import {disc, keepFocus, located, myRegion, myTargets, nameOf, pinned, renderRecent, rm, store, view} from "./radio.js";
 import {fetchAll, jobs} from "./memories.js";
+import {rowBars, rowSay, stationEstimate, swEstimate} from "./reception.js";
 
 // ---- Explore's home: search by station name, On air now, and pins that say when they're on ----
 // Every frequency file the page reads (rm.onData) teaches the name index and joins `known`, this session's lookups,
@@ -78,11 +79,11 @@ function onAirRows(now = Date.now()) {
       if (!on.length || (why === "sw" && loc && !mine.length)) return;
       const {e, air} = (mine[0] || on[0]);
       rows.push({k, why, aimed: !!mine.length && loc, name: e.station || fmtKHz(k), flag: ituFlag(e.itu) || "", country: e.country || "",
-        sub: `until ${minHHMM(hhmmMin(e.endUTC))} UTC`, left: air.endsIn});
+        sub: `until ${minHHMM(hhmmMin(e.endUTC))} UTC`, left: air.endsIn, est: swEstimate(e, k, now)});
     } else if (d.stations.length && why !== "sw") {
       const s = d.stations[0];
       rows.push({k, why, aimed: false, name: nameOf(d) || fmtKHz(k), flag: s.category === "global" ? "" : "cl", country: s.category === "global" ? "Worldwide" : "Chile",
-        sub: why === "pin" ? "pinned" : "recent", left: Infinity});
+        sub: why === "pin" ? "pinned" : "recent", left: Infinity, est: stationEstimate(s, k, now)});
     }
   };
   for (const k of pins) add(k, "pin");
@@ -98,8 +99,8 @@ export function renderOnAir() {
   if (rows.filter((r) => r.why === "sw").length < 4) fillOnAir();
   box.hidden = !rows.length;
   keepFocus(box, !rows.length ? "" : `<h2 class="h" id="g-onair"><span>On air now</span><span>${located() ? `to ${esc(myRegion())}` : "tap to listen"}</span></h2>` +
-    `<div class="oa-row">${rows.map((r) => `<button class="oa-card" type="button" data-look="${r.k}" aria-label="${esc(r.name)}, ${fmtKHz(r.k)}, ${esc(r.sub)}">` +
-      `<span class="oa-top">${flagHtml(r.flag, r.country)}<span class="oa-f">${label(r.k)}</span>${r.why === "pin" ? `<svg class="ico oa-pin" aria-hidden="true"><use href="#i-pin"/></svg>` : ""}</span>` +
+    `<div class="oa-row">${rows.map((r) => `<button class="oa-card" type="button" data-look="${r.k}" aria-label="${esc(r.name)}, ${fmtKHz(r.k)}, ${esc(r.sub)}${rowSay(r.est)}">` +
+      `<span class="oa-top">${flagHtml(r.flag, r.country)}<span class="oa-f">${label(r.k)}</span>${rowBars(r.est)}${r.why === "pin" ? `<svg class="ico oa-pin" aria-hidden="true"><use href="#i-pin"/></svg>` : ""}</span>` +
       `<b>${esc(r.name)}</b><small>${esc(r.sub)}</small></button>`).join("")}</div>`);
 }
 // Once per session, while Explore is open and online: the busiest meter band's frequencies, a few at a time

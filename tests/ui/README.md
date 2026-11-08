@@ -10,8 +10,8 @@ behind it, which no button starts: the scripts open the page with `?demo` or cal
   Nearby, Discover, reminders, search by name, On air now, tune as you explore and its Undo, two panes on a wide
   screen), the Log (an entry from a short dwell, star, delete and Undo, ADIF export, "Logged once"), the signal meter,
   the idle mini player pill, the sheet Connect opens without Web Bluetooth, a station change that keeps the scroll and the
-  dock in place, and No radio (stepping, Band, the keypad, Store into it, a reload that keeps it, its Log
-  entries, Disconnect). Exits 1 on any failure or page error.
+  dock in place, the reception estimate (badge, sheet, tinted Today bar, what shows without a position or solar data), and No radio
+  (stepping, Band, the keypad, Store into it, a reload that keeps it, its Log entries, Disconnect). Exits 1 on any failure or page error.
 - `audit.mjs`: every visible control on every view (Explore both as its home and as a detail, the Log with a few entries,
   Radio and Explore before connecting, the no-Bluetooth sheet, Radio on No radio), in the Remote and in the tools sheet; phones in portrait
   (360×780, 412×915) and landscape (780×360, 915×412, 932×430) with touch, 768×1024 and 1280×800 with a mouse,

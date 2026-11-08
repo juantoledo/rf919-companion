@@ -7,6 +7,7 @@ import * as memories from "../docs/js/memories.js";
 import {Tuner} from "../docs/js/tuner.js";
 import {NameIndex, norm} from "../docs/js/names.js";
 import {Logbook, Signal, toAdif, toCsv, adifBand} from "../docs/js/logbook.js";
+import * as propagation from "../docs/js/propagation.js";
 
 const T = {...protocol, ...radiomap, ...memories};
 const H = (b) => T.hex(b).toUpperCase();
@@ -724,5 +725,149 @@ ok("Logbook: No radio's entries are their own (never joined with a radio's), tag
   }
   assert.equal(T.bandIconId("NOPE"), "i-b-other");
   ok("every band has its symbol, and the sprite has every symbol", () => {});
+}
+// ---- reception estimate ----
+{
+  const P = propagation, HOUR = 3600000;
+  const RX = {lat: -33.45, lon: -70.67}, NEAR = {lat: -3.1, lon: -60}, FAR = {lat: 35.83, lon: 126.83}, POLAR = {lat: 64, lon: -150};
+  const LISBON = {lat: 38.7, lon: -9.1}, NY = {lat: 40.7, lon: -74};
+  const DAY0 = Date.UTC(2026, 10, 8), wx = {sfi: 127, kp: 2, r: 0};
+  const at = (h) => DAY0 + h * HOUR;
+  const est = (kHz, h, o = {}) => P.estimate({kHz, rx: RX, tx: NEAR, t: at(h), wx, aimed: true, ...o});
+  const close = (a, b, d, what) => assert.ok(Math.abs(a - b) <= d, `${what}: ${a} is not within ${d} of ${b}`);
+
+  ok("reception: the sun's height at known times and places", () => {
+    close(P.cosZenith({lat: 0, lon: 0}, Date.UTC(2026, 2, 20, 12)), 1, .01, "equinox noon on the equator");
+    close(P.cosZenith({lat: 0, lon: 0}, Date.UTC(2026, 2, 20, 0)), -1, .01, "equinox midnight");
+    close(P.subsolar(Date.UTC(2026, 5, 21, 12)).lat, 23.44, .1, "June solstice");
+    close(P.subsolar(Date.UTC(2026, 11, 21, 12)).lat, -23.44, .1, "December solstice");
+    assert.ok(P.cosZenith(RX, at(16)) > .5, "Santiago mid-afternoon: sun high");
+    assert.ok(P.cosZenith(RX, at(4)) < 0, "Santiago 01:00 local: dark");
+  });
+  ok("reception: a path's midpoint lies on the great circle", () => {
+    const m = P.pathPoint({lat: 0, lon: 0}, {lat: 0, lon: 90}, .5);
+    close(m.lat, 0, .01, "lat"); close(m.lon, 45, .01, "lon");
+    deq(P.pathPoint(RX, RX, .5), RX);
+    close(P.geomagLat({lat: 80.7, lon: -72.7}), 90, .01, "the geomagnetic pole");
+  });
+  ok("reception: low frequencies open at night, high ones by day", () => {
+    assert.equal(est(6000, 16).tier, "unlikely");   // absorbed at midday
+    assert.equal(est(6000, 4).tier, "likely");
+    assert.equal(est(15400, 16).tier, "likely");
+    assert.equal(est(15400, 4).tier, "unlikely");   // above the night's MUF
+    assert.equal(est(21500, 16).tier, "unlikely");
+    assert.ok(est(6000, 16).absorption > est(15400, 16).absorption);
+    assert.equal(est(6000, 4).absorption, 0);
+    assert.ok(est(6000, 16).muf > est(6000, 4).muf);
+  });
+  ok("reception: distance and aim count; the far side of the world stays hard", () => {
+    const far = {tx: FAR, aimed: false};
+    assert.equal(est(9580, 4, far).tier, "unlikely");
+    assert.equal(est(9580, 4, far).hops, 6);
+    assert.ok(est(6000, 4, {aimed: true}).score > est(6000, 4, {aimed: null}).score);
+    assert.ok(est(6000, 4, {aimed: null}).score > est(6000, 4, {aimed: false}).score);
+    assert.ok(est(6000, 4, {aimed: false}).reasons.some((r) => /elsewhere/.test(r)));
+    const local = est(6000, 16, {tx: {lat: RX.lat + .2, lon: RX.lon}});
+    assert.equal(local.tier, "likely");
+    assert.match(local.reasons[0], /ground wave/);
+  });
+  ok("reception: storms hurt high-latitude paths and blackouts sunlit ones, only near the present", () => {
+    const polar = {rx: LISBON, tx: POLAR, aimed: null}, storm = {...wx, kp: 7};
+    assert.ok(est(9580, 4, {...polar, wx: storm}).score < est(9580, 4, polar).score);
+    assert.ok(est(6000, 4, {wx: storm}).score === est(6000, 4).score, "a low-latitude path is left alone");
+    assert.ok(est(9580, 4, {...polar, wx: storm, now: at(16)}).score === est(9580, 4, polar).score, "hours away");
+    const r3 = {...wx, r: 3};
+    assert.ok(est(15400, 16, {wx: r3}).score < est(15400, 16).score);
+    assert.ok(est(15400, 16, {wx: r3}).reasons.some((r) => /R3/.test(r)));
+    assert.equal(est(6000, 4, {wx: r3}).score, est(6000, 4).score, "a dark path is out of a blackout's reach");
+  });
+  ok("reception: medium wave is ground wave by day, sky wave at night", () => {
+    const am = (km, h) => P.estimate({kHz: 1000, rx: RX, tx: {lat: RX.lat - km / 111.2, lon: RX.lon}, t: at(h), wx});
+    assert.equal(am(100, 16).tier, "likely");
+    assert.equal(am(100, 4).tier, "likely");
+    assert.equal(am(300, 16).tier, "possible");
+    assert.equal(am(1000, 16).tier, "unlikely");
+    assert.equal(am(600, 4).tier, "likely");
+    assert.equal(am(2000, 4).tier, "possible");
+    assert.equal(am(5000, 4).tier, "unlikely");
+    assert.equal(am(1000, 16).muf, null);
+  });
+  ok("reception: no estimate without the inputs, or above 30 MHz", () => {
+    const go = (o) => P.estimate({kHz: 9580, rx: RX, tx: NEAR, t: at(4), wx, ...o});
+    assert.ok(go({}));
+    for (const o of [{rx: null}, {tx: null}, {tx: {lat: null, lon: null}}, {tx: {name: "Somewhere"}}, {wx: null}, {wx: {sfi: null}}, {kHz: 30000}, {kHz: 101300}, {kHz: 0}]) assert.equal(go(o), null, JSON.stringify(o));
+  });
+  ok("reception: the open range follows the sun; a window is cut by the hour and merged", () => {
+    const noon = P.bestRange(RX, wx, at(16)), night = P.bestRange(RX, wx, at(4));
+    assert.ok(noon.lo > night.lo && noon.hi > night.hi, JSON.stringify({noon, night}));
+    assert.equal(night.lo, 3);
+    deq(P.windowTiers(90, 270, (m) => m < 180 ? "likely" : "possible"), [{s: 90, t: 180, tier: "likely"}, {s: 180, t: 270, tier: "possible"}]);
+    deq(P.windowTiers(0, 120, () => null), [{s: 0, t: 120, tier: null}]);
+    deq(P.windowTiers(30, 30, () => "likely"), []);
+  });
+  ok("reception: NOAA's feeds are read as UTC, and anything malformed is no reading", () => {
+    deq(P.parseFlux([{flux: 127, time_tag: "2026-11-07T20:00:00"}]), {v: 127, at: Date.UTC(2026, 10, 7, 20)});
+    deq(P.parseKp([{time_tag: "2026-11-08T06:00:00", Kp: 3}, {time_tag: "2026-11-08T09:00:00", Kp: 3.33}, {time_tag: "2026-11-08T12:00:00", Kp: null}]),
+      {v: 3.33, at: Date.UTC(2026, 10, 8, 9)});
+    deq(P.parseScales({"0": {DateStamp: "2026-11-08", TimeStamp: "13:21:00", R: {Scale: "2"}}}), {v: 2, at: Date.UTC(2026, 10, 8, 13, 21)});
+    for (const bad of [null, {}, [], [{flux: "x", time_tag: "2026-11-07T20:00:00"}], [{flux: 127}], [{flux: 9999, time_tag: "2026-11-07T20:00:00"}], [{flux: null, time_tag: "2026-11-07T20:00:00"}]]) assert.equal(P.parseFlux(bad), null, JSON.stringify(bad));
+    assert.equal(P.parseKp([{Kp: 12, time_tag: "2026-11-08T09:00:00"}]), null);
+    for (const bad of [null, {}, {"0": {}}, {"0": {R: {Scale: "9"}, DateStamp: "2026-11-08", TimeStamp: "13:21:00"}}, {"0": {R: {Scale: null}, DateStamp: "2026-11-08", TimeStamp: "13:21:00"}}]) assert.equal(P.parseScales(bad), null, JSON.stringify(bad));
+  });
+  ok("reception: readings expire on their own clocks, and no flux means no estimates", () => {
+    const now = at(12), s = new P.SpaceWeather({load: () => ({sfi: {v: 127, at: now - HOUR}, kp: {v: 5, at: now - HOUR}, r: {v: 2, at: now - 10 * 60000}, fetched: now - HOUR})});
+    deq(s.current(now), {sfi: 127, kp: 5, kpKnown: true, r: 2, fetched: now - HOUR});
+    const later = s.current(now + 2 * HOUR);
+    assert.equal(later.r, 0);
+    assert.equal(later.kp, 5);
+    const quiet = s.current(now + 10 * HOUR);
+    assert.equal(quiet.kp, 2);
+    assert.equal(quiet.kpKnown, false);
+    assert.equal(s.current(now + 72 * HOUR), null);
+    assert.equal(new P.SpaceWeather().current(now), null);
+    assert.equal(new P.SpaceWeather({load: () => ({sfi: {v: "lots", at: now}})}).current(now), null);
+    assert.equal(s.due(now), true);
+    assert.equal(s.due(now - 45 * 60000), false);
+  });
+  {
+    const now = at(14), json = {
+      "10cm-flux": [{flux: 130, time_tag: "2026-11-08T12:00:00"}],
+      "planetary-k": [{Kp: 4, time_tag: "2026-11-08T12:00:00"}],
+      "scales": {"0": {DateStamp: "2026-11-08", TimeStamp: "13:00:00", R: {Scale: "0"}}},
+    };
+    const realFetch = globalThis.fetch;
+    let failing = () => false, calls = 0;
+    globalThis.fetch = async (url) => {
+      calls++;
+      const key = Object.keys(json).find((k) => url.includes(k));
+      if (failing(key)) throw new Error("offline");
+      return {ok: true, status: 200, json: async () => json[key]};
+    };
+    let saved = null, changes = 0;
+    const s = new P.SpaceWeather({save: (v) => { saved = JSON.parse(JSON.stringify(v)); }, onChange: () => changes++});
+    await s.refresh(now);
+    assert.equal(s.current(now).sfi, 130);
+    assert.equal(s.current(now).kp, 4);
+    assert.equal(changes, 1);
+    assert.equal(saved.fetched, now);
+    assert.equal(s.due(now + 60000), false);
+    await s.refresh(now + 60000);
+    assert.equal(changes, 1, "the same values don't redraw the page");
+    json["10cm-flux"] = [{flux: 140, time_tag: "2026-11-08T13:00:00"}];
+    failing = (k) => k === "planetary-k";
+    await s.refresh(now + 120000);
+    assert.equal(changes, 2);
+    assert.equal(s.current(now).sfi, 140);
+    assert.equal(s.current(now).kp, 4, "a feed that fails keeps its last reading");
+    const before = calls, one = s.refresh(now + 180000), two = s.refresh(now + 180000);
+    await Promise.all([one, two]);
+    assert.equal(calls, before + 3, "a refresh under way is shared");
+    failing = () => true;
+    const fetched = s.state.fetched;
+    await s.refresh(now + 240000);
+    assert.equal(s.state.fetched, fetched, "nothing read: not counted as fetched");
+    globalThis.fetch = realFetch;
+    ok("reception: a refresh merges what it could read and only reports real changes", () => {});
+  }
 }
 console.log(`\n${n} checks passed`);

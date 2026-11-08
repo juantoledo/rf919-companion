@@ -207,7 +207,11 @@ await E(() => { link.onEvent({kind: "field", data: {name: "rssi", value: "34"}})
 await page.waitForSelector("#sig .sig-tile svg polyline");
 assert.match(await page.getAttribute("#sig .sig-tile", "aria-label"), /^RSSI 34, best 34 in the last minute, rising/);
 assert.equal(await page.locator("#sig .sig-tile").count(), 2);
-ok("the signal meter: RSSI and SNR, each its value, its best and the last minute, under the readout");
+assert.equal(await page.locator(".lcd-row #sig").count(), 1);
+{ const m = await page.locator("#sig").boundingBox(), card = await page.locator("#now").boundingBox();
+  assert.ok(m.x >= card.x + card.width / 2, `meter starts at ${m.x}, card ${card.x}+${card.width}`);
+  assert.ok(m.height <= 40, `meter ${m.height}px tall`); }
+ok("the signal meter: RSSI and SNR, each its value and the last minute, compact at the top right of the card");
 await tab("log");
 await page.waitForSelector(".log-row");
 await page.waitForFunction(() => !/kHz/.test(document.querySelector(".log-row .log-open b").textContent), null, {timeout: 15000});
@@ -578,13 +582,30 @@ await page.goto(URL + `#f=${kp}`); await page.reload(); await page.waitForFuncti
 await page.click("#x-back"); await atHome(); await page.waitForSelector("#recent .chip.pinned");
 assert.equal(+await page.getAttribute("#recent .chip:first-child", "data-look"), kp);
 ok("a pin survives a reload and comes first under the search");
+assert.equal(await page.locator("#disc-scan").count(), 0);
+assert.equal(await page.isChecked("#disc-aimed"), false);
+assert.equal(await page.isChecked("#sw-aimed"), true);
+const scannedShown = () => page.waitForFunction(() => /scanned/.test(document.getElementById("disc-results").textContent), null, {timeout: 60000});
+// The band already highlighted scans too, though a radio fires no change for it
+const meter0 = await page.getAttribute("#disc-meters input:checked", "value");
+await page.click(`#disc-meters label:has(input[value="${meter0}"])`);
+await scannedShown();
+ok("Discover: tapping the highlighted band scans it");
+// Hopping to another band mid-scan: the new scan's progress stays and it ends on the last band
+{ const [m1, m2] = (await page.$$eval("#disc-meters input", (els) => els.map((e) => e.value))).filter((m) => m !== meter0).slice(-2);
+  await E(() => { window.__cancelled = false; const box = document.getElementById("disc-results");
+    new MutationObserver(() => { if (/Cancelled/.test(box.textContent)) window.__cancelled = true; }).observe(box, {childList: true, subtree: true}); });
+  await page.click(`#disc-meters label:has(input[value="${m1}"])`);
+  await page.waitForSelector("#disc-results .progress");
+  await page.click(`#disc-meters label:has(input[value="${m2}"])`);
+  await scannedShown();
+  assert.equal(await page.getAttribute("#disc-meters input:checked", "value"), m2);
+  assert.equal(await E(() => window.__cancelled), false);
+  ok("Discover: tapping another band mid-scan replaces the scan, with no \"Cancelled\""); }
 await page.click('#disc-meters label:has-text("75m")');
-assert.match(await page.textContent("#disc-scan"), /Scan 75m · \d+/);
-await page.click("#disc-scan");
-await page.waitForFunction(() => /scanned/.test(document.getElementById("disc-results").textContent), null, {timeout: 60000});
+await scannedShown();
 await page.click('#disc-seg label:has-text("Near me")');
-await page.selectOption("#disc-band", "FM");
-await page.click("#disc-scan");
+await page.click('#disc-bands label:has-text("FM")');
 await page.waitForSelector("#disc-results [data-go]", {timeout: 90000});
 const kn = +await page.getAttribute("#disc-results [data-go]", "data-go");
 await page.click("#disc-results [data-go]");
@@ -716,6 +737,82 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
   assert.equal(await PE(() => state.ok), false);
   ok("Disconnect ends No radio, and the next visit starts without it");
   await nc.close();
+}
+
+// ---- the reception estimate: its own context, with the solar data seeded and the stations fixed, so no live feed decides ----
+{
+  const rc = await b.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, geolocation: {latitude: -33.45, longitude: -70.66}, permissions: ["geolocation"]});
+  const p = await rc.newPage();
+  p.on("pageerror", (e) => errors.push("pageerror: " + e.message));
+  const PE = (fn, arg) => p.evaluate(fn, arg);
+  await p.addInitScript(() => {
+    const at = Date.now();
+    localStorage.setItem("rf919.spacewx", JSON.stringify({sfi: {v: 127, at}, kp: {v: 3.33, at}, r: {v: 0, at}, fetched: at}));
+  });
+  await p.route("**/api/v1/freq/*.json", (route) => {
+    const kHz = +route.request().url().match(/(\d+)\.json/)[1];
+    const body = kHz < 30000
+      ? {kHz, version: "test", stations: [], shortwave: [{station: "Test Radio", itu: "B", country: "Brazil", kHz, startUTC: "0000", endUTC: "2400", days: {t: "d"}, season: 0,
+          site: {name: "Manaus", itu: "B", lat: -3.1, lon: -60, precision: "site"}, lang: "E", langLabel: "English", target: "SAm", targetLabel: "South America"}]}
+      : {kHz, version: "test", shortwave: [], stations: [{signal: "CA-TEST", nombre: "Radio Test", category: "broadcast", lat: -33.4, lon: -70.6, region: "RM"}]};
+    route.fulfill({json: body, headers: {"access-control-allow-origin": "*"}});
+  });
+  const badge = "#dossier button.prop";
+  await p.goto(URL + "#f=9580");
+  await p.waitForSelector("#dossier .d-name");
+  assert.equal(await p.locator(badge).count(), 0);
+  assert.equal(await p.locator("#dossier .bar .win[class*=p-]").count(), 0);
+  assert.equal(await p.locator("#dossier .prop-key").count(), 0);
+  ok("reception: no estimate, and no bars, before the listener's position is known");
+
+  await p.goto(URL + "#explore");
+  await p.waitForSelector('#conds [data-act="prop-locate"]');
+  assert.match(await p.textContent("#conds"), /SFI 127.*Kp 3\.33/);
+  assert.equal(await p.locator("#disc-best-row").isHidden(), true);
+  await p.click('#conds [data-act="prop-locate"]');
+  await p.waitForFunction(() => localStorage.getItem("rf919.pos") && document.querySelector("#conds b"));
+  assert.match(await p.textContent("#conds b"), /^Best now: \d+–\d+ MHz$/);
+  assert.equal(await p.locator('#conds [data-act="prop-locate"]').count(), 0);
+  assert.equal(await p.locator("#disc-best-row").isVisible(), true);
+  assert.equal(await PE(() => localStorage.getItem("rf919.nearme")), null);  // an estimate is no reason to turn the filter on
+  ok("reception: Explore's conditions line asks for the position once, then says what's open; Near me stays off");
+
+  await p.evaluate(() => { location.hash = "#f=9580"; });
+  await p.waitForSelector(badge);
+  const label = await p.getAttribute(badge, "aria-label");
+  assert.match(label, /^Reception estimate: (Likely|Possible|Unlikely), 3,\d{3} km\. Why\?$/);
+  assert.match(await p.textContent(`${badge} b`), /^(Likely|Possible|Unlikely)$/);
+  assert.ok(await p.locator("#dossier .bar .win[class*=p-]").count() > 0, "the Today bar is tinted");
+  assert.match(await p.getAttribute("#dossier .bar", "aria-label"), /^Reception estimate for today, UTC: /);
+  assert.equal(await p.locator("#dossier .prop-key span").count(), 3);
+  await p.waitForFunction(() => document.querySelector("#nearby .prop-bars"), null, {timeout: 15000});
+  assert.match(await p.getAttribute("#nearby .near-row", "aria-label"), /, reception (likely|possible|unlikely)$/);
+  await p.screenshot({path: path.join(OUT, "reception-dossier.png"), fullPage: true});
+  await p.click(badge);
+  await p.waitForFunction(() => document.getElementById("tools").open);
+  assert.equal(await p.locator("#prop-pane").isVisible(), true);
+  assert.equal(await p.textContent("#tools-title"), "Reception · 9580 kHz");
+  assert.ok(await p.locator("#prop-pane .prop-why li").count() >= 3);
+  assert.match(await p.textContent("#prop-pane .prop-why"), /MUF ≈ \d+ MHz.*Aimed at your region/s);
+  assert.match(await p.textContent("#prop-pane .note"), /An estimate/);
+  await p.screenshot({path: path.join(OUT, "reception-sheet.png")});
+  await p.keyboard.press("Escape");
+  await p.waitForFunction(() => !document.getElementById("tools").open);
+  ok("reception: the badge, the tinted Today bar, Nearby's bars, and the sheet that says why");
+
+  await p.evaluate(() => { location.hash = "#f=101300"; });
+  await p.waitForFunction(() => /Radio Test/i.test(document.querySelector("#dossier .d-name")?.textContent || ""));
+  assert.equal(await p.locator(badge).count(), 0);
+  ok("reception: nothing above 30 MHz, where solar data doesn't decide");
+
+  await p.addInitScript(() => localStorage.removeItem("rf919.spacewx"));
+  await p.route("**/services.swpc.noaa.gov/**", (route) => route.abort());
+  await p.goto(URL + "#f=9580"); await p.reload();
+  await p.waitForSelector("#dossier .d-name");
+  assert.equal(await p.locator(badge).count(), 0);
+  assert.equal(await p.locator("#conds").isHidden(), true);
+  ok("reception: with no solar data the page shows no estimates, and carries on");
+  await rc.close();
 }
 
 console.log(`\n${n} checks passed`, "| page errors:", errors.length ? errors : "none");

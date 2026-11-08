@@ -8,6 +8,7 @@ import {swipeTune} from "./gestures.js";
 import {heardHtml, logFreq, showLogFor} from "./log.js";
 import {firstHit, indexVersion, pinState, renderOnAir, renderResults} from "./find.js";
 import {startBle, startNoRadio} from "./more.js";
+import {TIER_KEY, airEstimate, askPosition, canEstimate, openProp, propBadge, renderConditions, rowBars, rowSay, stationEstimate, tintedWindows, windowsSay} from "./reception.js";
 
 // ---- What's on a frequency (radiomap.cl) ----
 // Per-viewer conveniences only; the page works the same when storage is unavailable
@@ -465,7 +466,10 @@ export function swHtml(all) {
   grid.push(`<div><dt>Days</dt><dd>${esc(daysText(e))}</dd></div>`);
   if (nearMe && myPos && e.site && e.site.lat != null) grid.push(distDd(e.site));
   if (e.lastHeard) grid.push(`<div><dt>Last heard</dt><dd>${esc(e.lastHeard.slice(0, 2))}/20${esc(e.lastHeard.slice(2))}</dd></div>`);
-  const wins = rows.flatMap((r) => r.today).map(([s, t]) => `<i class="win" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
+  // Each window tinted by what the estimate says for that hour
+  const windows = rows.flatMap((r) => tintedWindows(r, view.k, now)), say = windowsSay(windows), tinted = !!say;
+  const wins = windows.map(({s, t, tier}) => `<i class="win${tier ? ` p-${tier}` : ""}" style="left:${s / 14.4}%;width:${(t - s) / 14.4}%"></i>`).join("");
+  const est = airEstimate(head, view.k, now), badge = propBadge(est, view.k, head.air.on ? "" : hhmm(e.startUTC));
   // The schedule inline: what's on now and the next few; all of it in a sheet (no scrolling box inside the page)
   const at = Math.max(0, rows.findIndex((r) => r.air.on || r === next));
   const inline = rows.length <= SLOTS_INLINE ? rows : [...rows, ...rows].slice(at, at + SLOTS_INLINE);
@@ -473,11 +477,11 @@ export function swHtml(all) {
     ? `<button class="more" type="button" data-act="sched" aria-haspopup="dialog">Full schedule · ${rows.length}</button>` : "";
   return {hero: `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span>${remindHtml(head, now)}</div>
     <h3 class="d-name">${view.flag ? "" : flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
-    <p class="d-meta">${esc(meta)}</p>`,
+    <p class="d-meta">${esc(meta)}</p>${badge}`,
   rest: `<dl class="d-grid">${grid.join("")}</dl>
     <div class="sched"><h4 class="h"><span>Today</span></h4>
-      <div class="bar">${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
-      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div></div>
+      <div class="bar"${tinted ? ` role="img" aria-label="${esc(say)}"` : ""}>${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
+      <div class="axis"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>${tinted ? TIER_KEY : ""}</div>
     <div class="slots"><h4 class="h"><span>${rows.length > inline.length ? "Coming up" : "Schedule"}${hidden ? ` · ${list.length} of ${all.length} aimed at ${esc(myRegion())}` : ""}</span>` +
       `<span>${hidden ? showAllBtn() : ""}</span></h4>
       <table><tbody>${inline.map((r) => slotRow(r, next)).join("")}</tbody></table>${full}</div>`};
@@ -589,7 +593,7 @@ export function stationHero({s, km}) {
   view.flag = bgFlag(stationFlag(s));
   return {hero: `<div class="d-head"><span class="pill cat">${esc(cat)}</span><span class="d-sub">${esc(s.signal || "")}</span></div>
     <h3 class="d-name">${view.flag ? "" : flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile")}${esc(s.nombre || s.signal || "")}</h3>
-    ${place.length || s.notes ? `<p class="d-meta">${esc([...place, s.notes].filter(Boolean).join(" · "))}</p>` : ""}`,
+    ${place.length || s.notes ? `<p class="d-meta">${esc([...place, s.notes].filter(Boolean).join(" · "))}</p>` : ""}${propBadge(stationEstimate(s, view.k), view.k)}`,
   rest: `<dl class="d-grid">${grid.join("")}</dl>
     ${tags ? `<div class="tags">${tags}</div>` : ""}`};
 }
@@ -638,32 +642,34 @@ export const nearPasses = (d) => stationView(d.stations, true).shown.length > 0 
 // One line per nearby frequency: what's on air there now, else what's next, else its first (or nearest) station
 export function nearRow(n, fol, loc = false) {
   const label = n.k >= 30000 ? (n.k / 1000).toFixed(3) : String(n.k);
-  let name = "…", sub = "", flag = "", lamp = "none";
+  let name = "…", sub = "", flag = "", lamp = "none", est = null;
   const d = n.data;
   const sw = d ? swView(d.shortwave, loc).shown : [];
   if (d && sw.length) {
     const {on, head} = swPick(sw), e = head.e;
     name = e.station; flag = flagHtml(ituFlag(e.itu), e.country); lamp = head.air.on ? "on" : "";
+    est = airEstimate(head, n.k);
     sub = [e.langLabel || e.lang,
       head.air.on ? `on air until ${minHHMM(hhmmMin(e.endUTC))}` : head.air.startsIn != null ? `next ${hhmm(e.startUTC)} UTC` : "",
       on.length > 1 ? `+${on.length - 1} on air` : sw.length > 1 ? `${sw.length} slots` : ""].filter(Boolean).join(" · ");
   } else if (d && d.stations.length) {
     const {s, km} = stationView(d.stations, loc).shown[0] || stationRows(d.stations)[0];
     name = s.nombre || s.signal; flag = flagHtml(stationFlag(s), s.category === "global" ? "Worldwide" : "Chile");
+    est = stationEstimate(s, n.k);
     sub = [s.signal, placeOf(s)[1] || placeOf(s)[0], km != null && `${Math.round(km).toLocaleString()} km`,
       d.stations.length > 1 && `+${d.stations.length - 1} more`].filter(Boolean).join(" · ");
   } else if (d) name = "—";
-  return `<li><button class="near-row${d ? "" : " loading"}" type="button" data-go="${n.k}" aria-label="${fol ? "Tune to" : "Look up"} ${fmtKHz(n.k)}${d ? ": " + esc(name) : ""}">` +
+  return `<li><button class="near-row${d ? "" : " loading"}" type="button" data-go="${n.k}" aria-label="${fol ? "Tune to" : "Look up"} ${fmtKHz(n.k)}${d ? ": " + esc(name) : ""}${rowSay(est)}">` +
     `<span class="nf">${label}</span><span class="nn"><b>${flag}${esc(name)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
-    `<span class="dot ${lamp}"></span></button></li>`;
+    `${rowBars(est)}<span class="dot ${lamp}"></span></button></li>`;
 }
 
 // ---- Discover (Explore): what's on air across a meter band, and the stations near the listener ----
-// One file per frequency, so nothing is fetched until Scan. Scans are kept for the session; on-air states and the
-// Near me filters are worked out again from what was fetched
+// One file per frequency, so nothing is fetched until a band is tapped. Scans are kept for the session; on-air states
+// and the Near me filters are worked out again from what was fetched. busy: the band being scanned
 const DISC_ROWS = 30;
 export const disc = {mode: store.get("rf919.disc", "sw"), meter: store.get("rf919.discmeter", null), band: store.get("rf919.discband", "FM"),
-  kind: "all", win: 0, aimed: true, all: false, sw: new Map(), near: new Map()};
+  kind: "all", win: 0, aimed: false, all: false, sw: new Map(), near: new Map(), busy: null, best: store.get("rf919.discbest", false)};
 const meterKs = (m) => { const [, lo, hi] = SW_METERS.find(([x]) => x === m); return view.idx ? stripTicks(view.idx.freqs, lo, hi) : []; };
 const bandKs = (b) => view.idx ? view.idx.freqs.filter((k) => bandFor(k) === b) : [];
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "just now" : `${dur(m)} ago`; };
@@ -690,19 +696,21 @@ export function renderDiscover() {
   $("disc-aimed-row").hidden = !myPos;
   $("disc-aimed-name").textContent = myRegion();
   $("disc-aimed").checked = disc.aimed;
+  $("disc-best-row").hidden = !canEstimate();
+  $("disc-best").checked = disc.best;
   document.querySelectorAll("#disc-win input").forEach((i) => { i.checked = +i.value === disc.win; });
   const bands = ["FM", "AM", "VHF", "UHF", "AIR"].filter((b) => !view.idx || bandKs(b).length);
-  $("disc-band").innerHTML = bands.map((b) => `<option${b === disc.band ? " selected" : ""}>${b}</option>`).join("");
+  const bandBox = $("disc-bands"), bandHtml = `<legend>Band</legend>` + bands.map((b) =>
+    `<label><input type="radio" name="discband" value="${b}"${b === disc.band ? " checked" : ""}><span>${b}${count(bandKs(b).length)}</span></label>`).join("");
+  if (bandBox.dataset.html !== bandHtml) bandBox.innerHTML = bandBox.dataset.html = bandHtml;
   $("disc-kind").value = disc.kind;
   $("disc-radius").innerHTML = RADII.map((r) => `<option value="${r}"${r === radius ? " selected" : ""}>${r ? `Within ${r} km` : "Any distance"}</option>`).join("");
-  const n = view.idx ? (sw ? meterKs(disc.meter) : bandKs(disc.band)).length : 0, scanned = (sw ? disc.sw.get(disc.meter) : disc.near.get(disc.band));
-  $("disc-scan").textContent = `${scanned ? "Rescan" : "Scan"} ${sw ? disc.meter : disc.band}${n ? ` · ${n}` : ""}`;
-  $("disc-scan").setAttribute("aria-label", `${scanned ? "Rescan" : "Scan"} ${sw ? disc.meter : disc.band}${n ? `: ${n} frequencies` : ""}`);
+  const scanned = (sw ? disc.sw.get(disc.meter) : disc.near.get(disc.band));
   if (jobs.disc) return;  // a scan is running: its progress bar stays
   const box = $("disc-results");
   if (!scanned) {
-    box.innerHTML = `<p class="hint">${sw ? `Who's on air across ${disc.meter} now, from the EiBi schedules.` : `The ${disc.band} stations nearest to you.`} ` +
-      `Scan fetches one file per frequency from radiomap.cl${n ? ` (${n})` : ""}.</p>`;
+    box.innerHTML = `<p class="hint">${sw ? "Tap a band to see who's on air now, from the EiBi schedules." : "Tap a band to list its stations nearest to you."} ` +
+      `It fetches one file per frequency from radiomap.cl.</p>`;
     return;
   }
   const rows = sw ? discSwRows(scanned.pairs) : discNearRows(scanned.pairs), shown = disc.all ? rows : rows.slice(0, DISC_ROWS);
@@ -710,13 +718,14 @@ export function renderDiscover() {
   box.innerHTML = (rows.length ? `<ul class="list">${shown.join("")}</ul>` : `<p class="of-msg">${sw ? `Nothing on air on ${disc.meter}${disc.win ? " or starting soon" : ""}` +
       `${discTargets() ? ` aimed at ${esc(myRegion())}` : ""}.` : `No ${disc.band} station${radius ? ` within ${radius} km` : ""}.`}</p>`) +
     (rows.length > shown.length ? `<button class="more" type="button" data-act="disc-all">Show all ${rows.length}</button>` : "") +
-    `<p class="note">${rows.length} ${sw ? "on air" + (disc.win ? " or soon" : "") : "stations"} · scanned ${ago(scanned.at)}${failed ? ` · ${failed} failed` : ""}</p>`;
+    `<p class="note">${rows.length} ${sw ? "on air" + (disc.win ? " or soon" : "") : "stations"} · scanned ${ago(scanned.at)}${failed ? ` · ${failed} failed, tap the band to retry` : ""}</p>`;
 }
 const discTargets = () => disc.aimed && myPos ? myTargets : null;
 function discSwRows(pairs) {
-  const targets = discTargets();
-  return swOnAir(pairs, {win: disc.win, targets})
-    .sort((a, b) => b.air.on - a.air.on || (a.air.startsIn ?? 0) - (b.air.startsIn ?? 0) || a.k - b.k)
+  const targets = discTargets(), best = disc.best && canEstimate();
+  const score = (r) => { const est = airEstimate(r, r.k); return est ? est.score : -Infinity; };
+  return swOnAir(pairs, {win: disc.win, targets}).map((r) => ({...r, score: best ? score(r) : 0}))
+    .sort((a, b) => b.score - a.score || b.air.on - a.air.on || (a.air.startsIn ?? 0) - (b.air.startsIn ?? 0) || a.k - b.k)
     .map(({k, data}) => nearRow({k, data}, false, !!targets));
 }
 function discNearRows(pairs) {
@@ -729,19 +738,32 @@ function discNearRows(pairs) {
       `${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="dot none"></span></button></li>`;
   });
 }
+// A band was tapped: fetch it unless it's already held whole. Tapping it again retries what failed
+function discPicked() {
+  const sw = disc.mode === "sw", key = sw ? disc.meter : disc.band, held = (sw ? disc.sw : disc.near).get(key);
+  if (!held || held.pairs.some(([, d]) => d === null)) { if (disc.busy !== key) discScan(); return; }
+  // Its list is already there: drop a scan of another band, whose end shows it (renderDiscover waits for the job)
+  disc.busy = null;
+  if (jobs.disc) jobs.disc.abort();
+}
 export async function discScan() {
   const sw = disc.mode === "sw", box = $("disc-results"), key = sw ? disc.meter : disc.band;
-  if (!sw && !myPos) { try { await locate(); } catch { if (radius) return; } }
-  const idx = await radiomapIndex(box);
-  if (!idx) return;
-  view.idx ||= idx;
-  const ks = sw ? meterKs(key) : bandKs(key);
-  if (!ks.length) { box.innerHTML = `<p class="hint">radiomap.cl has nothing on ${key}.</p>`; return; }
-  const got = await fetchAll(ks, box, "disc");
-  if (!got) { renderDiscover(); return; }
-  (sw ? disc.sw : disc.near).set(key, {at: Date.now(), pairs: ks.map((k, i) => [k, got[i]])});
-  disc.all = false;
-  renderDiscover();
+  disc.busy = key;
+  try {
+    // Another band may be tapped during either wait: it takes over from here
+    if (!sw && !myPos) { try { await locate(); } catch { if (radius) return; } }
+    if (disc.busy !== key) return;
+    const idx = await radiomapIndex(box);
+    if (!idx || disc.busy !== key) return;
+    view.idx ||= idx;
+    const ks = sw ? meterKs(key) : bandKs(key);
+    if (!ks.length) { box.innerHTML = `<p class="hint">radiomap.cl has nothing on ${key}.</p>`; return; }
+    const got = await fetchAll(ks, box, "disc");
+    if (!got) { renderDiscover(); return; }
+    (sw ? disc.sw : disc.near).set(key, {at: Date.now(), pairs: ks.map((k, i) => [k, got[i]])});
+    disc.all = false;
+    renderDiscover();
+  } finally { if (disc.busy === key) disc.busy = null; }
 }
 
 // Asks for the position once more and keeps it; rejects (after a toast) when it isn't available
@@ -754,6 +776,7 @@ export function locate() {
       myTargets = targetsAt(myPos);
       store.set("rf919.pos", myPos);
       renderSwChips();
+      renderConditions();
       resolve(myPos);
     }, (e) => { toast(`Location: ${e.message || "not allowed"}`, 4000, true); reject(e); }, {maximumAge: 600000, timeout: 15000});
   });
@@ -791,13 +814,20 @@ export function init() {
     } else if (t.closest("#discover")) {
       if (t.name === "disc") { disc.mode = t.value; store.set("rf919.disc", t.value); }
       else if (t.name === "discmeter") { disc.meter = t.value; store.set("rf919.discmeter", t.value); }
-      else if (t.id === "disc-band") { disc.band = t.value; store.set("rf919.discband", t.value); }
+      else if (t.name === "discband") { disc.band = t.value; store.set("rf919.discband", t.value); }
       else if (t.id === "disc-kind") disc.kind = t.value;
       else if (t.name === "discwin") disc.win = +t.value;
       else if (t.id === "disc-aimed") disc.aimed = t.checked;
+      else if (t.id === "disc-best") { disc.best = t.checked; store.set("rf919.discbest", t.checked); }
       disc.all = false;
       renderDiscover();
+      if (t.name === "discmeter" || t.name === "discband") discPicked();
     }
+  });
+  // The band already highlighted: a radio fires no change for it. On a new pick click comes first, before the state moves
+  $("discover").addEventListener("click", (e) => {
+    const t = e.target;
+    if (t.matches('input[name="discmeter"], input[name="discband"]') && t.value === (t.name === "discmeter" ? disc.meter : disc.band)) discPicked();
   });
   // The dial: swipe the looked-up frequency (left = up), drag or tap the band strip
   swipeTune($("dossier"), (dir, seek) => {
@@ -819,8 +849,9 @@ export function init() {
     else if (t.dataset.act === "logk") showLogFor(+t.dataset.k);
     else if (t.dataset.act === "share") shareFreq();
     else if (t.dataset.act === "sched") openSchedule();
+    else if (t.dataset.act === "prop") openProp();
+    else if (t.dataset.act === "prop-locate") askPosition();
     else if (t.dataset.act === "remind") toggleReminder(view.k, +t.dataset.at);
-    else if (t.dataset.act === "disc-scan") discScan();
     else if (t.dataset.act === "disc-all") { disc.all = true; renderDiscover(); }
     else if (t.dataset.act === "nearme") toggleNearMe();
     else if (t.dataset.act === "showall") { view.showAll = true; renderView(); }

@@ -45,6 +45,7 @@
   --warn-soft: light-dark(#fde7e4, rgba(255, 138, 122, .1));
   --warn-line: light-dark(rgba(179, 38, 30, .45), rgba(255, 138, 122, .5));
   --on-warn-soft: light-dark(#7a1710, #ffc2b8);
+  --prop-fair: light-dark(#7a5a00, #ffd166);       /* the reception estimate's middle tier: amber */
 
   /* ---- the radio's display ---- */
   --freq-ink: light-dark(#0b1520, #ffffff);
