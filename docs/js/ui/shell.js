@@ -5,7 +5,7 @@ import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
 import {BleLink, VirtualLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
-import {addRecent, following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, show, store, view} from "./radio.js";
+import {addRecent, following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, setScanning, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {logOff, logSignal, renderLog} from "./log.js";
 import {link, pressKey, send} from "./more.js";
@@ -31,6 +31,7 @@ export function setStatus(kind, text) {
   document.querySelectorAll("[data-lamp]").forEach((l) => { l.className = "lamp " + kind + (virtual ? " virtual" : ""); });
   state.link = text;
   state.ok = kind === "ok";
+  if (!state.ok && view.scanning) setScanning(false);
   state.virtual = virtual;
   const recordKey = virtual ? "rf919.memories.virtual" : "rf919.memories";
   if (mem.recordKey !== recordKey) { mem.recordKey = recordKey; mem.record = store.get(recordKey, {}); }
@@ -148,7 +149,11 @@ export const handlers = {
     renderMini();
   },
   status_text(d) { state.fields.msg = d.text; statusLine(); },
-  toast(d) { toast(d.text); },
+  toast(d) {
+    const t = d.text.trim().toUpperCase();
+    if (t === "SCAN" || t === "SCAN STOP") setScanning(t === "SCAN");
+    toast(d.text);
+  },
   version(d) { toast(d.text.trim(), 6000); },
   disconnect_req() { link && link.close(); },
 };

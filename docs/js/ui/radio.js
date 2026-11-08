@@ -1,4 +1,4 @@
-import {pad2} from "../protocol.js";
+import {KEYS, pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {SW_METERS, addToList, bandChips, bandFor, bandRange, nearestStations, stripRange} from "../memories.js";
 import {errText} from "../link.js";
@@ -24,8 +24,11 @@ export const mem = {list: addToList([], store.get("rf919.memlist", []).filter((e
 // near: nearby frequencies with their lookups
 // flag: the flag-icons key of the station the card headlines (its background), "" for none
 // tuning: the page's last tune of the radio, {k, state} (see Tuner)
+// sweeping: the radio's frequency keeps moving (a seek, a fast scan) faster than it settles; moves counts the unsettled
+// changes. scanning: the radio is in SCAN (its key, or its "SCAN" message) until another key or "SCAN STOP".
+// key: the last key this page sent, {code, at} (a sweep right after a key other than SCAN is a seek)
 export const view = {radioK: null, pendingK: undefined, k: null, follow: true, data: null, err: null, near: [], idx: null,
-  all: false, showAll: false, timer: 0, unit: "MHz", flag: "", radioName: "", tuning: null};
+  all: false, showAll: false, timer: 0, unit: "MHz", flag: "", radioName: "", tuning: null, sweeping: false, moves: 0, scanning: false, scanT: 0, key: null};
 export let nearMe = store.get("rf919.nearme", false), myPos = store.get("rf919.pos", null);
 export const following = () => view.follow && state.ok;
 // Near me filters as well as sorts: stations beyond the radius, and shortwave not aimed at the listener's region.
@@ -51,12 +54,18 @@ export function swView(list, on = filtering()) {
 }
 export const showAllBtn = (label = "Show all") => `<button class="small" type="button" data-act="showall">${label}</button>`;
 
-// Debounced, so a SCAN or seek sweep only looks up the frequency it settles on
+// Debounced, so a SCAN or seek sweep only looks up the frequency it settles on. Until then the card's station is stale
+// (paintSweep); a second change before the last one settled is a sweep
 export function radioFreq(k) {
   if (k === view.pendingK) return;
   view.pendingK = k;
   clearTimeout(view.timer);
+  if (k !== null && ++view.moves >= 2) view.sweeping = true;
+  if (view.scanning) setScanning(true);  // a scan that stopped by itself (no change for a while) ends on its own
+  paintSweep();
   view.timer = setTimeout(() => {
+    view.moves = 0;
+    view.sweeping = false;
     view.radioK = k;
     logFreq(k);
     nameRadio(k);
@@ -191,10 +200,34 @@ export function renderDossier() {
   // One card: the radio's readout over what's on its frequency, the station's flag behind both
   const now = $("now");
   now.hidden = box.hidden && $("readout").hidden;
-  now.style.setProperty("--flag", view.flag ? `url("${FLAG_CDN}${view.flag}.svg")` : "none");
-  now.classList.toggle("flagged", !!view.flag);
+  paintSweep();
   // Explore's detail: the bar's title, shown once the dial scrolls under it
   if (!view.follow) $("x-title").textContent = view.k === null ? "Explore" : [fmtKHz(view.k), nameOf(view.data)].filter(Boolean).join(" · ");
+}
+
+export function setScanning(on) {
+  clearTimeout(view.scanT);
+  view.scanning = on;
+  if (on) view.scanT = setTimeout(() => setScanning(false), SCAN_IDLE_MS);
+  paintSweep();
+}
+const SCAN_IDLE_MS = 12000;
+// The Radio card while the frequency moves: the needle and "Scanning" (or "Seeking") under the digits. Once the radio
+// leaves the card's station, that station is stale until the new one is looked up: dimmed, and its flag gone
+function paintSweep() {
+  const now = $("now"), box = $("dossier");
+  if (!now) return;
+  const f = following(), anim = f && (view.sweeping || view.scanning);
+  const stale = f && view.pendingK != null && view.pendingK !== view.k, flag = stale ? "" : view.flag;
+  if (anim && !now.classList.contains("scanning")) {
+    const seek = !view.scanning && view.key && view.key.code !== KEYS.SCAN && Date.now() - view.key.at < 2000;
+    now.querySelector(".scan-tag").textContent = seek ? "Seeking" : "Scanning";
+  }
+  now.classList.toggle("scanning", anim);
+  now.classList.toggle("stale", stale);
+  if (stale) box.setAttribute("aria-busy", "true"); else box.removeAttribute("aria-busy");
+  now.style.setProperty("--flag", flag ? `url("${FLAG_CDN}${flag}.svg")` : "none");
+  now.classList.toggle("flagged", !!flag);
 }
 
 export function dossierHtml() {

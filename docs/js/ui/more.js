@@ -4,7 +4,7 @@ import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeT
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, VirtualLink, errText, linkOpts, sleep} from "../link.js";
 import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, route, setAutoTune, setStatus, state, toast} from "./shell.js";
-import {airSeek, airSignal, mem, nearPasses, renderView, show, store, view} from "./radio.js";
+import {airSeek, airSignal, mem, nearPasses, renderView, setScanning, show, store, view} from "./radio.js";
 import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
 // ---- Test one memory: fixed pauses, every step marked in the log ----
@@ -214,6 +214,9 @@ export function pressKey(key, long) {
   const k = long && LONG[key] !== undefined ? LONG[key] : key;
   if ((typeof k === "number" ? k : KEYS[k]) === KEYS.PLAY_LONG) { holdScan(); return; }
   if (navigator.vibrate) navigator.vibrate(long ? 40 : 15);
+  view.key = {code: typeof k === "number" ? k : KEYS[k], at: Date.now()};
+  // SCAN starts a scan (on the radio: the same key plays music); any key stops it
+  if (state.ok) setScanning(view.key.code === KEYS.SCAN && !view.scanning && (!state.mode || state.mode === "radio"));
   send(() => link ? link.press(k) : Promise.reject(new Error("not connected")));
 }
 // Holding SCAN/ATS (33) deletes every memory of the band on the RF919 (user report): never without asking.

@@ -514,6 +514,19 @@ label.item { cursor: pointer; }
   mask-composite: intersect;
 }
 #now.flagged :is(.readout, .d-head, .d-name, .d-meta) { text-shadow: var(--hero-shadow); }
+/* scanning: the radio scans or seeks, a needle sweeps under the digits. stale: the radio left the station below */
+.sub .scan-tag { display: none; flex: none; align-items: center; gap: 6px; padding-left: 2px; overflow: visible; }
+.scan-tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; animation: blink .7s ease-in-out infinite alternate; }
+#now.scanning .sub .scan-tag { display: inline-flex; }
+#now.scanning .freq { position: relative; }
+#now.scanning .freq::after {
+  content: ""; position: absolute; left: 0; bottom: -6px; width: 28%; height: 2px; border-radius: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent); box-shadow: 0 0 10px var(--freq-glow);
+  animation: scan-sweep 1.1s ease-in-out infinite alternate;
+}
+@keyframes scan-sweep { from { transform: translateX(0); } to { transform: translateX(257%); } }
+#dossier { transition: opacity var(--fast); }
+#now.stale #dossier { opacity: .4; }
 .readout { touch-action: pan-y; }
 /* a swipe surface: no text selection (a second drag on selected digits would start a native drag instead) */
 .freq { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
