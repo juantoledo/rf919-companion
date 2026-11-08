@@ -4,17 +4,18 @@
 // it within joinMs carries on the same entry, so a quick look elsewhere doesn't split a broadcast in two.
 export const DWELL_MS = 30000, JOIN_MS = 10 * 60000, LOG_MAX = 2000, SIGNAL_MS = 60000;
 
-// An entry: {id, k, band, mode, start, end (ms), rssi, snr (peaks, null when never read), station, flag, star, demo}
+// An entry: {id, k, band, mode, start, end (ms), rssi, snr (peaks, null when never read), station, flag, star, demo, virtual}
+// demo: from the test replay (never kept); virtual: from No radio's virtual radio (kept, shown apart)
 export class Logbook {
   constructor(entries = [], {dwellMs = DWELL_MS, joinMs = JOIN_MS, max = LOG_MAX, onChange = () => {}} = {}) {
     Object.assign(this, {entries, dwellMs, joinMs, max, onChange, here: null});
   }
   // k null: off the air for the log (not connected, busy, an alert)
-  feed(k, band, t, {mode = "", demo = false} = {}) {
-    if (this.here && this.here.k === k && this.here.demo === demo) { this.tick(t); return; }
-    this.here = k == null ? null : {k, band, mode, demo, since: t, rssi: null, snr: null, entry: null};
+  feed(k, band, t, {mode = "", demo = false, virtual = false} = {}) {
+    if (this.here && this.here.k === k && this.here.demo === demo && this.here.virtual === virtual) { this.tick(t); return; }
+    this.here = k == null ? null : {k, band, mode, demo, virtual, since: t, rssi: null, snr: null, entry: null};
     if (!this.here) return;
-    const last = this.entries.findLast((e) => e.k === k && !!e.demo === demo);
+    const last = this.entries.findLast((e) => e.k === k && !!e.demo === demo && !!e.virtual === virtual);
     if (last && t - last.end <= this.joinMs) this.here.entry = last;
     this.tick(t);
   }
@@ -35,7 +36,7 @@ export class Logbook {
     }
     if (t - h.since < this.dwellMs) return;
     const e = h.entry = {id: `${h.since.toString(36)}-${h.k}`, k: h.k, band: h.band, mode: h.mode, start: h.since, end: t,
-      rssi: h.rssi, snr: h.snr, station: "", flag: "", star: false, ...(h.demo ? {demo: true} : {})};
+      rssi: h.rssi, snr: h.snr, station: "", flag: "", star: false, ...(h.demo ? {demo: true} : {}), ...(h.virtual ? {virtual: true} : {})};
     this.entries.push(e);
     while (this.entries.length > this.max) this.entries.shift();
     this.onChange("open", e);

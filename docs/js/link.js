@@ -1,5 +1,6 @@
 import {BAND_CODES, DEMO, Decoder, KEYS, NOTIFY_CHAR, SERVICE, WRITE_CHAR, frame, fromHex, hex, uuid16} from "./protocol.js";
 import {MEMO_CFG, RadioSim, typeEntry} from "./memories.js";
+import {VirtualRadio} from "./virtual.js";
 import {waiters} from "./state.js";
 
 // ---- Links ----
@@ -210,4 +211,35 @@ export class ReplayLink extends BaseLink {
     setTimeout(() => { if (this.connected) this.sim.receive(pkt); }, 60);
   }
   async close() { this.connected = false; clearTimeout(this.timer); this.onStatus("bad", "disconnected"); }
+}
+
+// No radio: a virtual RF919 (virtual.js) behind the same interface as BleLink. It starts where it was left
+// (saved: VirtualRadio.toJSON()), answers every frame the page sends, and calls hooks.save when its state changes.
+// The reply comes ~60 ms after a send, about as fast as the real radio, so the Tuner and the memory runs pace alike
+export class VirtualLink extends BaseLink {
+  constructor(onEvent, onStatus, hooks = {}, saved = null) {
+    super(onEvent, onStatus);
+    this.connected = false; this.decoder = new Decoder();
+    this.radio = new VirtualRadio((pkt) => {
+      if (!this.connected) return;
+      if (linkOpts.rawRx) this.onEvent({kind: "rx", data: {}, text: `RX FF14 ${hex(pkt)} (no radio)`, raw: new Uint8Array()});
+      for (const ev of this.decoder.feed(pkt)) this.onEvent(ev);
+    }, hooks, saved);
+  }
+  async connect() {
+    this.connected = true;
+    this.onStatus("ok", "no radio (virtual)");
+    this.radio.hello();
+  }
+  async send(pkt) {
+    if (!this.connected) throw new Error("not connected");
+    this.onEvent({kind: "link", data: {}, text: `no radio: ${hex(pkt)}`, raw: pkt});
+    setTimeout(() => { if (this.connected) this.radio.receive(pkt); }, 60);
+  }
+  async close() {
+    if (!this.connected) return;
+    this.connected = false; this.radio.stop();
+    if (this.radio.hooks.save) this.radio.hooks.save();
+    this.onStatus("bad", "disconnected");
+  }
 }

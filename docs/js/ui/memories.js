@@ -11,7 +11,8 @@ import {swipeRows} from "./gestures.js";
 // ---- Memories tab ----
 export const memNote = (text) => log({kind: "mem", text, raw: new Uint8Array()});
 export const saveMem = () => store.set("rf919.memlist", mem.list);
-export const saveRecord = () => store.set("rf919.memories", mem.record);
+// The record follows the link: No radio's virtual radio has its own (shell.js setStatus swaps it), so the two never mix
+export const saveRecord = () => store.set(mem.recordKey, mem.record);
 export const bandStyle = (band) => `--band:${BAND_COLORS[band] || "#b0bec5"}`;
 export const memSecs = (n) => { const s = Math.round(n * 2.5); return s < 90 ? `${s} s` : `${Math.round(s / 60)} min`; };
 
@@ -121,7 +122,7 @@ export function renderMemRun() {
     const c = mem.check;
     h += `<p class="hint">Checked ${c.n}: ${c.ok} match${c.bad ? ` · ${c.bad} differ or didn't answer (marked in the list)` : ""}.</p>`;
   }
-  if (!state.ok) h += `<p class="hint">Connect the radio (or start the Demo) to store the list. About 2–3 s per memory; keep the screen on and don't touch the radio during a run.</p>`;
+  if (!state.ok) h += `<p class="hint">Connect the radio, or choose No radio, to store the list. About 2–3 s per memory; keep the screen on and don't touch the radio during a run.</p>`;
   box.innerHTML = h;
   renderFresh();
   renderBackup();
@@ -327,7 +328,7 @@ export function renderFresh() {
     `then clears this app's ${band} list and record. Other bands are kept.</p>` +
     `<div class="row"><button class="danger" type="button" data-mem="fresh"${!state.ok || mem.run ? " disabled" : ""}>` +
     `Wipe all ${band} memories on the radio</button></div>` +
-    (state.ok ? "" : `<p class="hint">Connect the radio (or start the Demo) first.</p>`);
+    (state.ok ? "" : `<p class="hint">Connect the radio, or choose No radio, first.</p>`);
 }
 export async function startFresh() {
   const band = shownBand();

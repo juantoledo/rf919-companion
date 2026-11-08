@@ -3,7 +3,7 @@ import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {MemoryRun, bandFor, bandUnit, memKey} from "../memories.js";
 import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
-import {BleLink, sleep} from "../link.js";
+import {BleLink, VirtualLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
 import {addRecent, following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
@@ -26,13 +26,20 @@ export function setBandChip(el, band) {
 export const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null, ok: false};
 
 export function setStatus(kind, text) {
-  document.querySelectorAll("[data-lamp]").forEach((l) => { l.className = "lamp " + kind; });
+  // No radio's virtual radio is "ok" like a radio, with its own lamp so it's never taken for one
+  const virtual = kind === "ok" && link instanceof VirtualLink;
+  document.querySelectorAll("[data-lamp]").forEach((l) => { l.className = "lamp " + kind + (virtual ? " virtual" : ""); });
   state.link = text;
   state.ok = kind === "ok";
+  state.virtual = virtual;
+  const recordKey = virtual ? "rf919.memories.virtual" : "rf919.memories";
+  if (mem.recordKey !== recordKey) { mem.recordKey = recordKey; mem.record = store.get(recordKey, {}); }
+  document.body.classList.toggle("virtual", virtual);
   renderStat();
   $("conn-state").textContent = text.charAt(0).toUpperCase() + text.slice(1);
-  $("connect").textContent = kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
-  $("connect").disabled = kind === "ok" || kind === "busy" || !navigator.bluetooth;
+  $("connect").textContent = virtual ? "Connect radio" : kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
+  $("connect").disabled = (kind === "ok" && !virtual) || kind === "busy";  // without Bluetooth it opens the sheet saying so
+  $("noradio").disabled = virtual;
   log({kind: "link", text: "● " + text, raw: new Uint8Array()});
   if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); logOff(); }
   renderView();
@@ -447,13 +454,13 @@ export function openRemote() { openSheet($("remote"), $("remote-seg").querySelec
 export function closeRemote() { if ($("remote").open) $("remote").close(); }
 // The tools of Memories and More, and Explore's full schedule: one sheet, a pane each, titled by the row that
 // opened it (or by title)
-export function openTool(id, title = null) {
+export function openTool(id, title = null, detent = "large") {
   const pane = $(id), row = document.querySelector(`[data-tool="${id}"]`);
   if (!pane) return;
   $("tools-title").textContent = title ?? (row ? row.textContent.trim() : "");
   for (const p of $("tools").querySelectorAll(".tool")) p.hidden = p !== pane;
   $("tools").querySelector(".sheet-body").scrollTop = 0;
-  openSheet($("tools"), "large");
+  openSheet($("tools"), detent);
 }
 // The Remote's panes (Keys, Keypad, Tune); the keypad and direct tune need the sheet's full height
 export function remotePane(name) {
