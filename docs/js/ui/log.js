@@ -1,8 +1,8 @@
 import {Logbook, Signal, toAdif, toCsv} from "../logbook.js";
 import {flagHtml, fmtKHz, ituFlag} from "../radiomap.js";
 import {waiters} from "../state.js";
-import {ReplayLink, VirtualLink, errText} from "../link.js";
-import {$, bandIco, current, esc, go, lookUp, setEditing, state, tabDir, toast, vt} from "./shell.js";
+import {ReplayLink, VirtualLink} from "../link.js";
+import {$, bandIco, current, esc, go, lookUp, setEditing, shareOrSave, state, tabDir, toast, vt} from "./shell.js";
 import {bandFor} from "../memories.js";
 import {mem, nameOf, rm, store, swPick, view} from "./radio.js";
 import {link} from "./more.js";
@@ -183,15 +183,7 @@ async function exportLog(kind) {
   const list = shownEntries(), d = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   const name = `rf919-log-${d}.${kind === "adif" ? "adi" : "csv"}`, text = kind === "adif" ? toAdif(list) : toCsv(list);
   const file = new File([text], name, {type: kind === "adif" ? "text/plain" : "text/csv"});
-  if (navigator.canShare && navigator.canShare({files: [file]})) {
-    try { await navigator.share({files: [file], title: "RF919 listening log"}); return; }
-    catch (e) { if (e.name === "AbortError") return; toast(`Share failed: ${errText(e)}`, 4000, true); }
-  }
-  const url = URL.createObjectURL(file), a = document.createElement("a");
-  a.href = url; a.download = name;
-  document.body.append(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-  toast(`Saved ${name} · ${list.length} ${list.length === 1 ? "entry" : "entries"}`);
+  if (await shareOrSave(file, "RF919 listening log") === "saved") toast(`Saved ${name} · ${list.length} ${list.length === 1 ? "entry" : "entries"}`);
 }
 
 export function init() {

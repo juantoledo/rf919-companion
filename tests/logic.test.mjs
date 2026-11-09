@@ -9,6 +9,7 @@ import {Tuner} from "../docs/js/tuner.js";
 import {NameIndex, norm} from "../docs/js/names.js";
 import {Logbook, Signal, toAdif, toCsv, adifBand} from "../docs/js/logbook.js";
 import * as propagation from "../docs/js/propagation.js";
+import * as calendar from "../docs/js/calendar.js";
 
 const T = {...protocol, ...radiomap, ...memories};
 const H = (b) => T.hex(b).toUpperCase();
@@ -1022,5 +1023,68 @@ ok("Logbook: No radio's entries are their own (never joined with a radio's), tag
       ok("reception: forecasts are refreshed apart, kept when a read fails, and restored", () => {});
     }
   }
+}
+
+{
+  // Monday 9 Nov 2026, 12:00 UTC (boreal winter)
+  const NOW = Date.UTC(2026, 10, 9, 12), at = (m, d, h = 0, min = 0) => Date.UTC(2026, m, d, h, min);
+  const entry = (startUTC, endUTC, days, more = {}) => ({station: "Test Radio", kHz: 9580, startUTC, endUTC, days, ...more});
+  const next = (e, now = NOW) => radiomap.nextStart(e, now);
+
+  ok("calendar: the next start follows the schedule's days", () => {
+    assert.equal(next(entry("1300", "1400", {t: "d"})), at(10, 9, 13));
+    assert.equal(next(entry("0100", "0200", {t: "d"})), at(10, 10, 1));
+    assert.equal(next(entry("0100", "0200", {t: "w", m: 4})), at(10, 11, 1));  // bit 2: Wednesday
+    assert.equal(next(entry("1300", "1400", {t: "n", n: 2, wd: 0})), at(10, 9, 13));  // today is the 2nd Monday
+    assert.equal(next(entry("0100", "0200", {t: "n", n: 2, wd: 0})), Date.UTC(2026, 11, 14, 1));  // today's has gone
+    assert.equal(next(entry("0100", "0200", {t: "l", wd: 0})), at(10, 30, 1));
+    assert.equal(next(entry("0100", "0200", {t: "date", d: 25, m: 11})), at(10, 25, 1));
+    assert.equal(next(entry("0100", "0200", {t: "irr"})), null);
+  });
+  ok("calendar: the next start honours season and validity dates", () => {
+    assert.equal(next(entry("0100", "0200", {t: "d"}, {season: 4})), at(10, 10, 1));
+    assert.equal(next(entry("0100", "0200", {t: "d"}, {season: 5})), null);
+    assert.equal(next(entry("0100", "0200", {t: "d"}, {validTo: "2026-11-09"})), null);
+    assert.equal(next(entry("0100", "0200", {t: "d"}, {validFrom: "2026-11-20"})), at(10, 20, 1));
+  });
+  ok("calendar: on air, the next start is the airing after this one", () => {
+    assert.equal(next(entry("1100", "1300", {t: "d"})), at(10, 10, 11));
+    assert.equal(next(entry("2300", "0100", {t: "d"}), at(10, 10, 0, 30)), at(10, 10, 23));
+  });
+
+  const ICS = (e, start, more = {}) => calendar.broadcastIcs(e, {at: start, now: NOW, ...more});
+  const unfold = (text) => text.replace(/\r\n /g, "");
+  const field = (text, name) => unfold(text).split("\r\n").find((l) => l.startsWith(`${name}:`)).slice(name.length + 1);
+
+  ok("calendar: an airing's times are UTC, and the end comes from the span", () => {
+    const one = ICS(entry("0100", "0200", {t: "d"}), at(10, 10, 1));
+    assert.equal(field(one, "DTSTART"), "20261110T010000Z");
+    assert.equal(field(one, "DTEND"), "20261110T020000Z");
+    assert.equal(field(ICS(entry("2200", "2400", {t: "d"}), at(10, 10, 22)), "DTEND"), "20261111T000000Z");
+    assert.equal(field(ICS(entry("2300", "0100", {t: "d"}), at(10, 10, 23)), "DTEND"), "20261111T010000Z");
+    assert.equal(calendar.airingText(at(10, 10, 1)), "Tue 10 Nov 01:00 UTC");
+  });
+  ok("calendar: the event has its text, link and an alert", () => {
+    const e = entry("0100", "0200", {t: "d"}, {langLabel: "Inglés", targetLabel: "Lejano Oriente", site: {name: "Kimjae"}});
+    const text = ICS(e, at(10, 10, 1), {url: "https://x.test/#f=9580"}), flat = unfold(text);
+    assert.equal(field(text, "SUMMARY"), "Test Radio · 9580 kHz");
+    assert.equal(field(text, "URL"), "https://x.test/#f=9580");
+    assert.equal(field(text, "DESCRIPTION"), "Inglés → Lejano Oriente\\nTransmitter: Kimjae\\n01:00–02:00 UTC\\nhttps://x.test/#f=9580");
+    assert.match(flat, /BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT5M\r\n/);
+    assert.equal(field(text, "UID"), field(ICS(e, at(10, 10, 1)), "UID"), "the same airing has the same UID");
+    assert.notEqual(field(text, "UID"), field(ICS(e, at(10, 11, 1)), "UID"));
+  });
+  ok("calendar: text is escaped and lines are CRLF, folded at 75 bytes between characters", () => {
+    assert.match(field(ICS(entry("0100", "0200", {t: "d"}, {station: "A, B; C\\D\nE"}), at(10, 10, 1)), "SUMMARY"), /^A\\, B\\; C\\\\D\\nE · /);
+    const station = "Radio Ñandú 📻 ".repeat(12);
+    const text = ICS(entry("0100", "0200", {t: "d"}, {station}), at(10, 10, 1));
+    assert.ok(text.endsWith("\r\n"));
+    assert.equal(/[^\r]\n|\r[^\n]/.test(text), false);
+    const bytes = text.split("\r\n").map((l) => Buffer.byteLength(l));
+    assert.ok(Math.max(...bytes) <= 75, "no line over 75 bytes");
+    assert.ok(Math.max(...bytes) > 70, "long lines were folded");
+    assert.equal(text.includes("�"), false);
+    assert.equal(field(text, "SUMMARY"), `${station} · 9580 kHz`);
+  });
 }
 console.log(`\n${n} checks passed`);

@@ -3,5 +3,6 @@
 *.zip
 out/
 memory.md
+IMPROVEMENTS.md
 .DS_Store
 node_modules/

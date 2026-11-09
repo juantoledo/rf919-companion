@@ -79,7 +79,8 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   and target, today's transmissions on a UTC bar, and what's coming up in the **Schedule** tab under the card
   (**Full schedule** opens all of EiBi's entries in a sheet). When the next
   broadcast starts within a day, **Remind** (in the row of actions) shows a snackbar (and a notification, if allowed) when
-  it does, as long as the page is open.
+  it does, as long as the page is open. The calendar button (in the same row, and on each row of **Full schedule**) saves
+  the next airing, up to five weeks ahead, as an `.ics` file for your calendar app, with an alert 5 minutes before it starts.
 - **Stations** (a tab under the card, with Schedule and Nearby; one shows at a time and your choice is kept): Chilean broadcasters, amateur repeaters (output/input, CTCSS tone, shift, DMR,
   EchoLink) and ATC, each linked to the radiomap.cl map.
 - **Nearby**: the closest frequencies with data and what's on them (on a phone, cards that scroll

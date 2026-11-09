@@ -1,8 +1,9 @@
 import {KEYS, pad2} from "../protocol.js";
-import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
+import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, nextStart, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
 import {SW_METERS, addToList, bandChips, bandFor, bandRange, memKey, nearestStations, stripRange} from "../memories.js";
+import {airingText, broadcastIcs, icsStamp} from "../calendar.js";
 import {errText} from "../link.js";
-import {$, bandIco, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
+import {$, bandIco, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, shareOrSave, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {swipeTune} from "./gestures.js";
 import {heardHtml, logFreq, showLogFor} from "./log.js";
@@ -495,7 +496,7 @@ export function swHtml(all) {
   return {hero: `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
     <h3 class="d-name">${view.flag ? "" : flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
     <p class="d-meta">${esc(meta)}</p>${badge}`,
-  remind: remindHtml(head, now),
+  remind: remindHtml(head, now) + calHtml(e, list.indexOf(e), now),
   rest: `<dl class="d-grid">${grid.join("")}</dl>
     <div class="sched"><h4 class="h"><span>Today</span></h4>
       <div class="bar"${tinted ? ` role="img" aria-label="${esc(say)}"` : ""}>${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
@@ -504,18 +505,18 @@ export function swHtml(all) {
       <table><tbody>${inline.map((r) => slotRow(r, next)).join("")}</tbody></table>${full}</div>`};
 }
 const SLOTS_INLINE = 3;
-function slotRow(r, next) {
+function slotRow(r, next, extra = "") {
   const cls = r.air.on ? "cur" : r === next ? "next" : r.today.length ? "" : "idle";
   const to = r.e.targetLabel || r.e.target;
   return `<tr class="${cls}"><td>${hhmm(r.e.startUTC)}–${hhmm(r.e.endUTC)}</td>` +
     `<td>${flagHtml(ituFlag(r.e.itu), r.e.country)}${esc(r.e.station)}` +
-    `<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}${to ? ` → ${esc(to)}` : ""}</small></td></tr>`;
+    `<small>${esc([r.e.langLabel || r.e.lang, daysText(r.e)].filter(Boolean).join(" · "))}${to ? ` → ${esc(to)}` : ""}</small></td>${extra}</tr>`;
 }
 // The whole schedule in the sheet, scrolled to what's on (or next)
 function openSchedule() {
   if (!view.data) return;
-  const {rows, next} = swPick(swView(view.data.shortwave).shown);
-  $("sched-body").innerHTML = `<div class="slots"><table><tbody>${rows.map((r) => slotRow(r, next)).join("")}</tbody></table></div><p class="note">${dataLine()}</p>`;
+  const now = Date.now(), {rows, next} = swPick(swView(view.data.shortwave).shown, now);
+  $("sched-body").innerHTML = `<div class="slots"><table><tbody>${rows.map((r, i) => slotRow(r, next, `<td class="slot-cal">${calHtml(r.e, i, now)}</td>`)).join("")}</tbody></table></div><p class="note">${dataLine()}</p>`;
   openTool("sched-pane", `Schedule · ${fmtKHz(view.k)}`);
   const cur = $("sched-body").querySelector("tr.cur, tr.next");
   if (cur) requestAnimationFrame(() => cur.scrollIntoView({block: "center"}));
@@ -575,6 +576,21 @@ export function checkReminders(now = Date.now()) {
     }
   }
   if (current === "explore" || current === "radio") renderDossier();
+}
+
+// ---- add to calendar: the next airing as an .ics file, whose alert doesn't need this page. i: its place in swView's shown ----
+function calHtml(e, i, now) {
+  const at = nextStart(e, now);
+  if (at == null) return "";
+  return `<button class="small icon" type="button" data-act="cal" data-i="${i}" data-keep="cal" aria-label="Add ${esc(e.station || "this broadcast")}, ${airingText(at)}, to your calendar" ` +
+    `title="Add the next airing to your calendar">${icon("calendar")}</button>`;
+}
+async function addToCalendar(i) {
+  const e = view.data && swView(view.data.shortwave).shown[i], now = Date.now(), at = e ? nextStart(e, now) : null;
+  if (at == null) return;
+  const name = `rf919-${e.kHz}-${icsStamp(at).slice(0, 13).replace("T", "-")}.ics`;
+  const text = broadcastIcs(e, {at, now, url: `${location.origin}${location.pathname}#f=${e.kHz}`});
+  if (await shareOrSave(new File([text], name, {type: "text/calendar"}), e.station || fmtKHz(e.kHz)) === "saved") toast(`Calendar file saved · ${airingText(at)}`);
 }
 
 // Stations with their distance; nearest first with Near me
@@ -900,6 +916,7 @@ export function init() {
     else if (t.dataset.act === "prop") openProp();
     else if (t.dataset.act === "prop-locate") askPosition();
     else if (t.dataset.act === "remind") toggleReminder(view.k, +t.dataset.at);
+    else if (t.dataset.act === "cal") addToCalendar(+t.dataset.i);
     else if (t.dataset.act === "disc-all") { disc.all = true; renderDiscover(); }
     else if (t.dataset.act === "nearme") toggleNearMe();
     else if (t.dataset.act === "showall") { view.showAll = true; renderView(); }

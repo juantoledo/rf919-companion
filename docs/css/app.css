@@ -795,6 +795,7 @@ button.prop::after { content: "›"; color: var(--dim); }
 .slots th { position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--surface); font: 400 var(--fs-caption2)/var(--lh-caption2) var(--font-ui); color: var(--dim); }
 .slots td { padding: 8px 6px 8px 0; border-top: var(--hair) solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
 .slots td:first-child { width: 1%; padding-right: var(--s3); font: 400 var(--fs-small)/var(--lh-small) var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.slots td.slot-cal { width: 1%; padding: 4px 0; vertical-align: middle; }
 .slots tr:first-child td { border-top: 0; }
 .slots td small { display: block; color: var(--dim); font-size: var(--fs-caption); line-height: var(--lh-caption); }
 .slots tr.idle td, .slots tr.idle td small { color: var(--faint); }

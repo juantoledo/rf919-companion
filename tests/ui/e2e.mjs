@@ -614,8 +614,15 @@ await page.click('#sched-box [data-act="sched"]');
 await page.waitForFunction(() => document.getElementById("tools").open && !document.getElementById("sched-pane").hidden);
 assert.ok(await page.locator("#sched-body tr").count() > 3);
 assert.match(await page.textContent("#tools-title"), /^Schedule · 9580 kHz/);
+await E(() => { navigator.canShare = () => false; });  // the download path, whatever this browser can share
+const icsOf = async (dl) => { assert.match(dl.suggestedFilename(), /^rf919-9580-\d{8}-\d{4}\.ics$/); return fs.readFileSync(await dl.path(), "utf8"); };
+const [rowIcs] = await Promise.all([page.waitForEvent("download"), page.click('#sched-body [data-act="cal"]')]);
+assert.match(await icsOf(rowIcs), /^BEGIN:VCALENDAR\r\n[\s\S]*BEGIN:VALARM[\s\S]*END:VCALENDAR\r\n$/);
+await page.waitForFunction(() => /^Calendar file saved · /.test(document.getElementById("toast-text").textContent));
 await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open);
-ok("the Schedule tab shows 3 slots and no scrolling box; Full schedule opens all of them in the sheet");
+const [headIcs] = await Promise.all([page.waitForEvent("download"), page.click('#dossier [data-act="cal"]')]);
+assert.match(await icsOf(headIcs), /SUMMARY:.*9580 kHz/);
+ok("the Schedule tab shows 3 slots and no scrolling box; Full schedule opens all of them in the sheet; both add a broadcast to the calendar");
 const kp = await E(() => view.k);
 await E(() => localStorage.setItem("rf919.pinned", "[]"));  // the pins the checks above started with
 await page.click('#dossier [data-act="pin"]');

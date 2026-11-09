@@ -3,7 +3,7 @@ import {fmtKHz, span, toKHz} from "../radiomap.js";
 import {MEMO_CFG, MemoryRun, bandFor, bandUnit, delay, memKey} from "../memories.js";
 import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
-import {BleLink, VirtualLink, sleep} from "../link.js";
+import {BleLink, VirtualLink, errText, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
 import {following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, setScanning, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
@@ -75,6 +75,19 @@ export function toast(text, ms = 3500, err = false, action = null) {
   act.onclick = action ? () => { t.hidden = true; action.run(); } : null;
   act.textContent = action ? action.label : "";
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, action ? Math.max(ms, 5000) : ms);
+}
+
+// A file to the system's share sheet where it accepts one, else a download. Says which: "shared", "saved" or "cancelled"
+export async function shareOrSave(file, title) {
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title}); return "shared"; }
+    catch (e) { if (e.name === "AbortError") return "cancelled"; toast(`Share failed: ${errText(e)}`, 4000, true); }
+  }
+  const url = URL.createObjectURL(file), a = document.createElement("a");
+  a.href = url; a.download = file.name;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return "saved";
 }
 
 export function log(ev) {

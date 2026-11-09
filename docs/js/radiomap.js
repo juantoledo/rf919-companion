@@ -113,6 +113,16 @@ export function swAir(e, now = Date.now()) {
   return {on: false, startsIn: null};
 }
 
+// When the entry next starts (ms), null when not within 5 weeks. Unlike swAir, it also answers while the entry is on air
+export function nextStart(e, now = Date.now()) {
+  const s = hhmmMin(e.startUTC) * 60000, today = utcDay(now);
+  for (let i = 0; i < 36; i++) {
+    const day = today + i * DAY;
+    if (day + s > now && runsOn(e, day)) return day + s;
+  }
+  return null;
+}
+
 // The parts of today (UTC, minutes) during which the entry is on
 export function todayWindows(e, now = Date.now()) {
   const [s, end] = span(e), today = utcDay(now), out = [];
