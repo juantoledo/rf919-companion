@@ -1,6 +1,6 @@
 import {BAND_CODES, bandIconId, hex, pad2, splitFreq} from "../protocol.js";
 import {fmtKHz, span, toKHz} from "../radiomap.js";
-import {MemoryRun, bandFor, bandUnit, memKey} from "../memories.js";
+import {MEMO_CFG, MemoryRun, bandFor, bandUnit, delay, memKey} from "../memories.js";
 import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
 import {BleLink, VirtualLink, sleep} from "../link.js";
@@ -428,6 +428,15 @@ export function autoTune(k, {undo = false} = {}) {
   pick = {k, prev, undo};
   tuner.request(k);
 }
+// Before a memory job's keys, which would mix with a tune's on the keypad: a pick still waiting is dropped and a tune
+// under way finishes, then the radio gets a moment. The caller has already marked the job busy, so no new tune starts
+export async function radioFree() {
+  const typing = tuner.busy;
+  tuner.cancel();
+  pick = null;
+  if (typing) { await tuner.idle(); await delay(MEMO_CFG.pauseMs); }
+  else if (view.tuning && view.tuning.state === "pending") { view.tuning = null; renderDossier(); }
+}
 export function tuneKHz(k) {
   if (!link || !state.ok) { toast("Not connected — tap Connect", 3500, true); return; }
   if (mem.run || (mem.test && mem.test.busy)) { toast("The radio is busy with memories", 3500, true); return; }
@@ -500,7 +509,8 @@ export function renderMini(d = waiters.freq) {
 }
 
 // ---- ask(): a confirmation with clear verbs, in a native <dialog>. Resolves true for the confirm button ----
-export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = false}) {
+// until: a promise that withdraws the question when it settles, as if Cancel had been tapped
+export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = false, until = null}) {
   const d = $("ask");
   $("ask-title").textContent = title;
   $("ask-body").textContent = body;
@@ -513,6 +523,7 @@ export function ask({title, body = "", ok = "OK", cancel = "Cancel", danger = fa
     d.addEventListener("close", () => resolve(d.returnValue === "ok"), {once: true});
     d.showModal();
     $(danger ? "ask-no" : "ask-ok").focus();
+    if (until) { const withdraw = () => { if (d.open) d.close(); }; until.then(withdraw, withdraw); }
   });
 }
 

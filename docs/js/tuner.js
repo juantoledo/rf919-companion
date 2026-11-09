@@ -4,8 +4,10 @@
 // a pick made during a tune runs after it. onState({k, state, err}): "pending", "tuning", "done" or "failed"
 export class Tuner {
   constructor(run, {settleMs = 600, onState = () => {}} = {}) {
-    Object.assign(this, {run, settleMs, onState, want: null, busy: false, timer: 0});
+    Object.assign(this, {run, settleMs, onState, want: null, busy: false, timer: 0, waiting: []});
   }
+  // Resolves once no tune is under way
+  idle() { return this.busy ? new Promise((r) => this.waiting.push(r)) : Promise.resolve(); }
   // now: no settling (a tap on Tune)
   request(k, {now = false} = {}) {
     this.want = k;
@@ -32,6 +34,7 @@ export class Tuner {
       this.onState({k, state: "failed", err});
     } finally {
       this.busy = false;
+      this.waiting.splice(0).forEach((r) => r());
     }
     // A pick that settled during the tune goes now; one still settling goes when it settles
     if (this.want !== null && !this.timer) this.next();

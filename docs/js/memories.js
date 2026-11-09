@@ -18,6 +18,8 @@ export const MEMO_CFG = {
   stepMs: 150,            // between key presses
   pauseMs: 800,           // a fixed pause, where nothing is awaited
   timeoutMs: 4000,        // how long to wait for a reply
+  askMs: 4000,            // Store on radio: how long the channel question stays up, inside the radio's ~5 s store mode
+  closeMs: 6000,          // how long to wait for store mode to close by itself after a refusal
   echoMs: 1500,           // keypad entry: how long to wait for the radio's echo of one key (✓ live: ~400 ms each)
   // Start fresh. By hand, holding SCAN/ATS deletes every memory of the band (user report; over Bluetooth untested)
   wipeKey: "PLAY_LONG",   // 33: what the vendor app sends for a long press on its SCAN button
@@ -249,8 +251,9 @@ export class MemoryRun {
 
   // Stores what the radio is on, on the channel the radio proposes: ✓ live, the highest channel in use + 1
   // (38 in use, 40 stored by hand → it proposed 41). guard(n) returns a reason to refuse, and then nothing
-  // is confirmed (the radio closes store mode by itself after ~5 s). Resolves with the channel used
-  async storeNext(band, guard = () => null, onStep = () => {}) {
+  // is confirmed (the radio closes store mode by itself after ~5 s). confirm(n, closed) answers whether to store on
+  // that channel; closed settles when store mode ends. Resolves with the channel used
+  async storeNext(band, guard = () => null, onStep = () => {}, confirm = async () => true) {
     if (!MEM_BANDS.includes(band)) throw new StepErr(`${band} has no memories`);
     const c = this.cfg, blinking = (ev) => ev.kind === "preset" && ev.data.state === 2;
     onStep("memo"); this.note(`── store next ${band}: MEMO long`);
@@ -260,8 +263,18 @@ export class MemoryRun {
     this.note(`── store next ${band}: the radio proposes CH ${n}`);
     const no = !(n >= 1 && n <= MAX_CH) ? `the radio proposes CH ${n}: ${band} has no channel after the last one in use (max ${MAX_CH})` : guard(n);
     if (no) throw new StepErr(no);
+    const isClosed = (ev) => ev.kind === "preset" && ev.data.state === 0;
+    const closed = this.w.expect(isClosed, c.closeMs, "after store mode was left open");
+    const yes = await confirm(n, closed);
+    this.check();
+    // A confirm key sent once store mode has closed would open channel mode instead of storing
+    const p = this.w.preset;
+    if (!yes || !p || p.state !== 2 || p.n !== n) {
+      await closed.catch(() => {});
+      throw new CancelErr(yes ? "the radio closed store mode first" : "not confirmed");
+    }
     onStep("confirm"); this.note(`── store next ${band}: confirm CH ${n} (${c.confirmKey})`);
-    const done = this.w.expect((ev) => ev.kind === "preset" && ev.data.state === 0, c.timeoutMs, "after confirm (store mode didn't close)");
+    const done = this.w.expect(isClosed, c.timeoutMs, "after confirm (store mode didn't close)");
     await this.press(c.confirmKey);
     await done;
     return n;

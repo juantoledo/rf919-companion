@@ -353,6 +353,31 @@ await new Promise((r) => setTimeout(r, 20));
   n++; console.log("✓ storeNext's guard refuses a channel without confirming; store mode then times out");
 }
 {
+  // Store on radio asks first: Store confirms the proposed channel; Cancel, or no answer in time, sends no confirm key
+  const MEMO = (p) => p[2] === 0x0C && p[3] === 0x24;
+  const a = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  a.sim.bank.set("SW:4", 6000);
+  let asked = null;
+  assert.equal(await a.run.storeNext("SW", undefined, undefined, async (n) => { asked = n; return true; }), 5);
+  assert.equal(asked, 5);
+  assert.equal(a.sim.bank.has("SW:5"), true);
+
+  const b = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(b.run.storeNext("SW", undefined, undefined, async () => false), T.CancelErr);
+  assert.ok(!b.sent.some(MEMO));
+  deq([...b.sim.bank.keys()], []);
+  assert.equal(b.sim.mode, null);  // released only once store mode has closed
+
+  const c = rig();
+  await new Promise((r) => setTimeout(r, 20));
+  await assert.rejects(c.run.storeNext("SW", undefined, undefined, async () => { await new Promise((r) => setTimeout(r, 400)); return true; }), /closed store mode first/);
+  assert.ok(!c.sent.some(MEMO));
+  deq([...c.sim.bank.keys()], []);
+  n++; console.log("✓ storeNext asks: Store confirms; Cancel or an answer after store mode closed sends no confirm key");
+}
+{
   // Backup: the record as text, and back through the parser
   const record = {"FM:1": {kHz: 101300, name: "Radio Bio Bio"}, "FM:3": {kHz: 99900, name: ""}, "AIR:12": {kHz: 127500, name: "Torre Santiago"},
     "UHF:41": {kHz: 433275, name: "Canal #1 repetidor"}, "SW:2": {kHz: 9580, name: "China Radio Int."},
@@ -497,6 +522,15 @@ ok("nearestStations: kind, radius, repeaters heard on their output, the nearest 
   await wait(60);
   deq(a.runs, []);
   ok("Tuner: cancel drops the pick still settling", () => {});
+  a = mk(30);
+  await a.t.idle();  // nothing under way: resolves at once
+  a.t.request(9500, {now: true});
+  await wait(10);
+  assert.equal(a.t.busy, true);
+  await a.t.idle();
+  assert.equal(a.t.busy, false);
+  deq(a.states.at(-1), [9500, "done"]);
+  ok("Tuner: idle waits for the tune under way", () => {});
 }
 
 // ---- Logbook: a frequency held 30 s is logged, with its best signal ----

@@ -382,9 +382,38 @@ assert.equal(await E(() => [...link.sim.bank.keys()].filter((k) => k.startsWith(
 ok("Start fresh: Cancel does nothing; Wipe AIR (danger) wipes it");
 await closeTool();
 await tab("radio");
+assert.equal((await page.textContent("#storehere")).trim(), "Store on radio");
+assert.equal(await page.locator('[data-act="addmem"]').count(), 0);  // connected on Radio: Store only
+const bankSize = () => E(() => link.sim.bank.size);
+const bankBefore = await bankSize();
 await page.click("#storehere");
+await page.waitForSelector("#ask[open]");
+assert.match(await page.textContent("#ask-title"), /^Store on CH \d+\?$/);
+await page.click("#ask-no"); await done();
+assert.equal(await bankSize(), bankBefore);
+ok("Store on radio asks with the radio's channel; Cancel stores nothing");
+await page.click("#storehere");
+await confirmAsk();
 await page.waitForFunction(() => !mem.run && /Stored/.test(document.getElementById("toast").textContent), null, {timeout: 15000});
-ok("Store here: " + await page.textContent("#toast"));
+assert.equal(await bankSize(), bankBefore + 1);
+ok("Store on radio: " + await page.textContent("#toast"));
+// Explore adds to the list; the card then says how far the frequency has got
+await tab("explore"); await settled();
+if (await E(() => document.getElementById("view-explore").dataset.mode !== "home")) { await page.click("#x-back"); await atHome(); }
+await page.click('#picks [data-look="9580"]');
+await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000}); await settled();
+assert.equal((await page.textContent('[data-act="addmem"]')).trim(), "+ Add to list");
+await page.click('[data-act="addmem"]');
+await page.waitForSelector('.d-actions button[disabled]:has-text("In list · SW CH")');
+assert.match(await page.textContent("#toast"), /Added to list: .*\n?.*Not on the radio yet/s);
+await tab("memories");
+await page.check('#mem-counts input[value="SW"]');
+assert.match(await page.textContent('[data-mem="store"]'), /^Store \d+ on radio$/);
+await page.click('[data-mem="store"]'); await done();
+await tab("explore"); await settled();
+await page.waitForSelector('.d-actions button[disabled]:has-text("On radio · SW CH")', {timeout: 5000});
+await E(() => { mem.list = mem.list.filter((e) => !(e.band === "SW" && e.kHz === 9580)); });
+ok("Explore: + Add to list → In list → (Store, right after the auto-tune began, waits for it) → On radio");
 
 // ---- Backup ----
 await tab("memories");

@@ -1,6 +1,6 @@
 import {KEYS, pad2} from "../protocol.js";
 import {EMPTY_FREQ, FLAG_CDN, RADIOMAP_SITE, RadioMap, aimedAt, daysText, dur, flagHtml, fmtKHz, fmtShift, globeSvg, haversineKm, hhmmMin, ituFlag, kmBearing, minHHMM, nearby, parseFreqInput, radiomapUrl, span, stationFlag, stepKnown, stripTicks, swAir, swOnAir, targetsAt, targetsName, todayWindows, utcDay} from "../radiomap.js";
-import {SW_METERS, addToList, bandChips, bandFor, bandRange, nearestStations, stripRange} from "../memories.js";
+import {SW_METERS, addToList, bandChips, bandFor, bandRange, memKey, nearestStations, stripRange} from "../memories.js";
 import {errText} from "../link.js";
 import {$, bandIco, current, esc, exploreBack, go, goTo, inDetail, log, lookUp, openFrom, openTool, renderMini, route, setBarsMin, state, tabDir, toast, tuneHere, tuneKHz, vt} from "./shell.js";
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
@@ -276,15 +276,15 @@ export function dossierHtml() {
   if (view.err) return freq + `<p class="of-msg">radiomap.cl unreachable (${esc(errText(view.err))})</p>` + actionsHtml();
   if (!view.data) return freq + `<div class="skeleton" role="status" aria-label="Looking up ${fmtKHz(k)}"><i></i><i></i><i></i></div>` + actionsHtml();
   const {stations, shortwave} = view.data;
-  let hero, rest = "";
-  if (shortwave.length) ({hero, rest, sched: view.sched} = swHtml(shortwave));
+  let hero, rest = "", remind = "";
+  if (shortwave.length) ({hero, rest, sched: view.sched, remind} = swHtml(shortwave));
   else if (stations.length) {
     const {shown, hidden} = stationView();
     if (shown.length) ({hero, rest} = stationHero(shown[0]));
     else hero = `<div class="d-empty"><p class="empty-t">Nothing near</p><p class="empty-d">No station on ${fmtKHz(k)} within ${radius} km; ` +
       `${hidden} farther away.</p><div class="intro-act">${showAllBtn(`Show ${hidden === 1 ? "it" : `all ${hidden}`}`)}</div></div>`;
   } else hero = `<div class="d-empty"><p class="empty-t">Nothing known</p><p class="empty-d">radiomap.cl has no station on ${fmtKHz(k)}.</p></div>`;
-  return freq + hero + heardHtml(k) + actionsHtml(filtersHtml() + view.links) + rest;
+  return freq + hero + heardHtml(k) + actionsHtml(filtersHtml() + view.links, remind) + rest;
 }
 
 // ---- the dial: Explore steps through the frequencies radiomap.cl knows, without a radio ----
@@ -404,20 +404,22 @@ export function renderBands() {
 
 // What to do with the frequency, under its name: tune, keep, pin, share, then the filters (one row that scrolls
 // rather than wraps)
-export function actionsHtml(filters = "") {
+export function actionsHtml(filters = "", remind = "") {
   const k = view.k;
   const tune = !state.ok || following() ? "" : tuneHtml(k);
   const band = bandFor(k), inList = band && mem.list.find((e) => e.band === band && e.kHz === k);
-  const add = !band ? "" : inList ? `<button class="small" type="button" disabled>In memories · ${band} CH ${inList.ch}</button>`
-    : `<button class="small" type="button" data-act="addmem">+ Memory</button>`;
+  // Add means the app's list, Store means the radio: one of the two per context, and a status that says which it reached
+  const stored = inList && (mem.record[memKey(band, inList.ch)] || {}).kHz === k;
+  const add = !band ? "" : inList ? `<button class="small" type="button" disabled>${stored ? "On radio" : "In list"} · ${band} CH ${inList.ch}</button>`
+    : following() ? "" : `<button class="small" type="button" data-act="addmem">+ Add to list</button>`;
   // On Radio: store what the radio is on, on the channel after the last one in use
   const here = following() ? `<button class="small" type="button" id="storehere" data-act="storehere"${canStoreHere() ? "" : " disabled"} ` +
-    `title="Saves what the radio is tuned to on the channel after the last one in use">Store here</button>` : "";
+    `title="Saves what the radio is tuned to on the channel after the last one in use">Store on radio</button>` : "";
   const pin = pinned().includes(k);
   const keep = `<button class="small icon" type="button" data-act="pin" data-keep="pin" aria-pressed="${pin}" aria-label="${pin ? "Unpin" : "Pin"} ${fmtKHz(k)}" ` +
     `title="${pin ? "Unpin" : "Pin it under Explore's search"}">${icon("pin")}</button>` +
     `<button class="small icon" type="button" data-act="share" aria-label="Share ${fmtKHz(k)}" title="Share a link to this lookup">${icon("share")}</button>`;
-  return `<div class="d-actions" role="group" aria-label="Actions">${tune}${add}${here}${keep}` +
+  return `<div class="d-actions" role="group" aria-label="Actions">${tune}${add}${here}${keep}${remind}` +
     `${filters ? `<span class="d-sep" aria-hidden="true"></span>${filters}` : ""}</div>`;
 }
 // Explore: where the radio is with this frequency. On it; on the way (the tune, then the radio's report of it,
@@ -490,9 +492,10 @@ export function swHtml(all) {
   const inline = rows.length <= SLOTS_INLINE ? rows : [...rows, ...rows].slice(at, at + SLOTS_INLINE);
   const full = rows.length > inline.length
     ? `<button class="more" type="button" data-act="sched" aria-haspopup="dialog">Full schedule · ${rows.length}</button>` : "";
-  return {hero: `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span>${remindHtml(head, now)}</div>
+  return {hero: `<div class="d-head"><span class="pill${head.air.on ? " on" : ""}">${head.air.on ? "On air" : "Off air"}</span><span class="d-sub">${esc(sub)}</span></div>
     <h3 class="d-name">${view.flag ? "" : flagHtml(ituFlag(e.itu), e.country)}${esc(e.station)}</h3>
     <p class="d-meta">${esc(meta)}</p>${badge}`,
+  remind: remindHtml(head, now),
   rest: `<dl class="d-grid">${grid.join("")}</dl>
     <div class="sched"><h4 class="h"><span>Today</span></h4>
       <div class="bar"${tinted ? ` role="img" aria-label="${esc(say)}"` : ""}>${wins}<i class="now" style="left:${m / 14.4}%"></i></div>
@@ -531,7 +534,7 @@ function remindHtml(head, now) {
   if (head.air.on || head.air.startsIn == null || head.air.startsIn > 1440) return "";
   const at = startAt(head.air, now), set = reminders.some((r) => r.k === view.k && r.at === at);
   return `<button class="small toggle" type="button" data-act="remind" data-at="${at}" data-keep="remind" aria-pressed="${set}" ` +
-    `title="A reminder when it starts, while this page is open">${set ? "Reminder set" : `Remind me at ${hhmm(head.e.startUTC)} UTC`}</button>`;
+    `title="A reminder when it starts, while this page is open">${set ? "Reminder set" : `Remind ${hhmm(head.e.startUTC)} UTC`}</button>`;
 }
 export function toggleReminder(k, at) {
   const i = reminders.findIndex((r) => r.k === k && r.at === at);
@@ -623,7 +626,8 @@ export function renderStations() {
   const list = d && d.shortwave.length ? rows : rows.slice(1);
   const farLine = hidden && (d.shortwave.length || rows.length);
   if (!list.length && !farLine) { box.innerHTML = ""; box.dataset.n = ""; syncPanes(); return; }
-  const shown = view.all ? list : list.slice(0, 3);
+  // A phone shows two rows and Show all: a third is taller than what's left of the screen under the card
+  const shown = view.all ? list : list.slice(0, matchMedia("(max-width: 640px)").matches ? 2 : 3);
   box.dataset.label = d.shortwave.length ? "Stations" : "Also on";
   box.dataset.n = list.length || "";
   const scope = filtering() && radius ? `within ${radius} km` : located() ? "nearest first" : "";

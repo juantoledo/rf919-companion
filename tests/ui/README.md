@@ -5,7 +5,7 @@ behind it, which no button starts: the scripts open the page with `?demo` or cal
 **No radio**, the virtual radio users get:
 
 - `e2e.mjs`: tabs and links, View Transitions (the chip that grows into the dial), the Remote (and its slide away),
-  gestures, band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, Find the Preset
+  gestures, band pickers, memories (store, check, Store on radio, clear, Start fresh), backup, switches, Find the Preset
   key, Near me, keyboard, Explore (home and detail with Back and ←, dial, band strip, Full schedule, pins, Share,
   Nearby and the tabs under the card, Discover, reminders, search by name, suggestions, tune as you explore and its Undo, two panes on a wide
   screen), the Log (an entry from a short dwell, star, delete and Undo, ADIF export, "Logged once"), the signal meter,

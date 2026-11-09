@@ -30,7 +30,7 @@ light or dark setting, or the theme picked in **More › Appearance** (System, L
 
 | Tab | What's there |
 |---|---|
-| **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store here** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
+| **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store on radio** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
 | **Explore** | Look up any frequency, with or without the radio; step along a band; find what's on air now or near you |
 | **Memories** | Memory lists for the radio, one band at a time |
 | **More** | Connection, settings, and tools (the radio's text lines, key capture, the log, About) |
@@ -61,7 +61,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   first, whatever the band (shortwave and medium wave; FM and up have no estimate to rank by), with
   one frequency per station. Until the page knows your position, they list what's on the air, without
   bars, and a chip offers to rank them by your location.
-  Under the station's name: **Tune radio** (sends the radio there), **+ Memory**, Pin, Share and the
+  Under the station's name: **Tune radio** (sends the radio there), **+ Add to list**, Pin, Share and the
   Near me filter, in one row.
 - **The dial** (Explore): ◀ ▶ beside the frequency, or a swipe on it, step to the previous or next
   frequency radiomap.cl has data for. Under it, a strip of the band (the SW meter band, or the gap
@@ -78,7 +78,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 - **Shortwave**: the station on air (or the next one) with its flag, transmitter site, language
   and target, today's transmissions on a UTC bar, and what's coming up in the **Schedule** tab under the card
   (**Full schedule** opens all of EiBi's entries in a sheet). When the next
-  broadcast starts within a day, **Remind me** shows a snackbar (and a notification, if allowed) when
+  broadcast starts within a day, **Remind** (in the row of actions) shows a snackbar (and a notification, if allowed) when
   it does, as long as the page is open.
 - **Stations** (a tab under the card, with Schedule and Nearby; one shows at a time and your choice is kept): Chilean broadcasters, amateur repeaters (output/input, CTCSS tone, shift, DMR,
   EchoLink) and ATC, each linked to the radiomap.cl map.
@@ -141,15 +141,18 @@ has no command for this, so the page presses the same keys you would (tune, hold
 channel, confirm), one channel at a time, about 2–3 s each. See [memory.md](memory.md).
 
 - **Build the list** by typing lines (`1 SW 5025`, `FM 101.3 Radio Bio Bio`, `146.730`), with
-  **+ Memory** under any frequency you look up, from the shortwave stations on air in the
+  **+ Add to list** under any frequency you look up, from the shortwave stations on air in the
   chosen meter bands (EiBi), or from the Chilean stations near you (radiomap.cl).
 - **At most 200 channels per band**, which is the radio's limit. A line without a channel takes
   the next free one in its band, and the page refuses anything past 200.
 - **Store** runs the list and stops at the first step the radio doesn't answer. **Resume**
   picks it up from there. **Check on radio** recalls every channel and compares it.
-- **Store here** (under the radio's frequency) saves what the radio is tuned to on the channel after
-  the last one in use in that band. The radio proposes that channel when MEMO is held, and the page
-  just confirms it. If the page has looked the station up, its name is kept.
+- **Add** always means the app's list and **Store** always means the radio. The card says which a
+  frequency has reached: **In list** or **On radio**.
+- **Store on radio** (under the radio's frequency) saves what the radio is tuned to on the channel
+  after the last one in use in that band. The radio proposes that channel when MEMO is held, and the
+  page asks **Store on CH n?** for about 4 seconds; Cancel, or no answer, saves nothing. If the page
+  has looked the station up, its name is kept.
 - **Backup** exports what the app knows is on the radio (what it stored, plus what Check on radio
   found) as a text file, one `channel band frequency name` line per channel, the same format as
   Edit as text. Share it or download it. To import, open the file and choose **Load to store** (the

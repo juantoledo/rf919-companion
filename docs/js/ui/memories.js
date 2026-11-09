@@ -3,7 +3,7 @@ import {dur, flagHtml, fmtKHz, fmtShift, hhmmMin, ituFlag, minHHMM, span, swOnAi
 import {CancelErr, MAX_CH, MEM_BANDS, MemoryRun, SW_METERS, addToList, nearestStations, backupText, bandCount, bandFor, bandRange, bandSummary, freqText, memKey, parseMemList, pool, recordItems} from "../memories.js";
 import {waiters} from "../state.js";
 import {errText} from "../link.js";
-import {$, BAND_COLORS, ask, bandIco, esc, log, state, toast} from "./shell.js";
+import {$, BAND_COLORS, ask, bandIco, esc, log, radioFree, state, toast} from "./shell.js";
 import {dossierName, hhmm, isRepeater, locate, mem, myPos, myRegion, myTargets, placeOf, radius, renderView, rm, show, store, view} from "./radio.js";
 import {link, setWake} from "./more.js";
 import {swipeRows} from "./gestures.js";
@@ -26,8 +26,9 @@ export function addMem(items) {
   const bands = new Set(fresh.map((e) => e.band));
   if (bands.size === 1 && !bands.has(shownBand())) mem.viewBand = [...bands][0];
   const first = fresh[0];
-  let msg = fresh.length === 1 ? `Added ${first.band} ${fmtKHz(first.kHz)} → CH ${first.ch}${first.name ? ` · ${first.name}` : ""}`
-    : fresh.length ? `Added ${fresh.length} memories` : "Nothing added";
+  let msg = fresh.length === 1 ? `Added to list: ${first.band} ${fmtKHz(first.kHz)} → CH ${first.ch}${first.name ? ` · ${first.name}` : ""}`
+    : fresh.length ? `Added ${fresh.length} to the list` : "Nothing added";
+  if (fresh.length && state.ok) msg += "\nNot on the radio yet";
   if (errors.length) msg += `\n${errors.length === 1 ? errors[0].msg : `${errors.length} didn't fit: ${errors[0].msg}`}`;
   toast(msg, errors.length ? 5000 : 3000, !fresh.length);
   renderMem(); renderPicks("sw"); renderPicks("near"); renderView();
@@ -72,8 +73,8 @@ export function renderMem() {
       `<span class="mr-main"><b>${e.name ? esc(e.name) : fmtKHz(e.kHz)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
       `<button class="mr-del" type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${dis}>✕</button></div>` +
       `<button class="mr-act" type="button" data-mem="del" data-i="${i}" tabindex="-1" aria-hidden="true"${dis}>Delete</button></li>`;
-  }).join("") : `<li class="empty-row"><b>No ${band} memories yet</b><span>Add some with + Memory under a frequency, ` +
-    `Store here on Radio, or the ⋯ menu.</span></li>`;
+  }).join("") : `<li class="empty-row"><b>No ${band} memories yet</b><span>Use + Add to list under a frequency, ` +
+    `Store on radio on the Radio tab, or the ⋯ menu.</span></li>`;
   renderMemRun();
 }
 
@@ -115,7 +116,7 @@ export function renderMemRun() {
       (over.length > 8 ? ` and ${over.length - 8} more` : "") + `. The radio overwrites a channel without asking.</p>`;
   }
   const off = !state.ok || !n ? " disabled" : "";
-  h += `<div class="run-row"><button class="filled" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""}</button>` +
+  h += `<div class="run-row"><button class="filled" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""} on radio</button>` +
     `<button type="button" data-mem="check"${off}>Check${n ? ` ${n}` : ""}</button>${n ? `<span class="run-time">≈${memSecs(n)}</span>` : ""}</div>`;
   if (mem.fail) {
     h += `<p class="errs">${esc(mem.fail.msg)}</p><div class="row" style="margin-top:8px">` +
@@ -147,6 +148,7 @@ export async function runJob(kind, from = 0) {
   memNote(`── ${job.verb.toLowerCase()} ${job.noun}s ${from + 1}–${list.length}`);
   renderMem();
   try {
+    await radioFree();
     for (let i = from; i < list.length; i++) {
       const e = list[i], key = memKey(e.band, e.ch);
       const onStep = (step) => { mem.step = step; renderMemRun(); };
@@ -206,18 +208,30 @@ export async function storeHere() {
   mem.run = new MemoryRun(link, waiters, {note: memNote});
   Object.assign(mem, {kind: "next", nextItems: [{band, kHz: k}], from: 0, pos: 0, done: 0, step: "", t0: Date.now()});
   renderMem(); renderView();
-  toast(`Storing ${fmtKHz(k)} on the next ${band} channel…`, 8000);
+  toast(`Asking the radio for the next ${band} channel…`, 3000);
+  const planned = (n) => mem.list.find((e) => e.band === band && e.ch === n && e.kHz !== k);
+  const replaces = (c) => `Your list plans ${freqText(c.kHz)} on CH ${c.ch}; storing the list would replace it`;
+  let declined = false;
+  // The radio holds store mode for ~5 s: the question goes away before that, or as soon as the radio gives up
+  const confirm = async (n, closed) => {
+    const clash = planned(n), askMs = mem.run.cfg.askMs;
+    const yes = await ask({title: `Store on CH ${n}?`, body: `${band} ${fmtKHz(k)}${name ? ` · ${name}` : ""}${clash ? `. ${replaces(clash)}` : ""}`, ok: "Store",
+      until: Promise.race([closed, new Promise((r) => setTimeout(r, askMs))])});
+    if (!yes) { declined = true; toast("Not stored\nThe radio leaves store mode by itself in a few seconds."); }
+    return yes;
+  };
   try {
-    const n = await mem.run.storeNext(band, guard);
+    await radioFree();
+    const n = await mem.run.storeNext(band, guard, () => {}, confirm);
     mem.record[memKey(band, n)] = {kHz: k, name, at: Date.now()};
     saveRecord();
-    const clash = mem.list.find((e) => e.band === band && e.ch === n && e.kHz !== k);
+    const clash = planned(n);
     if (!clash && !mem.list.some((e) => e.band === band && e.ch === n)) { mem.list = addToList(mem.list, [{band, kHz: k, ch: n, name}]).list; saveMem(); }
     toast(`Stored ${fmtKHz(k)} on ${band} CH ${n}${name ? ` · ${name}` : ""}` +
-      (clash ? `\nYour list plans ${freqText(clash.kHz)} on CH ${n}; storing the list would replace it` : ""), clash ? 7000 : 4000);
+      (clash ? `\n${replaces(clash)}` : ""), clash ? 7000 : 4000);
   } catch (err) {
-    const msg = err instanceof CancelErr ? "Stopped" : err.message || String(err);
-    toast(`Not stored: ${msg}\nThe radio leaves store mode by itself in a few seconds.`, 7000, true);
+    const msg = err instanceof CancelErr && mem.run.stopped ? "Stopped" : err.message || String(err);
+    if (!declined) toast(`Not stored: ${msg}\nThe radio leaves store mode by itself in a few seconds.`, 7000, true);
     memNote(`── store next ${band}: not stored: ${msg}`);
   } finally {
     mem.run = null;
@@ -240,7 +254,7 @@ export function renderBackup() {
   const rows = recordItems(mem.record), n = rows.length, off = !n ? " disabled" : "", p = mem.imported;
   let h = `<p class="hint" style="margin-top:0">` + (n
     ? `${n} channel${n === 1 ? "" : "s"} this app knows are on the radio: ${esc(bandSummary(rows))}.`
-    : "Nothing to export yet: the app's record fills up as you Store, use Store here or Check on radio.") + `</p>` +
+    : "Nothing to export yet: the app's record fills up as you store or check memories on the radio.") + `</p>` +
     `<div class="row">` + (SHARE_FILES ? `<button class="small primary" type="button" data-mem="bk-share"${off}>Share backup</button>` : "") +
     `<button class="small" type="button" data-mem="bk-download"${off}>Download .txt</button></div>` +
     `<h2 class="h" style="margin:16px 0 8px"><span>Import</span></h2>` +

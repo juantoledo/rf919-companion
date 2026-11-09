@@ -3,7 +3,7 @@ import {fmtKHz, parseFreqInput, toKHz} from "../radiomap.js";
 import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeTestSteps, wipeTestSteps} from "../memories.js";
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, VirtualLink, errText, linkOpts, sleep} from "../link.js";
-import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, route, setAutoTune, setStatus, state, toast} from "./shell.js";
+import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, radioFree, route, setAutoTune, setStatus, state, toast} from "./shell.js";
 import {airSeek, airSignal, mem, nearPasses, renderView, setScanning, show, store, syncPanes, view} from "./radio.js";
 import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
@@ -34,6 +34,7 @@ export async function testRun(kind, auto) {
   const t = mem.test, status = $("t-status");
   t.busy = true;
   try {
+    await radioFree();
     do {
       const s = t.steps[t.i];
       memNote(`── ${kind} test, step ${t.i + 1}/${t.steps.length}: ${s.label}`);
