@@ -51,20 +51,23 @@ delete it; swipe a snackbar sideways to dismiss it.
 The page asks [radiomap.cl](https://www.radiomap.cl/) what is on a frequency (its per-frequency
 JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
 
-- **Explore** has two screens. Its **home** has the search, pinned and recent lookups, a shelf of
+- **Explore** has two screens. Its **home** has the search, your pins and suggestions, a shelf of
   bands and Discover. A frequency opens as a **detail** screen: ← (or the phone's Back, or tapping
   the Explore tab again) returns home, and 🔍 goes to the search.
   The search takes `9580` (kHz), or `9.58`, `146.73`, `101.3` (MHz).
   The address becomes `…/#f=9580`, so a lookup can be bookmarked or shared (**Share** ⇪ opens the
-  phone's share sheet, or copies the link). Recent lookups are chips under the search; **Pin** ☆
-  keeps one there, ahead of them (up to 12).
+  phone's share sheet, or copies the link). Under the search, **Pin** ☆ keeps a frequency as a chip
+  (up to 12). After the pins come **suggestions**: what can probably be heard now, best reception
+  first, whatever the band (shortwave and medium wave; FM and up have no estimate to rank by), with
+  one frequency per station. Until the page knows your position, they list what's on the air, without
+  bars, and a chip offers to rank them by your location.
   Under the station's name: **Tune radio** (sends the radio there), **+ Memory**, Pin, Share and the
   Near me filter, in one row.
 - **The dial** (Explore): ◀ ▶ beside the frequency, or a swipe on it, step to the previous or next
   frequency radiomap.cl has data for. Under it, a strip of the band (the SW meter band, or the gap
   between two) shows a tick for each of them; tap or drag it to jump, or use ←/→, Page Up/Down,
   Home/End. Explore's home has a chip per band with how many frequencies it has.
-  Stepping doesn't fill Recent, and Back still goes straight home.
+  Back still goes straight home after stepping.
 - **Discover** (Explore's home): **On air now** lists who's on air across one meter band
   (optionally only what's aimed at your region, or what starts within the hour); **Near me** lists the
   stations of a band nearest to you (FM, AM, VHF, UHF, AIR; by kind and distance). radiomap.cl has one

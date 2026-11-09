@@ -6,7 +6,7 @@ import {$, autoTuneOn, bandIco, current, esc, exploreBack, go, goTo, inDetail, l
 import {addMem, canStoreHere, fetchAll, jobs, radiomapIndex, renderStoreHere, renderSwChips, storeHere} from "./memories.js";
 import {swipeTune} from "./gestures.js";
 import {heardHtml, logFreq, showLogFor} from "./log.js";
-import {firstHit, indexVersion, pinState, renderOnAir, renderResults} from "./find.js";
+import {firstHit, indexVersion, renderPicks, renderResults} from "./find.js";
 import {startBle, startNoRadio} from "./more.js";
 import {TIER_KEY, airEstimate, askPosition, canEstimate, openProp, propBadge, renderConditions, rowBars, rowSay, stationEstimate, tintedWindows, windowsSay} from "./reception.js";
 
@@ -255,7 +255,7 @@ export function dossierHtml() {
 }
 
 // ---- the dial: Explore steps through the frequencies radiomap.cl knows, without a radio ----
-const icon = (id) => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+export const icon = (id) => `<svg class="ico" aria-hidden="true"><use href="#i-${id}"/></svg>`;
 function dialHtml(k, digits) {
   const f = view.idx && view.idx.freqs;
   if (!f) return digits;
@@ -311,7 +311,7 @@ function wireStrip(box) {
     if (!drag || e.pointerId !== drag.id) return;
     const k = drag.k;
     drag = null;
-    if (k !== view.k) lookUp(k, {recent: false}); else renderDossier();
+    if (k !== view.k) lookUp(k); else renderDossier();
   });
   box.addEventListener("pointercancel", () => { if (drag) { drag = null; renderDossier(); } });
   box.addEventListener("keydown", (e) => {
@@ -323,41 +323,23 @@ function wireStrip(box) {
       Home: ticks[0], End: ticks[ticks.length - 1]}[e.key];
     if (to === undefined) return;
     e.preventDefault();
-    if (to != null && to !== view.k) lookUp(to, {recent: false});
+    if (to != null && to !== view.k) lookUp(to);
   });
 }
 
-// Pinned and recent lookups: chips under Explore's search, the pinned first, then the recent ones, newest first
-const RECENT_MAX = 8, PIN_MAX = 12;
+// Pins: chips under Explore's search, ahead of the suggestions (find.js renderPicks)
+const PIN_MAX = 12;
 export const pinned = () => store.get("rf919.pinned", []).filter((k) => k > 0);
-export function addRecent(k) {
-  store.set("rf919.recent", [k, ...store.get("rf919.recent", []).filter((r) => r !== k)].slice(0, RECENT_MAX));
-  renderRecent();
-}
 export function togglePin(k) {
   const pins = pinned(), on = pins.includes(k);
   if (!on && pins.length >= PIN_MAX) { toast(`${PIN_MAX} pins at most: unpin one first`, 3500, true); return; }
   store.set("rf919.pinned", on ? pins.filter((p) => p !== k) : [k, ...pins]);
   toast(on ? `Unpinned ${fmtKHz(k)}` : `Pinned ${fmtKHz(k)}`, 2000);
-  renderRecent();
+  renderPicks();
   renderDossier();
 }
-export function renderRecent() {
-  const pins = pinned(), list = store.get("rf919.recent", []).filter((k) => k > 0 && !pins.includes(k)), box = $("recent");
-  // A pin says when it's on: a lamp on air, "20m" when it starts within the hour (find.js pinState)
-  const chip = (k, pin) => {
-    const st = pin && pinState(k), lamp = st && st.on ? `<span class="lit" aria-hidden="true"></span>` : "";
-    const soon = st && !st.on ? `<small class="pin-soon">${st.startsIn}m</small>` : "";
-    const say = st ? (st.on ? ", on air" : `, on in ${st.startsIn} min`) : "";
-    return `<button class="chip${pin ? " pinned" : ""}" type="button" data-look="${k}" aria-label="${pin ? "Pinned: " : "Look up "}${fmtKHz(k)}${say}">` +
-      `${pin ? icon("pin") : ""}${lamp}${k >= 30000 ? (k / 1000).toFixed(3) : k}<small>${k >= 30000 ? "MHz" : "kHz"}</small>${soon}</button>`;
-  };
-  box.hidden = !pins.length && !list.length;
-  keepFocus(box, pins.map((k) => chip(k, true)).join("") + list.map((k) => chip(k, false)).join(""));
-  $("x-hint").hidden = !box.hidden;  // nothing looked up yet: how to type a frequency
-}
-// Redraws a box of chips only when it changed, and gives the focus back to the same frequency (the pins' lamps and On
-// air now redraw as lookups come in, often right after Back has put the focus on one of them)
+// Redraws a box of chips only when it changed, and gives the focus back to the same frequency (the pins' lamps and the
+// suggestions redraw as lookups come in, often right after Back has put the focus on one of them)
 export function keepFocus(box, html) {
   if (box.dataset.html === html) return;
   const k = box.contains(document.activeElement) ? document.activeElement.dataset.look : null;
@@ -384,7 +366,7 @@ export function renderBands() {
     ? chips.map((c) => `<button class="chip" type="button" data-act="dial" data-to="${c.k}" aria-label="${c.label}: ${c.n} frequencies with data">` +
       `${bandIco(bandFor(c.k))}${c.label}<small>${c.n}</small></button>`).join("")
     : examples.map(([k, t]) => `<button class="chip" type="button" data-look="${k}" aria-label="Look up ${fmtKHz(k)}">${t}</button>`).join("");
-  renderOnAir();
+  renderPicks();
 }
 
 // What to do with the frequency, under its name: tune, keep, pin, share, then the filters (one row that scrolls
@@ -803,7 +785,7 @@ export function init() {
     openFrom($("q"), k);
   });
   $("q-clear").addEventListener("click", () => { $("q").value = ""; renderResults(); $("q").focus(); });
-  renderRecent();
+  renderPicks();
   document.addEventListener("change", (e) => {
     const t = e.target;
     if (t.matches('select[data-act="radius"]')) {
@@ -833,7 +815,7 @@ export function init() {
   swipeTune($("dossier"), (dir, seek) => {
     if (view.follow || !view.idx || view.k === null) return;
     const to = stepKnown(view.idx.freqs, view.k, dir, seek ? 10 : 1);
-    if (to != null) lookUp(to, {recent: false});
+    if (to != null) lookUp(to);
   }, {only: ".d-dial"});
   wireStrip($("dossier"));
   renderBands();
@@ -844,7 +826,7 @@ export function init() {
     if (t.dataset.go) goTo(+t.dataset.go, t);
     else if (t.dataset.look) openFrom(t, +t.dataset.look);
     else if (t.dataset.act === "more") { view.all = true; renderStations(); }
-    else if (t.dataset.act === "dial") { if (t.dataset.to) openFrom(t, +t.dataset.to, {recent: false}); }
+    else if (t.dataset.act === "dial") { if (t.dataset.to) openFrom(t, +t.dataset.to); }
     else if (t.dataset.act === "pin") togglePin(view.k);
     else if (t.dataset.act === "logk") showLogFor(+t.dataset.k);
     else if (t.dataset.act === "share") shareFreq();

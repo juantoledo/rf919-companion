@@ -37,7 +37,7 @@ const mode = () => E(() => document.getElementById("view-explore").dataset.mode)
 const atHome = () => page.waitForFunction(() => location.hash === "#explore" && document.getElementById("view-explore").dataset.mode === "home" && !document.documentElement.classList.contains("vt-run"));
 const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
 
-await page.goto(URL); await E(() => localStorage.clear()); await page.goto(URL);
+await page.goto(URL); await E(() => { localStorage.clear(); localStorage.setItem("rf919.pinned", "[9580,11620]"); }); await page.goto(URL);
 
 // ---- shell & routing ----
 assert.equal(await visibleView(), "radio");
@@ -76,7 +76,7 @@ await E(() => {
   window.vtLog = [];
   document.startViewTransition = (cb) => { const old = named(); return start(() => { cb(); window.vtLog.push({old, new: named()}); }); };
 });
-await page.click('#recent [data-look="9580"]'); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
+await page.click('#picks [data-look="9580"]'); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 await settled();
 await page.click("#x-back"); await atHome();
 ok("the bar's ← does the same");
@@ -95,13 +95,14 @@ assert.equal(await page.inputValue("#q"), "");
 await settled(); await page.click("#x-back"); await atHome();
 assert.equal(await page.locator("#q-results").isHidden(), true);
 ok(`a station's name finds its frequencies (radio → ${kq}); Enter opens the first`);
-await page.waitForSelector("#onair .oa-card", {timeout: 20000});
-const ko = +await page.getAttribute("#onair .oa-card", "data-look");
-assert.match(await page.textContent("#onair .oa-card small"), /until \d\d:\d\d UTC|pinned|recent/);
-await page.click("#onair .oa-card");
+await page.waitForSelector("#picks .chip.sg", {timeout: 20000});
+const ko = +await page.getAttribute("#picks .chip.sg", "data-look");
+assert.match(await page.getAttribute("#picks .chip.sg", "aria-label"), /until \d\d:\d\d UTC/);
+assert.equal(await page.locator('#picks .chip.sg[data-look="9580"]').count(), 0);  // a pin isn't suggested as well
+await page.click("#picks .chip.sg");
 await page.waitForFunction((k) => view.k === k && view.data, ko, {timeout: 15000});
 await settled(); await page.click("#x-back"); await atHome();
-ok(`On air now: cards for what's on air, from what's been looked up; a card opens its frequency (${ko})`);
+ok(`Suggestions: what's on air, after the pins; a chip opens its frequency (${ko})`);
 await page.goto(URL + "#f=11620"); await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await visibleView(), "explore");
 assert.equal(await mode(), "detail");
@@ -133,7 +134,7 @@ assert.equal(await page.locator("#dossier .d-freq").count(), 0);  // the readout
 ok("Radio: readout + controls; one card holds the readout and what's on the dial (11620), the station's flag behind");
 await tab("explore");
 assert.equal(await page.locator("#readout").isHidden(), true);
-await page.click('#recent [data-look="9580"]');
+await page.click('#picks [data-look="9580"]');
 await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 assert.equal((await page.textContent("#dossier .d-freq")).replace(/\D/g, ""), "9580");
 assert.equal(await page.locator("#radio-controls").isHidden(), true);
@@ -172,7 +173,7 @@ ok("a pick from home offers Back to where the radio was; it retunes there (and b
 await E(() => { const t = document.getElementById("autotune"); t.click(); });
 assert.equal(await E(() => localStorage.getItem("rf919.autotune")), "false");
 await page.click("#x-back"); await atHome();
-await page.click('#recent [data-look="11620"]');
+await page.click('#picks [data-look="11620"]');
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 await page.waitForTimeout(900);
 assert.equal(await E(() => view.radioK), kd);
@@ -531,13 +532,12 @@ await page.click('#bands .chip[data-act="dial"]:has-text("31m")');
 await page.waitForFunction(() => view.k && view.data && document.querySelector(".strip"), null, {timeout: 15000});
 assert.match(await page.getAttribute(".strip", "aria-valuetext"), /31m/);
 assert.deepEqual(await E(() => history.state), {detail: true});
-const recent0 = await E(() => localStorage.getItem("rf919.recent")), k0 = await E(() => view.k), h0 = await E(() => history.length);
+const k0 = await E(() => view.k), h0 = await E(() => history.length);
 await page.click('.dial-step[data-keep="dial1"]');
 await page.waitForFunction((k) => view.k > k, k0);
 assert.equal(await E(() => document.activeElement.dataset.keep), "dial1");
-assert.equal(await E(() => localStorage.getItem("rf919.recent")), recent0);
 assert.equal(await E(() => history.length), h0);
-ok("a band chip opens its first frequency as a detail (a history entry); ▶ steps to the next known kHz in place, keeps the focus, leaves Recent alone");
+ok("a band chip opens its first frequency as a detail (a history entry); ▶ steps to the next known kHz in place, keeps the focus");
 const k1 = await E(() => view.k), fr = await page.locator(".d-dial .d-freq").boundingBox();
 await page.mouse.move(fr.x + fr.width / 2 - 30, fr.y + 10); await page.mouse.down();
 await page.mouse.move(fr.x + fr.width / 2 + 30, fr.y + 12, {steps: 6}); await page.mouse.up();  // 60 px: a step (120: a seek)
@@ -565,6 +565,7 @@ assert.match(await page.textContent("#tools-title"), /^Schedule · 9580 kHz/);
 await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open);
 ok("the card shows 4 slots and no scrolling box; Full schedule opens all of them in the sheet");
 const kp = await E(() => view.k);
+await E(() => localStorage.setItem("rf919.pinned", "[]"));  // the pins the checks above started with
 await page.click('#dossier [data-act="pin"]');
 assert.equal(await page.getAttribute('#dossier [data-act="pin"]', "aria-pressed"), "true");
 await page.click('#dossier [data-act="share"]');
@@ -579,8 +580,8 @@ ok("a Nearby card opens its frequency in place (no new history entry)");
 await page.click('#tabbar [data-tab="explore"]'); await atHome();
 ok("tapping Explore's tab in the detail goes back to its home");
 await page.goto(URL + `#f=${kp}`); await page.reload(); await page.waitForFunction((k) => view.k === k, kp);
-await page.click("#x-back"); await atHome(); await page.waitForSelector("#recent .chip.pinned");
-assert.equal(+await page.getAttribute("#recent .chip:first-child", "data-look"), kp);
+await page.click("#x-back"); await atHome(); await page.waitForSelector("#picks .chip.pinned");
+assert.equal(+await page.getAttribute("#picks .chip:first-child", "data-look"), kp);
 ok("a pin survives a reload and comes first under the search");
 assert.equal(await page.locator("#disc-scan").count(), 0);
 assert.equal(await page.isChecked("#disc-aimed"), false);
@@ -766,16 +767,19 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
   ok("reception: no estimate, and no bars, before the listener's position is known");
 
   await p.goto(URL + "#explore");
-  await p.waitForSelector('#conds [data-act="prop-locate"]');
+  await p.waitForSelector('#picks [data-act="prop-locate"]');
   assert.match(await p.textContent("#conds"), /SFI 127.*Kp 3\.33/);
+  assert.equal(await p.locator("#picks .prop-bars").count(), 0);
   assert.equal(await p.locator("#disc-best-row").isHidden(), true);
-  await p.click('#conds [data-act="prop-locate"]');
+  await p.click('#picks [data-act="prop-locate"]');
   await p.waitForFunction(() => localStorage.getItem("rf919.pos") && document.querySelector("#conds b"));
   assert.match(await p.textContent("#conds b"), /^Best now: \d+–\d+ MHz$/);
-  assert.equal(await p.locator('#conds [data-act="prop-locate"]').count(), 0);
+  assert.equal(await p.locator('#picks [data-act="prop-locate"]').count(), 0);
+  await p.waitForSelector("#picks .chip.sg .prop-bars", {timeout: 20000});
+  assert.equal(await p.locator("#picks .chip.sg").count(), 1);  // every frequency here is the same station
   assert.equal(await p.locator("#disc-best-row").isVisible(), true);
   assert.equal(await PE(() => localStorage.getItem("rf919.nearme")), null);  // an estimate is no reason to turn the filter on
-  ok("reception: Explore's conditions line asks for the position once, then says what's open; Near me stays off");
+  ok("reception: the row offers to rank by position once, then suggests with bars and says what's open; Near me stays off");
 
   await p.evaluate(() => { location.hash = "#f=9580"; });
   await p.waitForSelector(badge);

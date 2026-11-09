@@ -1,15 +1,16 @@
 import {NameIndex, norm} from "../names.js";
-import {aimedAt, flagHtml, fmtKHz, hhmmMin, ituFlag, minHHMM, stripTicks, swAir} from "../radiomap.js";
+import {aimedAt, flagHtml, fmtKHz, hhmmMin, minHHMM, sampleFreqs, swAir} from "../radiomap.js";
+import {HF_MAX, MW_MAX, bestRange, rankSuggestions} from "../propagation.js";
 import {SW_METERS, pool} from "../memories.js";
 import {$, current, esc, inDetail} from "./shell.js";
-import {disc, keepFocus, located, myRegion, myTargets, nameOf, pinned, renderRecent, rm, store, view} from "./radio.js";
+import {icon, keepFocus, myPos, myTargets, pinned, rm, store, view} from "./radio.js";
 import {fetchAll, jobs} from "./memories.js";
-import {rowBars, rowSay, stationEstimate, swEstimate} from "./reception.js";
+import {canEstimate, rowBars, rowSay, solarKnown, stationEstimate, swEstimate, wxNow as wx} from "./reception.js";
 
-// ---- Explore's home: search by station name, On air now, and pins that say when they're on ----
+// ---- Explore's home: search by station name, suggestions, and pins that say when they're on ----
 // Every frequency file the page reads (rm.onData) teaches the name index and joins `known`, this session's lookups,
-// which On air now and the pins' lamps are worked out from. Nothing is fetched for them but the pins, and once per
-// session the busiest meter band (a few dozen small files) when too little is known to fill the shelf
+// which the suggestions and the pins' lamps are worked out from. Nothing is fetched for them but the pins, and a few
+// rounds per session of small files from across the bands when too little is known to fill the row
 let names = new NameIndex(), saveTimer = 0, frame = 0;
 const known = new Map();
 const save = () => store.set("rf919.names", {version: view.idx ? view.idx.version : store.get("rf919.names", {}).version, ...names.toJSON()});
@@ -18,7 +19,7 @@ function learn(k, data) {
   if (data) known.set(k, data);
   clearTimeout(saveTimer); saveTimer = setTimeout(save, 3000);
   cancelAnimationFrame(frame);
-  frame = requestAnimationFrame(() => { if (current === "explore" && !inDetail()) { renderOnAir(); renderRecent(); } });
+  frame = requestAnimationFrame(() => { if (current === "explore" && !inDetail()) renderPicks(); });
 }
 // radiomap.cl published a new index: the names stay, but which frequencies were read is no longer the whole story
 export function indexVersion(v) {
@@ -66,52 +67,62 @@ async function searchAll() {
   if (got) renderResults();
 }
 
-// ---- On air now: a shelf of cards under the bands ----
-let filled = false;
-function onAirRows(now = Date.now()) {
-  const pins = pinned(), recent = store.get("rf919.recent", []), rows = [], loc = located();
-  const add = (k, why) => {
-    const d = known.get(k);
-    if (!d || rows.some((r) => r.k === k)) return;
+// ---- Under the search: the pins, then what can probably be heard now, best first, whatever the band ----
+const SUGGEST_MAX = 8, FILL_FILES = 40, FILL_ROUNDS = 3;
+let rounds = 0, filling = false;
+// The best thing to hear on each frequency read so far. FM and up have no estimate, so nothing to rank them by
+function suggestionRows(now, ranked) {
+  const pins = pinned(), rows = [], top = (a, b) => ranked ? (b.est ? b.est.score : -Infinity) - (a.est ? a.est.score : -Infinity) : b.aimed - a.aimed;
+  for (const [k, d] of known) {
+    if (pins.includes(k) || k >= HF_MAX) continue;
     if (d.shortwave.length) {
-      const on = d.shortwave.map((e) => ({e, air: swAir(e, now)})).filter((x) => x.air.on);
-      const mine = loc ? on.filter((x) => aimedAt(x.e, myTargets)) : on;
-      if (!on.length || (why === "sw" && loc && !mine.length)) return;
-      const {e, air} = (mine[0] || on[0]);
-      rows.push({k, why, aimed: !!mine.length && loc, name: e.station || fmtKHz(k), flag: ituFlag(e.itu) || "", country: e.country || "",
-        sub: `until ${minHHMM(hhmmMin(e.endUTC))} UTC`, left: air.endsIn, est: swEstimate(e, k, now)});
-    } else if (d.stations.length && why !== "sw") {
-      const s = d.stations[0];
-      rows.push({k, why, aimed: false, name: nameOf(d) || fmtKHz(k), flag: s.category === "global" ? "" : "cl", country: s.category === "global" ? "Worldwide" : "Chile",
-        sub: why === "pin" ? "pinned" : "recent", left: Infinity, est: stationEstimate(s, k, now)});
+      const on = d.shortwave.map((e) => ({e, air: swAir(e, now)})).filter((x) => x.air.on)
+        .map((x) => ({...x, est: ranked ? swEstimate(x.e, k, now) : null, aimed: aimedAt(x.e, myTargets)}));
+      if (!on.length) continue;
+      const {e, air, est, aimed} = on.sort(top)[0], name = e.station || fmtKHz(k);
+      rows.push({k, key: norm(name), name, est, aimed, left: air.endsIn, sub: `until ${minHHMM(hhmmMin(e.endUTC))} UTC`});
+    } else if (ranked && k < MW_MAX && d.stations.length) {
+      const {s, est} = d.stations.map((s) => ({s, est: stationEstimate(s, k, now)})).sort(top)[0], name = s.nombre || s.signal || fmtKHz(k);
+      rows.push({k, key: norm(name), name, est, aimed: false, left: Infinity, sub: ""});
     }
-  };
-  for (const k of pins) add(k, "pin");
-  for (const k of recent) add(k, "recent");
-  for (const k of known.keys()) add(k, "sw");
-  const rank = (r) => r.why === "pin" ? 0 : r.aimed ? 1 : r.why === "recent" ? 2 : 3;
-  return rows.sort((a, b) => rank(a) - rank(b) || b.left - a.left || a.k - b.k).slice(0, 8);
+  }
+  return rows;
 }
-export function renderOnAir() {
-  const box = $("onair");
+const pinChip = (k) => {
+  // A pin says when it's on: a lamp on air, "20m" when it starts within the hour
+  const st = pinState(k), lamp = st && st.on ? `<span class="lit" aria-hidden="true"></span>` : "";
+  const soon = st && !st.on ? `<small class="pin-soon">${st.startsIn}m</small>` : "";
+  const say = st ? (st.on ? ", on air" : `, on in ${st.startsIn} min`) : "";
+  return `<button class="chip pinned" type="button" data-look="${k}" aria-label="Pinned: ${fmtKHz(k)}${say}">${icon("pin")}${lamp}${label(k)}<small>${k >= 30000 ? "MHz" : "kHz"}</small>${soon}</button>`;
+};
+const suggestChip = (r) => `<button class="chip sg" type="button" data-look="${r.k}" aria-label="${esc(r.name)}, ${fmtKHz(r.k)}${r.sub ? `, ${esc(r.sub)}` : ""}${rowSay(r.est)}">` +
+  `${rowBars(r.est)}${label(r.k)}<small>${esc(r.name)}</small></button>`;
+export function renderPicks() {
+  const box = $("picks");
   if (!box) return;
-  const rows = onAirRows();
-  if (rows.filter((r) => r.why === "sw").length < 4) fillOnAir();
-  box.hidden = !rows.length;
-  keepFocus(box, !rows.length ? "" : `<h2 class="h" id="g-onair"><span>On air now</span><span>${located() ? `to ${esc(myRegion())}` : "tap to listen"}</span></h2>` +
-    `<div class="oa-row">${rows.map((r) => `<button class="oa-card" type="button" data-look="${r.k}" aria-label="${esc(r.name)}, ${fmtKHz(r.k)}, ${esc(r.sub)}${rowSay(r.est)}">` +
-      `<span class="oa-top">${flagHtml(r.flag, r.country)}<span class="oa-f">${label(r.k)}</span>${rowBars(r.est)}${r.why === "pin" ? `<svg class="ico oa-pin" aria-hidden="true"><use href="#i-pin"/></svg>` : ""}</span>` +
-      `<b>${esc(r.name)}</b><small>${esc(r.sub)}</small></button>`).join("")}</div>`);
+  const pins = pinned(), ranked = canEstimate(), rows = rankSuggestions(suggestionRows(Date.now(), ranked), {ranked, max: SUGGEST_MAX});
+  if (rows.length < SUGGEST_MAX) fillPicks();
+  const ask = !myPos && solarKnown() ? `<button class="chip" type="button" data-act="prop-locate">Rank by my location</button>` : "";
+  box.hidden = !pins.length && !rows.length && !ask;
+  keepFocus(box, pins.map(pinChip).join("") + rows.map(suggestChip).join("") + ask);
+  $("x-hint").hidden = !!(pins.length || rows.length);  // nothing to offer yet: how to type a frequency
 }
-// Once per session, while Explore is open and online: the busiest meter band's frequencies, a few at a time
-async function fillOnAir() {
+// Where a station worth suggesting is likeliest: medium wave and the meter bands open now (all of them, not knowing where you are)
+function fillRanges() {
+  const open = canEstimate() ? bestRange(myPos, wx(), Date.now()) : null;
+  const meters = SW_METERS.filter(([, lo, hi]) => !open || (hi >= open.lo * 1000 && lo <= open.hi * 1000));
+  return [[150, MW_MAX - 1], ...meters.map(([, lo, hi]) => [lo, hi])];
+}
+// While Explore is open and online, a few rounds per session of frequencies from across the bands, until the row is full
+async function fillPicks() {
   // not while a scan or a list builder is fetching: they come first
-  if (filled || !view.idx || current !== "explore" || !navigator.onLine || Object.values(jobs).some(Boolean)) return;
-  filled = true;
-  const m = SW_METERS.find(([x]) => x === (disc.meter || "31m")) || SW_METERS[0];
-  const ks = stripTicks(view.idx.freqs, m[1], m[2]).filter((k) => !known.has(k)).slice(0, 60);
-  await pool(ks, 4, (k) => rm.get(`freq/${k}.json`));
-  renderOnAir();
+  if (filling || rounds >= FILL_ROUNDS || !view.idx || current !== "explore" || !navigator.onLine || Object.values(jobs).some(Boolean)) return;
+  rounds++;
+  const ks = sampleFreqs(view.idx.freqs.filter((k) => !known.has(k)), fillRanges(), FILL_FILES);
+  if (!ks.length) return;
+  filling = true;
+  try { await pool(ks, 4, (k) => rm.get(`freq/${k}.json`)); } finally { filling = false; }
+  renderPicks();
 }
 
 // ---- pins: a lamp when on air, "in 20m" when starting within the hour ----
@@ -129,7 +140,8 @@ export function pinState(k, now = Date.now()) {
 export function init() {
   names = NameIndex.fromJSON(store.get("rf919.names", null));
   rm.onData = learn;
-  asked.clear(); renderRecent();  // the pins asked before the hook was in place
+  try { localStorage.removeItem("rf919.recent"); } catch { /* storage unavailable: nothing to tidy */ }  // what recent lookups left behind
+  asked.clear(); renderPicks();  // the pins asked before the hook was in place
   $("q").addEventListener("input", renderResults);
   // ↓ from the field to the first result; ↑↓ between the results' frequencies, Esc back to the field
   $("q").addEventListener("keydown", (e) => {
@@ -148,6 +160,6 @@ export function init() {
     b.disabled = true; b.textContent = "Searching…";  // the results come back when it's done (or cancelled)
     searchAll().finally(() => { if (b.isConnected) renderResults(); });
   });
-  setInterval(() => { if (current === "explore" && !inDetail() && !document.hidden) renderOnAir(); }, 60000);
+  setInterval(() => { if (current === "explore" && !inDetail() && !document.hidden) renderPicks(); }, 60000);
   Object.assign(window, {names});  // for the browser checks and the console
 }

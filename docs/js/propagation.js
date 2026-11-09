@@ -106,6 +106,19 @@ export function bestRange(pos, wx, t) {
   return {lo, hi: Math.max(lo, Math.round(.9 * foF2(c, wx.sfi) * 3.2))};
 }
 
+// What to suggest listening to, best first. rows: {k, key (the station, for keeping one frequency each), est, left (minutes
+// on the air still), aimed}. ranked: by the estimate, dropping what's unlikely; else there's no estimate to go on, so
+// what's aimed here comes first, then what stays on longest
+const MIN_LEFT = 10;
+export function rankSuggestions(rows, {ranked, max = 8}) {
+  const order = ranked ? (a, b) => b.est.score - a.est.score : (a, b) => !!b.aimed - !!a.aimed;
+  const seen = new Set();
+  return rows.filter((r) => r.left >= MIN_LEFT && (!ranked || (r.est && r.est.tier !== "unlikely")))
+    .sort((a, b) => order(a, b) || b.left - a.left || a.k - b.k)
+    .filter((r) => !seen.has(r.key) && seen.add(r.key))
+    .slice(0, max);
+}
+
 // A broadcast's window [s, end) in minutes, cut at the hours and merged where tierAt(minute) stays the same
 export function windowTiers(s, end, tierAt) {
   const out = [];

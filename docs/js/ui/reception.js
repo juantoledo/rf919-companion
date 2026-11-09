@@ -2,13 +2,14 @@ import {HF_MAX, SpaceWeather, TIERS, bestRange, estimate, windowTiers} from "../
 import {aimedAt, dur, fmtKHz, minHHMM, utcDay} from "../radiomap.js";
 import {$, esc, openTool} from "./shell.js";
 import {keepFocus, locate, myPos, myTargets, renderDiscover, renderView, store, view} from "./radio.js";
-import {renderOnAir} from "./find.js";
+import {renderPicks} from "./find.js";
 
 // ---- Reception: the estimate of whether a station can be heard from here (propagation.js) ----
 // The signal bars answer a different question from the on-air lamps: the lamp says it's transmitting, the bars say you
 // may hear it. No bars at all when there's nothing to go on (no position, no transmitter site, no solar data, above HF)
 let swx = null, shown = null;
-const wxNow = () => swx ? swx.current() : null;
+export const wxNow = () => swx ? swx.current() : null;
+export const solarKnown = () => !!wxNow();
 export const canEstimate = () => !!(myPos && wxNow());
 
 // t: when (ms). The aim only counts when the listener is inside a region EiBi targets are known for
@@ -70,12 +71,12 @@ export function renderConditions() {
   const best = myPos ? (({lo, hi}) => `Best now: ${lo}–${hi} MHz`)(bestRange(myPos, wx, Date.now())) : "";
   const old = wx.fetched && Date.now() - wx.fetched > 3 * 3600000 ? `updated ${age(wx.fetched)}` : "";
   const facts = [`<span title="Solar flux">SFI ${wx.sfi}</span>`, wx.kpKnown && `<span title="Geomagnetic activity">Kp ${wx.kp}</span>`, best && `<b>${best}</b>`, storm && `<em>${storm}</em>`, old].filter(Boolean).join(" · ");
-  keepFocus(box, `<p>${facts}</p>` + (myPos ? "" : `<button class="small" type="button" data-act="prop-locate">Show reception estimates</button>`));
+  keepFocus(box, `<p>${facts}</p>`);
 }
 const repaint = () => {
   renderConditions();
   if (view.data) renderView();
-  renderOnAir();
+  renderPicks();
   renderDiscover();
 };
 export const askPosition = () => locate().then(repaint, () => {});

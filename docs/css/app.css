@@ -287,12 +287,12 @@ body.bars-min .radiobar.off { bottom: var(--bar-bottom); right: calc((100% - var
 
 /* ---- glass that answers the finger: a light where it's pressed, and a slight swell (shell.js sets --px/--py) ----
    (:where: holding the light mustn't outweigh where each control is placed, the fixed search button among them) */
-:where(.radiobar > button, .radiobar .rb-open, .dock > button, .oa-card) { position: relative; }
-:is(.tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button, .oa-card)::after {
+:where(.radiobar > button, .radiobar .rb-open, .dock > button) { position: relative; }
+:is(.tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button)::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity var(--slow);
   background: radial-gradient(circle at var(--px, 50%) var(--py, 50%), light-dark(rgba(0, 98, 204, .16), rgba(255, 255, 255, .24)), transparent 65%);
 }
-:is(.tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button, .oa-card):active::after { opacity: 1; transition-duration: var(--fast); }
+:is(.tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button):active::after { opacity: 1; transition-duration: var(--fast); }
 :is(.tabbar a, .tab-search, .radiobar > button, .dock > button) { transition: scale var(--med) var(--spring); }
 :is(.tabbar a, .tab-search, .radiobar > button, .dock > button):active { scale: 1.06; transform: none; }
 
@@ -773,20 +773,9 @@ button.icon[aria-pressed="true"] .ico { fill: currentColor; }
 #qr-job { padding: 0 var(--s4); }
 .chip .lit { align-self: center; }
 .pin-soon { color: var(--accent) !important; }
-/* On air now: a row of cards that scrolls sideways */
-.oa-row { display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
-  margin: 0 calc(-1 * var(--gutter-r)) 0 calc(-1 * var(--gutter-l)); padding: 2px var(--gutter-r) 2px var(--gutter-l); scroll-padding-inline: var(--gutter-l); }
-.oa-row::-webkit-scrollbar { display: none; }
-.oa-card {
-  flex: none; display: grid; align-content: start; gap: 2px; width: 10.5rem; min-height: 88px; padding: var(--s2) var(--s3); text-align: left;
-  border-radius: var(--r3); background: var(--surface); border-color: var(--line); scroll-snap-align: start; white-space: normal;
-}
-.oa-top { display: flex; align-items: center; gap: 2px; font: 600 var(--fs-caption) var(--font-mono); color: var(--dim); }
-.oa-pin { width: 12px; height: 12px; margin-left: auto; fill: var(--accent); stroke: var(--accent); }
-.oa-top .prop-bars { margin-left: auto; }
-.oa-top .prop-bars + .oa-pin { margin-left: var(--s1); }
-.oa-card b { font-weight: 600; font-size: var(--fs-small); line-height: 1.3; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.oa-card small { font: 500 .6875rem var(--font-mono); color: var(--accent); }
+/* a suggestion: its bars, the frequency and a station name kept short */
+.chip.sg .prop-bars { align-self: center; margin-right: 2px; }
+.chip.sg small { max-width: 11em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* side by side when there's room: finding on the left, Discover on the right */
 @media (min-width: 840px) {
   #view-explore { max-width: 1120px; }

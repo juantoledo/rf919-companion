@@ -7,7 +7,7 @@ behind it, which no button starts: the scripts open the page with `?demo` or cal
 - `e2e.mjs`: tabs and links, View Transitions (the chip that grows into the dial), the Remote (and its slide away),
   gestures, band pickers, memories (store, check, Store here, clear, Start fresh), backup, switches, Find the Preset
   key, Near me, keyboard, Explore (home and detail with Back and ←, dial, band strip, Full schedule, pins, Share,
-  Nearby, Discover, reminders, search by name, On air now, tune as you explore and its Undo, two panes on a wide
+  Nearby, Discover, reminders, search by name, suggestions, tune as you explore and its Undo, two panes on a wide
   screen), the Log (an entry from a short dwell, star, delete and Undo, ADIF export, "Logged once"), the signal meter,
   the idle mini player pill, the sheet Connect opens without Web Bluetooth, a station change that keeps the scroll and the
   dock in place, the reception estimate (badge, sheet, tinted Today bar, what shows without a position or solar data), and No radio

@@ -805,6 +805,25 @@ ok("Logbook: No radio's entries are their own (never joined with a radio's), tag
     deq(P.windowTiers(0, 120, () => null), [{s: 0, t: 120, tier: null}]);
     deq(P.windowTiers(30, 30, () => "likely"), []);
   });
+  ok("suggestions: best odds first whatever the band, one frequency per station, nothing unlikely or about to end", () => {
+    const row = (k, key, score, left = 60, tier = "likely", aimed = false) => ({k, key, left, aimed, est: score == null ? null : {score, tier}});
+    const ks = (rows, o) => P.rankSuggestions(rows, o).map((r) => r.k);
+    deq(ks([row(15400, "a", 50, 60, "possible"), row(6195, "b", 90), row(1000, "c", 75, Infinity)], {ranked: true}), [6195, 1000, 15400]);
+    deq(ks([row(9580, "a", 80, 30), row(9600, "b", 80, 90), row(9500, "c", 80, 90)], {ranked: true}), [9500, 9600, 9580]);
+    deq(ks([row(9580, "a", 80), row(11620, "a", 95)], {ranked: true}), [11620]);
+    deq(ks([row(9580, "a", 30, 60, "unlikely"), row(9600, "b", 80, 9), row(9700, "c", null), row(9800, "d", 80, 10)], {ranked: true}), [9800]);
+    deq(ks([1, 2, 3, 4].map((i) => row(9000 + i, `s${i}`, 80)), {ranked: true, max: 2}), [9001, 9002]);
+    deq(ks([row(9580, "a", null, 300), row(9600, "b", null, 40, "", true), row(9700, "c", null, 5, "", true)], {ranked: false}), [9600, 9580]);
+  });
+  ok("suggestions: the frequencies to read are shared among the ranges and spread along each", () => {
+    const f = [600, 610, 620, 9500, 9510, 9520, 9530, 11600, 11610, 20000];
+    deq(T.sampleFreqs(f, [[500, 700], [9400, 9900]], 4), [600, 610, 9500, 9520]);
+    deq(T.sampleFreqs(f, [[500, 700], [11600, 12100]], 100), [600, 610, 620, 11600, 11610]);
+    assert.equal(T.sampleFreqs(f, [[500, 700], [9400, 9900], [11600, 12100]], 3).length, 3);
+    deq(T.sampleFreqs(f, [[3000, 4000]], 5), []);
+    deq(T.sampleFreqs(f, [], 5), []);
+    deq(T.sampleFreqs(f, [[500, 700]], 0), []);
+  });
   ok("reception: NOAA's feeds are read as UTC, and anything malformed is no reading", () => {
     deq(P.parseFlux([{flux: 127, time_tag: "2026-11-07T20:00:00"}]), {v: 127, at: Date.UTC(2026, 10, 7, 20)});
     deq(P.parseKp([{time_tag: "2026-11-08T06:00:00", Kp: 3}, {time_tag: "2026-11-08T09:00:00", Kp: 3.33}, {time_tag: "2026-11-08T12:00:00", Kp: null}]),

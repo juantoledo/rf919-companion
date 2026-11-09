@@ -40,6 +40,15 @@ export function stepKnown(freqs, k, dir, n = 1) {
 }
 // The kHz with data in [lo, hi], for the band strip
 export const stripTicks = (freqs, lo, hi) => freqs.filter((k) => k >= lo && k <= hi);
+// Up to n of the kHz in the ranges [[lo, hi], …], shared out evenly among them and spread along each
+export function sampleFreqs(freqs, ranges, n) {
+  const pools = ranges.map(([lo, hi]) => stripTicks(freqs, lo, hi)).filter((p) => p.length);
+  const shares = pools.map(() => 0);
+  for (let left = Math.min(n, pools.reduce((sum, p) => sum + p.length, 0)), i = 0; left > 0; i = (i + 1) % pools.length) {
+    if (shares[i] < pools[i].length) { shares[i]++; left--; }
+  }
+  return pools.flatMap((p, i) => Array.from({length: shares[i]}, (_, j) => p[Math.floor(j * p.length / shares[i])]));
+}
 
 // ---- EiBi schedule: is it on the air? ----
 export const WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];  // API weekday 0 = Monday

@@ -5,7 +5,7 @@ import {Tuner} from "../tuner.js";
 import {waiters} from "../state.js";
 import {BleLink, VirtualLink, sleep} from "../link.js";
 import {SIDE_SHEETS, sheetDrag, swipeAway, swipeTune, swipeUp} from "./gestures.js";
-import {addRecent, following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, setScanning, show, store, view} from "./radio.js";
+import {following, loadIndex, mem, nameOf, radioFreq, renderDossier, renderView, setScanning, show, store, view} from "./radio.js";
 import {renderMem, renderStoreHere} from "./memories.js";
 import {logOff, logSignal, renderLog} from "./log.js";
 import {link, pressKey, send} from "./more.js";
@@ -309,10 +309,9 @@ function exploreScreen(detail) {
   return true;
 }
 const focusDetail = () => { const f = document.querySelector("#dossier .d-freq"); if (f) f.focus({preventScroll: true}); };
-// A search, a shared link, a band, a Discover or Nearby row, the dial. Stepping along the dial doesn't fill Recent.
+// A search, a shared link, a band, a Discover or Nearby row, the dial.
 // push: a history entry (default: when coming from home or another tab). tune: the radio follows (see autoTune)
-export function lookUp(k, {recent = true, push, tune = true} = {}) {
-  if (recent) addRecent(k);
+export function lookUp(k, {push, tune = true} = {}) {
   const fromHome = !(current === "explore" && inDetail());
   if (fromHome) openerK = k;
   view.follow = false;
@@ -522,7 +521,7 @@ export function init() {
   $("tab-search").addEventListener("click", focusSearch);
   $("tabbar").addEventListener("focusin", () => setBarsMin(false));  // the keyboard finds the whole bar
   // Glass that answers the finger: where it's pressed, for the light in app.css
-  const GLASS_I = ".tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button, .oa-card";
+  const GLASS_I = ".tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button";
   const lightAt = (e) => {
     const el = e.target.closest && e.target.closest(GLASS_I);
     if (!el) return;

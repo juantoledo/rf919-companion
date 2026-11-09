@@ -4,7 +4,7 @@
 //                the band pickers and gestures
 //   radio.js     what's on a frequency: the info panels shared by Radio and Explore, Nearby, Near me; Explore's
 //                dial and band strip, pins, Share, reminders and Discover
-//   find.js      Explore's home: search by station name, On air now, the pins' lamps
+//   find.js      Explore's home: search by station name, suggestions, the pins' lamps
 //   reception.js the reception estimate: its badge and sheet, the solar data, the conditions line
 //   memories.js  the Memories view: list, runs, Store here, Start fresh, backup, list builders
 //   log.js       the Log view: what the radio stayed on, with its best signal; the signal meter on Radio
