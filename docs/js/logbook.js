@@ -75,6 +75,31 @@ export class Signal {
   last(key) { for (let i = this.pts.length - 1; i >= 0; i--) if (this.pts[i][key] != null) return this.pts[i][key]; return null; }
 }
 
+// ---- What you listened to around this time of day, on the latest earlier day with any ----
+// Steps of 24 h back from now, so a window across midnight UTC needs no special case. An entry belongs to the first
+// step whose window it overlaps. days: how many days back; items: one per frequency, longest listened first
+const DAY_MS = 86400000;
+export const THIS_TIME_MS = 45 * 60000;
+export function atThisTime(entries, now, {windowMs = THIS_TIME_MS, max = 4} = {}) {
+  let days = Infinity, hits = [];
+  for (const e of entries) {
+    if (e.demo) continue;
+    const first = Math.max(1, Math.ceil((now - e.end - windowMs) / DAY_MS)), last = Math.floor((now - e.start + windowMs) / DAY_MS);
+    if (first > last || first > days) continue;
+    if (first < days) { days = first; hits = []; }
+    hits.push(e);
+  }
+  if (!hits.length) return null;
+  const byK = new Map();
+  for (const e of hits) {  // oldest first, so the name kept is the latest one known
+    const it = byK.get(e.k) || {k: e.k, band: e.band, station: "", flag: "", country: "", ms: 0};
+    it.ms += e.end - e.start;
+    if (e.station) Object.assign(it, {station: e.station, flag: e.flag || "", country: e.country || ""});
+    byK.set(e.k, it);
+  }
+  return {days, items: [...byK.values()].sort((a, b) => b.ms - a.ms).slice(0, max)};
+}
+
 // ---- export ----
 const pad = (n, w = 2) => String(n).padStart(w, "0");
 const ymd = (t) => { const d = new Date(t); return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`; };

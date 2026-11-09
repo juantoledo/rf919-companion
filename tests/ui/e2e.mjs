@@ -108,6 +108,23 @@ await page.click("#picks .chip.sg");
 await page.waitForFunction((k) => view.k === k && view.data, ko, {timeout: 15000});
 await settled(); await page.click("#x-back"); await atHome();
 ok(`Suggestions: what's on air, after the pins; a chip opens its frequency (${ko})`);
+// ---- "At this time": what the Log has from around now on the latest earlier day ----
+assert.equal(await page.locator("#again").isHidden(), true);
+await E(() => { const d = 864e5, t = Date.now(); logbook.entries.unshift(
+  {id: "at-old", k: 15000, band: "SW", start: t - 3 * d, end: t - 3 * d + 6e5, station: "Older"},
+  {id: "at-a", k: 6000, band: "SW", start: t - d, end: t - d + 6e5, station: "Radio Yesterday"},
+  {id: "at-b", k: 7000, band: "SW", start: t - d, end: t - d + 12e4, station: ""}); renderPicks(); });
+assert.equal(await page.textContent("#g-again"), "Yesterday at this time");
+assert.deepEqual(await page.locator("#again-chips [data-look]").evaluateAll((els) => els.map((e) => e.dataset.look)), ["6000", "7000"]);
+assert.equal(await page.getAttribute('#again-chips [data-look="6000"]', "aria-label"), "Radio Yesterday, 6000 kHz, listened 10 min");
+await page.click('#again-chips [data-look="6000"]');
+await page.waitForFunction(() => view.k === 6000, null, {timeout: 15000});
+await settled(); await page.click("#x-back"); await atHome();
+await E(() => { logbook.entries = logbook.entries.filter((e) => !["at-a", "at-b"].includes(e.id)); renderPicks(); });
+assert.equal(await page.textContent("#g-again"), "3 days ago at this time");
+await E(() => { logbook.entries = logbook.entries.filter((e) => e.id !== "at-old"); renderPicks(); });
+assert.equal(await page.locator("#again").isHidden(), true);
+ok("At this time: yesterday's stations around now, else the latest earlier day's; a chip opens its frequency; no row when there's nothing");
 await page.goto(URL + "#f=11620"); await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await visibleView(), "explore");
 assert.equal(await mode(), "detail");

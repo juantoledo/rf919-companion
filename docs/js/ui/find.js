@@ -6,6 +6,8 @@ import {$, current, esc, inDetail} from "./shell.js";
 import {icon, keepFocus, myPos, myTargets, pinned, rm, store, view} from "./radio.js";
 import {fetchAll, jobs} from "./memories.js";
 import {canEstimate, rowBars, rowSay, solarKnown, stationEstimate, swEstimate, wxNow as wx} from "./reception.js";
+import {atThisTime} from "../logbook.js";
+import {logbook, mins} from "./log.js";
 
 // ---- Explore's home: search by station name, suggestions, and pins that say when they're on ----
 // Every frequency file the page reads (rm.onData) teaches the name index and joins `known`, this session's lookups,
@@ -97,9 +99,20 @@ const pinChip = (k) => {
 };
 const suggestChip = (r) => `<button class="chip sg" type="button" data-look="${r.k}" aria-label="${esc(r.name)}, ${fmtKHz(r.k)}${r.sub ? `, ${esc(r.sub)}` : ""}${rowSay(r.est)}">` +
   `${rowBars(r.est)}${label(r.k)}<small>${esc(r.name)}</small></button>`;
+// What the log has from around this time on the latest earlier day: nothing to show, no row
+function renderAgain(now) {
+  const box = $("again"), got = atThisTime(logbook.entries, now);
+  box.hidden = !got;
+  if (!got) return;
+  $("g-again").textContent = `${got.days === 1 ? "Yesterday" : `${got.days} days ago`} at this time`;
+  keepFocus($("again-chips"), got.items.map((it) => { const name = it.station || fmtKHz(it.k);
+    return `<button class="chip sg" type="button" data-look="${it.k}" aria-label="${esc(name)}, ${fmtKHz(it.k)}, listened ${mins(it.ms)}">` +
+      `${label(it.k)}${it.station ? `<small>${esc(it.station)}</small>` : ""}</button>`; }).join(""));
+}
 export function renderPicks() {
   const box = $("picks");
   if (!box) return;
+  renderAgain(Date.now());
   const pins = pinned(), ranked = canEstimate(), rows = rankSuggestions(suggestionRows(Date.now(), ranked), {ranked, max: SUGGEST_MAX});
   if (rows.length < SUGGEST_MAX) fillPicks();
   const ask = !myPos && solarKnown() ? `<button class="chip" type="button" data-act="prop-locate">Rank by my location</button>` : "";
@@ -161,5 +174,5 @@ export function init() {
     searchAll().finally(() => { if (b.isConnected) renderResults(); });
   });
   setInterval(() => { if (current === "explore" && !inDetail() && !document.hidden) renderPicks(); }, 60000);
-  Object.assign(window, {names});  // for the browser checks and the console
+  Object.assign(window, {names, renderPicks});  // for the browser checks and the console
 }

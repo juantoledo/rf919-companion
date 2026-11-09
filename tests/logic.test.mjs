@@ -7,7 +7,7 @@ import * as radiomap from "../docs/js/radiomap.js";
 import * as memories from "../docs/js/memories.js";
 import {Tuner} from "../docs/js/tuner.js";
 import {NameIndex, norm} from "../docs/js/names.js";
-import {Logbook, Signal, toAdif, toCsv, adifBand} from "../docs/js/logbook.js";
+import {Logbook, Signal, atThisTime, toAdif, toCsv, adifBand} from "../docs/js/logbook.js";
 import * as propagation from "../docs/js/propagation.js";
 import * as calendar from "../docs/js/calendar.js";
 
@@ -615,6 +615,36 @@ ok("NameIndex: accents and case don't matter; words in any order; whole words, t
   deq(back.search("radio").map((h) => [h.name, h.ks]), ix.search("radio").map((h) => [h.name, h.ks]));
   assert.equal(back.seen.has(7777), true);
 });
+// ---- "At this time": the Log's entries around this time of day, on the latest earlier day with any ----
+{
+  const DAY = 86400000, MIN = 60000, now = Date.UTC(2026, 10, 9, 21, 15);
+  const at = (k, ago, len = 10 * MIN, extra = {}) => ({k, band: "SW", start: now - ago, end: now - ago + len, station: `S${k}`, flag: "", country: "", ...extra});
+  ok("At this time: yesterday wins over older days, else the latest earlier day; today and the replay don't count", () => {
+    deq(atThisTime([at(1, 3 * DAY), at(2, DAY)], now), {days: 1, items: [{k: 2, band: "SW", station: "S2", flag: "", country: "", ms: 10 * MIN}]});
+    assert.equal(atThisTime([at(1, 5 * DAY), at(2, 3 * DAY)], now).days, 3);
+    deq(atThisTime([at(2, 3 * DAY)], now).items.map((i) => i.k), [2]);
+    assert.equal(atThisTime([], now), null);
+    assert.equal(atThisTime([at(1, 2 * 60 * MIN), at(2, 5 * MIN)], now), null);
+    assert.equal(atThisTime([at(1, DAY, 10 * MIN, {demo: true})], now), null);
+    assert.equal(atThisTime([at(1, DAY, 10 * MIN, {virtual: true})], now).days, 1);
+  });
+  ok("At this time: the ±45 min edges, a window across midnight UTC, and a long entry", () => {
+    assert.equal(atThisTime([at(1, DAY + 55 * MIN, 10 * MIN)], now).days, 1);          // ends exactly 45 min before
+    assert.equal(atThisTime([at(1, DAY + 56 * MIN, 10 * MIN)], now), null);            // ends a minute earlier
+    assert.equal(atThisTime([at(1, DAY - 45 * MIN)], now).days, 1);                    // starts exactly 45 min after
+    assert.equal(atThisTime([at(1, DAY - 46 * MIN)], now), null);                      // a minute later
+    const late = Date.UTC(2026, 10, 9, 0, 10);                                          // 00:10, and yesterday's 23:50 is in the window
+    assert.equal(atThisTime([{k: 1, start: Date.UTC(2026, 10, 7, 23, 50), end: Date.UTC(2026, 10, 7, 23, 55)}], late).days, 1);
+    assert.equal(atThisTime([at(1, DAY + 6 * 60 * MIN, 7 * 60 * MIN)], now).days, 1);  // began hours before, still on then
+    assert.equal(atThisTime([at(1, 37 * 60 * MIN, 14 * 60 * MIN)], now).days, 1);      // left on all night
+  });
+  ok("At this time: one chip per frequency, time added up, longest first, four at most", () => {
+    const got = atThisTime([at(1, DAY, 5 * MIN), at(2, DAY + 10 * MIN, 8 * MIN), at(1, DAY - 20 * MIN, 6 * MIN), at(3, DAY, 2 * MIN), at(4, DAY, 3 * MIN), at(5, DAY, MIN)], now);
+    deq(got.items.map((i) => [i.k, i.ms / MIN]), [[1, 11], [2, 8], [4, 3], [3, 2]]);
+    assert.equal(atThisTime([at(1, DAY), at(2, DAY)], now, {max: 1}).items.length, 1);
+    deq(atThisTime([at(1, DAY + 5 * MIN, MIN, {station: ""}), at(1, DAY, MIN, {station: "Named"}), at(1, DAY - 5 * MIN, MIN, {station: ""})], now).items[0].station, "Named");
+  });
+}
 // ---- No radio: the virtual radio (virtual.js), through the real decoder ----
 ok("Logbook: No radio's entries are their own (never joined with a radio's), tagged, and kept when the replay's go", () => {
   const lb = new Logbook([], {dwellMs: 1000}), t0 = Date.now();

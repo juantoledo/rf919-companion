@@ -7,6 +7,7 @@ import {bandFor} from "../memories.js";
 import {mem, nameOf, rm, store, swPick, view} from "./radio.js";
 import {link} from "./more.js";
 import {swipeRows} from "./gestures.js";
+import {renderPicks} from "./find.js";
 
 // ---- The Log tab: what the radio stayed on (logbook.js), named from radiomap.cl, with its best signal ----
 // The test replay's entries (?demo) live only while it runs: never saved, gone when it stops. No radio's are kept
@@ -109,7 +110,7 @@ export function renderSignal() {
 const DAY = 86400000;
 const dayOf = (t) => Math.floor(t / DAY) * DAY;
 const hhmmUTC = (t) => new Date(t).toISOString().slice(11, 16);
-const mins = (ms) => { const m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`; };
+export const mins = (ms) => { const m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}`; };
 export function agoText(t, now = Date.now()) {
   const d = Math.floor((dayOf(now) - dayOf(t)) / DAY);
   if (d <= 0) { const m = Math.round((now - t) / 60000); return m < 60 ? `${Math.max(1, m)} min ago` : `${Math.round(m / 60)} h ago`; }
@@ -222,5 +223,6 @@ export function init() {
   sig.addEventListener("pointerdown", at);
   sig.addEventListener("pointerleave", () => { hoverT = null; renderSignal(); });
   renderLog();
+  renderPicks();  // Explore's first draw came before the saved log was read
   Object.assign(window, {logbook, signal});  // for the browser checks (dwellMs) and the console
 }
