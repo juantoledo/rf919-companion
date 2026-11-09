@@ -15,7 +15,7 @@ behind it, which no button starts: the scripts open the page with `?demo` or cal
 - `audit.mjs`: every visible control on every view (Explore both as its home and as a detail, the Log with a few entries,
   Radio and Explore before connecting, the no-Bluetooth sheet, Radio on No radio), in the Remote and in the tools sheet; phones in portrait
   (360×640, 360×780, 390×844, 412×915) and landscape (780×360, 844×390, 915×412, 932×430) with touch, 768×1024 and 1280×800 with a mouse,
-  each in the light and the dark theme. Reports targets under 48 px on touch (24 px with a mouse), cut-off labels,
+  each in the light and the dark theme, plus text at 200%. Reports targets under 44 px on touch (24 px with a mouse), cut-off labels,
   unnamed controls, pages wider than the screen, and views that scroll further than their budget (`BUDGET` in the script); exits 1 if one does.
 
 ```sh

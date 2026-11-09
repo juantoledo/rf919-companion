@@ -3,7 +3,7 @@ import {dur, flagHtml, fmtKHz, fmtShift, hhmmMin, ituFlag, minHHMM, span, swOnAi
 import {CancelErr, MAX_CH, MEM_BANDS, MemoryRun, SW_METERS, addToList, nearestStations, backupText, bandCount, bandFor, bandRange, bandSummary, freqText, memKey, parseMemList, pool, recordItems} from "../memories.js";
 import {waiters} from "../state.js";
 import {errText} from "../link.js";
-import {$, BAND_COLORS, ask, bandIco, esc, log, radioFree, state, toast} from "./shell.js";
+import {$, BAND_COLORS, ask, bandIco, esc, log, radioFree, setEditing, state, toast} from "./shell.js";
 import {dossierName, hhmm, isRepeater, locate, mem, myPos, myRegion, myTargets, placeOf, radius, renderView, rm, show, store, view} from "./radio.js";
 import {link, setWake} from "./more.js";
 import {swipeRows} from "./gestures.js";
@@ -46,6 +46,8 @@ export function renderMem() {
   const band = shownBand(), list = mem.list, running = !!mem.run, radio = radioMemBand();
   const rows = list.map((e, i) => [e, i]).filter(([e]) => e.band === band), n = rows.length;
   $("mem-total").textContent = `${band} · ${n}/${MAX_CH}`;
+  $("mem-edit").hidden = !n;
+  if (!n) setEditing($("mem-edit"), false);
   // A segmented control of native radio buttons; every band gets one, so an empty band can be started too
   $("mem-counts").innerHTML = `<legend>Band</legend>` + MEM_BANDS.map((b) => {
     const c = bandCount(list, b);
@@ -62,7 +64,7 @@ export function renderMem() {
   $("mem-text-hint").textContent = `One memory per line: channel, frequency, name, for the ${band} list. The channel is optional ` +
     `(a missing one takes the next free channel); a line for another band needs its band name, as in "FM 101.3". At most ${MAX_CH}.`;
   const checked = mem.check && mem.check.byKey;
-  // A row: the channel, the name over the frequency (or the frequency alone), and ✕; on touch, swiping it left
+  // A row: the channel, the name over the frequency (or the frequency alone), and a red minus while editing; on touch, swiping it left
   // uncovers Delete (gestures.js swipeRows)
   const dis = running ? " disabled" : "";
   $("mem-list").innerHTML = n ? rows.map(([e, i]) => {
@@ -71,7 +73,7 @@ export function renderMem() {
     const sub = [e.name && fmtKHz(e.kHz), st && st !== "ok" && st.replace(/^· /, "")].filter(Boolean).join(" · ");
     return `<li class="mem-row ${cls}"><div class="mr-fg"><span class="ch">${e.ch}</span>` +
       `<span class="mr-main"><b>${e.name ? esc(e.name) : fmtKHz(e.kHz)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>` +
-      `<button class="mr-del" type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${dis}>✕</button></div>` +
+      `<button class="mr-del" type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${dis}><svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg></button></div>` +
       `<button class="mr-act" type="button" data-mem="del" data-i="${i}" tabindex="-1" aria-hidden="true"${dis}>Delete</button></li>`;
   }).join("") : `<li class="empty-row"><b>No ${band} memories yet</b><span>Use + Add to list under a frequency, ` +
     `Store on radio on the Radio tab, or the ⋯ menu.</span></li>`;

@@ -2,7 +2,7 @@ import {Logbook, Signal, toAdif, toCsv} from "../logbook.js";
 import {flagHtml, fmtKHz, ituFlag} from "../radiomap.js";
 import {waiters} from "../state.js";
 import {ReplayLink, VirtualLink, errText} from "../link.js";
-import {$, bandIco, current, esc, go, lookUp, state, tabDir, toast, vt} from "./shell.js";
+import {$, bandIco, current, esc, go, lookUp, setEditing, state, tabDir, toast, vt} from "./shell.js";
 import {bandFor} from "../memories.js";
 import {mem, nameOf, rm, store, swPick, view} from "./radio.js";
 import {link} from "./more.js";
@@ -131,7 +131,7 @@ function rowHtml(e) {
     `<b>${flagHtml(e.flag, e.country || "")}${esc(name)}</b><small>${bandIco(e.band || bandFor(e.k))}${esc(sub)}</small></a>` +
     `<button class="icon log-star" type="button" data-log="star" data-id="${esc(e.id)}" aria-pressed="${!!e.star}" aria-label="Star ${esc(name)}">` +
     `<svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg></button>` +
-    `<button class="mr-del" type="button" data-log="del" data-id="${esc(e.id)}" aria-label="Delete ${esc(name)} at ${hhmmUTC(e.start)}">✕</button></div>` +
+    `<button class="mr-del" type="button" data-log="del" data-id="${esc(e.id)}" aria-label="Delete ${esc(name)} at ${hhmmUTC(e.start)}"><svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg></button></div>` +
     `<button class="mr-act" type="button" data-log="del" data-id="${esc(e.id)}" tabindex="-1" aria-hidden="true">Delete</button></li>`;
 }
 
@@ -146,6 +146,8 @@ export function renderLog() {
     (lf.k != null ? `<button class="chip" type="button" data-log="unk" aria-label="Show every frequency">${fmtKHz(lf.k)} ✕</button>` : "");
   $("log-filter").hidden = !all.length;
   $("log-menu").hidden = !all.length;
+  $("log-edit").hidden = !all.length;
+  if (!all.length) setEditing($("log-edit"), false);
   const list = shownEntries();
   if (!all.length) {
     $("log-list").innerHTML = `<div class="panel empty-row"><b>Nothing logged yet</b><span>Stay on a frequency for 30 seconds and it's ` +
@@ -174,7 +176,7 @@ function renderHeard() {
 export function showLogFor(k) {
   lf.k = k; lf.filter = "all";
   try { history.pushState(null, "", "#log"); } catch { /* sandboxed */ }
-  vt(() => go("log"), {dir: tabDir("log")});
+  vt(() => go("log"), {dir: tabDir("log"), cls: "vt-tab"});
 }
 
 async function exportLog(kind) {

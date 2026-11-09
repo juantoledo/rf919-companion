@@ -299,7 +299,7 @@ export async function startDemo() {
 }
 
 // Theme: "system" follows the phone; "light" or "dark" sets <html data-theme> (index.html applies it before the page draws)
-const THEME_BG = {light: "#eef2f6", dark: "#070d15"};  // keep in step with --bg  // --bg in tokens.css, for the browser's own bars
+const THEME_BG = {light: "#f2f2f7", dark: "#000000"};  // keep in step with --bg  // --bg in tokens.css, for the browser's own bars
 export function applyTheme(t) {
   const root = document.documentElement;
   if (t === "light" || t === "dark") root.dataset.theme = t; else delete root.dataset.theme;

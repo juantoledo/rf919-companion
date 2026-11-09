@@ -901,7 +901,7 @@ export function init() {
     // Tap the open tab again: Explore's detail goes back to its home, otherwise back to the top
     if (a.dataset.tab === current) { if (current === "explore" && inDetail()) exploreBack(); else window.scrollTo({top: 0, behavior: "smooth"}); return; }
     try { history.pushState(null, "", `#${a.dataset.tab}`); } catch { /* sandboxed */ }
-    vt(() => go(a.dataset.tab), {dir: tabDir(a.dataset.tab)});
+    vt(() => go(a.dataset.tab), {dir: tabDir(a.dataset.tab), cls: "vt-tab"});
   });
   // Keep the on-air state, the "now" marker and the current slot moving
   setInterval(() => {

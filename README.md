@@ -37,14 +37,14 @@ light or dark setting, or the theme picked in **More › Appearance** (System, L
 
 On every tab but Radio, a **mini player** above the tabs keeps the radio at hand: band, frequency,
 what's on the air there, and ◀ ▶. Tap it (or swipe it up) for the **Remote**, with every key of the
-radio. The Remote opens half height on its keys; **Keypad** and **Tune** open it full height. On a
+radio. The Remote opens at half height on its keys, which scroll; **Keypad** and **Tune** open it full height. On a
 wide screen or sideways it comes in from the side. With no radio connected it shrinks to a small
 **Connect radio · No radio** pill at the tab bar's edge.
 
 **Gestures** (each also has a button): swipe a frequency **left to step up, right to step down**,
 and flick it further to seek (in Explore, to the next frequency with data, or ten along); swipe the mini player **up** to open the Remote; drag a sheet's top
-edge between half and full height, or down to close it; on a phone, swipe a memory **left** to
-delete it; swipe a snackbar sideways to dismiss it.
+edge between half and full height, or down to close it; on a phone, swipe a memory or Log entry **left** to
+delete it (**Edit** at the top of the list does the same with a button); swipe a snackbar sideways to dismiss it.
 
 ### What's on the air
 
@@ -162,7 +162,7 @@ channel, confirm), one channel at a time, about 2–3 s each. See [memory.md](me
   change band on the radio. The band chips above the list (`● AIR · 11`) let you look at another
   band. **Store**, **Check on radio**, **Start fresh** and **Edit as text** act on the band shown;
   in Edit as text, lines without a band belong to it. Backup still exports every band.
-- **Removing** a memory (✕, or swiping it left) or clearing a band's list can be undone from the
+- **Removing** a memory (**Edit**, then its red minus, or swiping it left) or clearing a band's list can be undone from the
   snackbar. The tools (Start fresh, Backup, Edit as text, the list builders) and Clear the list are under the **⋯** at the top of Memories; the Log's export is under its own **⋯**.
 - **Start fresh** wipes the band shown on the radio, the same as holding SCAN/ATS (all 200
   channels of the band), then clears the app's list and record for it. It recalls a channel

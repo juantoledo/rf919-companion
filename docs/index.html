@@ -3,21 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<meta name="theme-color" content="#eef2f6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#070d15" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 <script>
   // The theme picked in More › Appearance, set before the page draws so it doesn't flash the other one
   try { const t = JSON.parse(localStorage.getItem("rf919.theme")); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch {}
+  // On an iPhone the switches are the system's own (app.css draws them everywhere else)
+  if ("switch" in HTMLInputElement.prototype && CSS.supports("-webkit-touch-callout", "none")) document.documentElement.classList.add("real-switch");
 </script>
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RF919">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>RF919 Companion</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='18' width='56' height='40' rx='8' fill='%230a131d' stroke='%23ffb33f' stroke-width='4'/%3E%3Cpath d='M14 18 46 4' stroke='%23ffb33f' stroke-width='4' stroke-linecap='round'/%3E%3Ccircle cx='46' cy='38' r='9' fill='none' stroke='%23ffb33f' stroke-width='4'/%3E%3Crect x='12' y='30' width='18' height='4' fill='%23ffb33f'/%3E%3Crect x='12' y='40' width='18' height='4' fill='%23ffb33f'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Goldman:wght@700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Goldman:wght@700&display=swap">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/app.css">
 </head>
@@ -50,6 +54,18 @@
   <symbol id="i-b-fire" viewBox="0 0 24 24"><path d="M12 21.5c-3.9 0-6.5-2.6-6.5-6 0-3.8 3.3-5.5 3.8-9.5 2.3 1.3 3.2 3.4 3 5.5 1-.6 1.7-1.7 1.9-3 2.4 1.9 4.3 4.3 4.3 7 0 3.4-2.6 6-6.5 6z"/></symbol>
   <symbol id="i-b-other" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1.6"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></symbol>
+  <!-- the current tab: filled versions of the five above -->
+  <symbol id="i-radio-on" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M5.5 8h13A2.5 2.5 0 0 1 21 10.5v7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5v-7A2.5 2.5 0 0 1 5.5 8zM15.5 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM6.5 11.7a.8.8 0 0 0 0 1.6H10a.8.8 0 0 0 0-1.6zM6.5 14.7a.8.8 0 0 0 0 1.6H10a.8.8 0 0 0 0-1.6z"/><path d="M7 8 17 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-explore-on" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill-opacity=".3" stroke="currentColor" stroke-width="2.4"/><path d="m20 20-4.4-4.4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-memories-on" viewBox="0 0 24 24"><path d="M7 3h10a1.5 1.5 0 0 1 1.5 1.5v16.1a.6.6 0 0 1-.94.5L12 17.2l-5.56 3.9a.6.6 0 0 1-.94-.5V4.5A1.5 1.5 0 0 1 7 3z"/></symbol>
+  <symbol id="i-log-on" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M7 3h10a2.5 2.5 0 0 1 2.5 2.5v13A2.5 2.5 0 0 1 17 21H7a2.5 2.5 0 0 1-2.5-2.5v-13A2.5 2.5 0 0 1 7 3zM8.6 7.2a.8.8 0 0 0 0 1.6h6.8a.8.8 0 0 0 0-1.6zM8.6 11.2a.8.8 0 0 0 0 1.6h6.8a.8.8 0 0 0 0-1.6zM8.6 15.2a.8.8 0 0 0 0 1.6h3.8a.8.8 0 0 0 0-1.6z"/></symbol>
+  <symbol id="i-more-on" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.1"/><circle cx="12" cy="12" r="2.1"/><circle cx="19" cy="12" r="2.1"/></symbol>
+  <!-- what used to be text glyphs -->
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3.5v8M6.6 6.6a8 8 0 1 0 10.8 0"/></symbol>
+  <symbol id="i-backspace" viewBox="0 0 24 24"><path d="M8.5 5H20a1.5 1.5 0 0 1 1.5 1.5v11A1.5 1.5 0 0 1 20 19H8.5L2.5 12zM11.5 9.2l5 5.6M16.5 9.2l-5 5.6"/></symbol>
+  <symbol id="i-return" viewBox="0 0 24 24"><path d="M19.5 5.5v5a3.5 3.5 0 0 1-3.5 3.5H5M9 10l-4 4 4 4"/></symbol>
 </svg>
 
 <main id="app">
@@ -102,7 +118,7 @@
   <!-- Two screens: home (search, bands, Discover) and detail (one frequency, Back returns home) -->
   <section class="view" id="view-explore" data-view="explore" data-mode="home" aria-labelledby="t-explore" hidden>
     <header class="appbar topbar">
-      <button class="quiet bar-btn x-detail" type="button" id="x-back" aria-label="Back to Explore"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg><span class="bar-back-label" aria-hidden="true">Explore</span></button>
+      <button class="quiet bar-btn x-detail" type="button" id="x-back" aria-label="Back to Explore"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg></button>
       <span class="topbar-title" id="x-title" aria-hidden="true">Explore</span>
       <span class="topbar-end x-detail"><button class="icon quiet bar-btn" type="button" id="x-search" aria-label="Look up another frequency"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg></button></span>
     </header>
@@ -113,7 +129,7 @@
           <span class="search-field">
             <input type="search" id="q" inputmode="search" enterkeyhint="search" autocomplete="off" spellcheck="false"
                    placeholder="9580 · 9.58 · BBC" aria-label="Look up a frequency (in kHz, or MHz with a dot) or a station" aria-controls="q-results">
-            <button class="search-clear" type="button" id="q-clear" aria-label="Clear">✕</button>
+            <button class="search-clear" type="button" id="q-clear" aria-label="Clear"></button>
             <button class="search-go" type="submit" aria-label="Look up"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
           </span>
         </form>
@@ -160,28 +176,28 @@
   </section>
 
   <!-- ======== Memories ======== -->
-  <section class="view" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
-    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><span class="clock" id="mem-total"></span>
+  <section class="view has-large" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
+    <header class="appbar topbar"><span class="clock" id="mem-total"></span><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><button class="quiet bar-btn bar-text" type="button" id="mem-edit" data-edit hidden>Edit</button>
       <button class="icon quiet bar-btn" type="button" data-tool="mem-menu" data-tool-title="Memories" data-detent="medium" aria-haspopup="dialog" aria-label="Memories tools"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button></span></header>
-    <h1 class="sr-only" id="t-memories" tabindex="-1">Memories</h1>
+    <h1 class="large-title" id="t-memories" tabindex="-1">Memories</h1>
     <fieldset class="seg chips band-chips" id="mem-counts"><legend>Band</legend></fieldset>
     <section class="panel" id="mem-run" aria-label="Store on the radio"></section>
     <section class="panel list-panel" aria-label="Memories in the list"><ul class="list" id="mem-list"></ul></section>
   </section>
 
   <!-- ======== Log: what the radio stayed on ======== -->
-  <section class="view" id="view-log" data-view="log" aria-labelledby="t-log" hidden>
-    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Log</span><span class="topbar-end"><span class="clock" id="log-total"></span>
+  <section class="view has-large" id="view-log" data-view="log" aria-labelledby="t-log" hidden>
+    <header class="appbar topbar"><span class="clock" id="log-total"></span><span class="topbar-title" aria-hidden="true">Log</span><span class="topbar-end"><button class="quiet bar-btn bar-text" type="button" id="log-edit" data-edit hidden>Edit</button>
       <button class="icon quiet bar-btn" type="button" id="log-menu" data-tool="log-export" data-tool-title="Export the log" data-detent="medium" aria-haspopup="dialog" aria-label="Export the log" hidden><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button></span></header>
-    <h1 class="sr-only" id="t-log" tabindex="-1">Log</h1>
+    <h1 class="large-title" id="t-log" tabindex="-1">Log</h1>
     <fieldset class="seg chips" id="log-filter" hidden><legend>Show</legend></fieldset>
     <div class="log-list" id="log-list"></div>
   </section>
 
   <!-- ======== More: connection, settings, tools ======== -->
-  <section class="view" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
+  <section class="view has-large" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
     <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">More</span></header>
-    <h1 class="sr-only" id="t-more" tabindex="-1">More</h1>
+    <h1 class="large-title" id="t-more" tabindex="-1">More</h1>
     <div class="more-grid">
     <section class="panel group" aria-labelledby="g-conn">
       <h2 id="g-conn">Connection</h2>
@@ -228,9 +244,9 @@
 
 <!-- ======== the radio's controls: a dock on the Radio tab that stays on screen while the page scrolls ======== -->
 <div class="dock" id="radio-controls" role="region" aria-label="The radio's controls" hidden>
-  <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
+  <button data-key="DOWN" aria-label="Step down (hold to seek)"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg></button>
   <button data-key="MEMO" aria-label="Memo: memory channels (hold to store)">Memo</button>
-  <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
+  <button data-key="UP" aria-label="Step up (hold to seek)"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
   <button data-key="VOL-" aria-label="Volume down">Vol−</button>
   <button data-key="VOL+" aria-label="Volume up">Vol+</button>
   <button class="key" type="button" id="open-remote" aria-haspopup="dialog" aria-label="All the radio's keys">Keys</button>
@@ -242,8 +258,8 @@
   <button class="rb-open" type="button" id="rb-open" aria-haspopup="dialog" aria-label="Open the radio's keys" data-swipe-tune>
     <span class="rb-freq" data-freq>---.---</span><span class="rb-sub" data-sub></span>
   </button>
-  <button data-key="DOWN" aria-label="Step down (hold to seek)">◀</button>
-  <button data-key="UP" aria-label="Step up (hold to seek)">▶</button>
+  <button data-key="DOWN" aria-label="Step down (hold to seek)"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg></button>
+  <button data-key="UP" aria-label="Step up (hold to seek)"><svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
   <!-- no radio: the bar shrinks to a pill -->
   <div class="rb-off"><span class="sr-only">No radio connected</span>
     <button class="small primary" type="button" data-act="connect"><span class="lamp" aria-hidden="true"></span>Connect radio</button>
@@ -252,11 +268,11 @@
 </div>
 
 <nav class="tabbar" id="tabbar" aria-label="Sections">
-  <a href="#radio" data-tab="radio"><svg class="ico" aria-hidden="true"><use href="#i-radio"/></svg>Radio</a>
-  <a href="#explore" data-tab="explore"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg>Explore</a>
-  <a href="#memories" data-tab="memories"><svg class="ico" aria-hidden="true"><use href="#i-memories"/></svg>Memories</a>
-  <a href="#log" data-tab="log"><svg class="ico" aria-hidden="true"><use href="#i-log"/></svg>Log</a>
-  <a href="#more" data-tab="more"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg>More</a>
+  <a href="#radio" data-tab="radio"><svg class="ico ico-off" aria-hidden="true"><use href="#i-radio"/></svg><svg class="ico ico-on" aria-hidden="true"><use href="#i-radio-on"/></svg>Radio</a>
+  <a href="#explore" data-tab="explore"><svg class="ico ico-off" aria-hidden="true"><use href="#i-explore"/></svg><svg class="ico ico-on" aria-hidden="true"><use href="#i-explore-on"/></svg>Explore</a>
+  <a href="#memories" data-tab="memories"><svg class="ico ico-off" aria-hidden="true"><use href="#i-memories"/></svg><svg class="ico ico-on" aria-hidden="true"><use href="#i-memories-on"/></svg>Memories</a>
+  <a href="#log" data-tab="log"><svg class="ico ico-off" aria-hidden="true"><use href="#i-log"/></svg><svg class="ico ico-on" aria-hidden="true"><use href="#i-log-on"/></svg>Log</a>
+  <a href="#more" data-tab="more"><svg class="ico ico-off" aria-hidden="true"><use href="#i-more"/></svg><svg class="ico ico-on" aria-hidden="true"><use href="#i-more-on"/></svg>More</a>
 </nav>
 <button class="tab-search" type="button" id="tab-search" aria-label="Search frequencies and stations" title="Search ( / )"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg></button>
 
@@ -267,7 +283,7 @@
     <h2 class="sr-only" id="remote-title">The radio's keys</h2>
     <label class="band-pick"><span class="band" data-band-chip>--</span><select data-band-select aria-label="Band"></select></label>
     <div class="mini-freq" data-swipe-tune><span class="rb-freq" data-freq>---.---</span></div>
-    <button class="close" type="button" data-close aria-label="Close" autofocus>✕</button>
+    <button class="close" type="button" data-close aria-label="Close" autofocus><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button>
   </header>
   <div class="sheet-tabs">
     <fieldset class="seg seg-fill" id="remote-seg"><legend>Show</legend>
@@ -279,10 +295,10 @@
   <div class="sheet-body">
     <section data-pane="keys" aria-label="Keys">
       <div class="grid">
-        <button data-key="POWER" class="danger">⏻ Power</button>
+        <button data-key="POWER" class="danger"><svg class="ico" aria-hidden="true"><use href="#i-power"/></svg> Power</button>
         <button data-key="BAND">Band</button>
-        <button data-key="DOWN">◀ Down</button>
-        <button data-key="UP">Up ▶</button>
+        <button data-key="DOWN"><svg class="ico" aria-hidden="true"><use href="#i-prev"/></svg> Down</button>
+        <button data-key="UP">Up <svg class="ico" aria-hidden="true"><use href="#i-next"/></svg></button>
         <button data-key="VOL-">Vol −</button>
         <button data-key="VOL+">Vol +</button>
         <button data-key="SQ">SQ</button>
@@ -293,7 +309,7 @@
         <button data-key="BLUETOOTH">BT</button>
         <button data-key="SCAN" class="primary wide" aria-label="Scan (tap again to stop)">Scan</button>
       </div>
-      <div class="grid k5" style="margin-top:var(--s2)">
+      <div class="grid k5" style="margin-top:var(--s3)">
         <button data-fn="MODE">MODE</button>
         <button data-fn="STEP">STEP</button>
         <button data-fn="SCAN">SCAN</button>
@@ -307,10 +323,10 @@
         <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
         <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
         <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
-        <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK" aria-label="Delete">⌫</button>
-        <button data-key="FREQ" class="primary wide">FREQ ⏎</button>
+        <button data-key="POINT">.</button><button data-key="0">0</button><button data-key="BACK" aria-label="Delete"><svg class="ico" aria-hidden="true"><use href="#i-backspace"/></svg></button>
+        <button data-key="FREQ" class="primary wide">Freq <svg class="ico" aria-hidden="true"><use href="#i-return"/></svg></button>
       </div>
-      <div class="grid" style="margin-top:var(--s2)">
+      <div class="grid" style="margin-top:var(--s3)">
         <button data-key="STEREO">Stereo</button>
         <button data-key="DE">DE</button>
         <button data-key="PLAY">Play</button>
@@ -333,7 +349,7 @@
   <div class="grabber" id="tools-grab" aria-hidden="true"></div>
   <header class="sheet-head">
     <h2 id="tools-title">Tool</h2>
-    <button class="close" type="button" data-close aria-label="Close">✕</button>
+    <button class="close" type="button" data-close aria-label="Close"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button>
   </header>
   <div class="sheet-body">
     <!-- the ⋯ of Memories: its tools, and clearing the band on show -->

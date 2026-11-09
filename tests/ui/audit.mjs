@@ -1,5 +1,5 @@
 // Layout audit: every visible control on every view, in the Remote and in the tools sheet; phones in portrait and
-// landscape (touch) and two mouse sizes, each in the light and the dark theme. Reports touch targets under 48 px
+// landscape (touch) and two mouse sizes, each in the light and the dark theme. Reports touch targets under 44 px
 // (24 px with a mouse), cut-off labels, unnamed controls, pages wider than the screen, and views that scroll further than
 // their budget. See tests/ui/README.md.
 import {chromium} from "playwright-core";
@@ -12,12 +12,12 @@ const SIZES = [[360, 640, true], [360, 780, true], [390, 844, true], [412, 915, 
 // How far each view may scroll (px), per screen. The Log depends on how much it holds, so it has a limit for where its
 // first row starts and how tall a row is instead
 const BUDGET = {
-  "390x844": {radio: 0, "explore-home": 0, explore: 150, memories: 0, more: 100},
+  "390x844": {radio: 0, "explore-home": 0, explore: 150, memories: 0, more: 190},
   "360x640": {radio: 200, "explore-home": 60, explore: 450, memories: 100, more: 400},
   "844x390": {radio: 200, "explore-home": 60, explore: 350, memories: 150, more: 400},
   "1280x800": {radio: 0, "explore-home": 0, explore: 0, memories: 0, more: 0},
 };
-const LOG_FIRST_ROW = 160, LOG_ROW = 60;  // (the first row sits under the bar, the filter chips and its day's heading)
+const LOG_FIRST_ROW = 195, LOG_ROW = 60;  // (the first row sits under the bar, the large title, the filter chips and its day's heading)
 const overBudget = (page, size, t) => page.evaluate(({max, t, LOG_FIRST_ROW, LOG_ROW}) => {
   const out = [];
   if (max != null) { const s = document.documentElement.scrollHeight - innerHeight; if (s > max) out.push(`over budget: scrolls ${s}px, allowed ${max}`); }
@@ -45,8 +45,8 @@ const issuesOf = (page, t) => page.evaluate((t) => {
     const overlay = el.matches(".band-pick select, .seg input, input[type=file]");
     const row = el.matches("[role=switch]") && el.closest("label.item");
     const tgt = row ? row.getBoundingClientRect() : overlay ? el.parentElement.getBoundingClientRect() : r;
-    // 48 px on touch (Android 48 dp, iOS 44 pt); with a mouse WCAG 2.5.8 asks for 24 px
-    const min = matchMedia("(pointer: coarse)").matches ? 47.5 : 24;
+    // 44 px on touch (Apple: a control's default size and hit region); with a mouse WCAG 2.5.8 asks for 24 px
+    const min = matchMedia("(pointer: coarse)").matches ? 43.5 : 24;
     if (!inline && el.type !== "hidden" && (tgt.height < min || tgt.width < min)) out.push(`small ${Math.round(tgt.width)}x${Math.round(tgt.height)} ${el.tagName.toLowerCase()} "${name}"`);
     if (el.tagName === "BUTTON" && el.scrollWidth > el.clientWidth + 1) out.push(`clipped "${name}"`);
     const label = el.getAttribute("aria-label") || el.textContent.trim() || el.labels?.[0]?.textContent.trim() || el.getAttribute("title");
@@ -103,8 +103,26 @@ for (const scheme of ["dark", "light"]) for (const [w, h, touch] of SIZES) {
   }
   await ctx.close();
 }
+// Larger Text at 200%, as Apple asks: nothing cut off, nothing wider than the screen. (Set on the root, which is what iOS's own
+// setting moves; the bars keep their size on purpose, as the system's do.)
+{
+  const ctx = await b.newContext({viewport: {width: 390, height: 844}, deviceScaleFactor: 2, hasTouch: true, isMobile: true});
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}?demo#radio`);
+  await page.waitForFunction(() => state.ok && waiters.freq, null, {timeout: 20000});
+  await page.addStyleTag({content: "html { font-size: 200% !important; }"});
+  for (const t of ["radio", "explore", "memories", "log", "more", "remote", "tools"]) {
+    if (t === "remote" || t === "tools") await page.evaluate((t) => { const d = document.getElementById(t); d.showModal(); d.querySelectorAll("[data-pane], .tool").forEach((p) => { p.hidden = false; }); }, t);
+    else await page.evaluate((t) => go(t), t);
+    await page.waitForTimeout(400);
+    report[`large-text ${t}`] = (await issuesOf(page, t)).filter((i) => /clipped|wide/.test(i));
+    await page.screenshot({path: `${OUT}/audit-large-text-${t}.png`});
+    if (t === "remote" || t === "tools") await page.evaluate((t) => document.getElementById(t).close(), t);
+  }
+  await ctx.close();
+}
 let bad = 0;
 for (const [k, v] of Object.entries(report)) { if (v.length) bad++; console.log(k.padEnd(26), v.length ? v.join(" | ") : "ok"); }
 console.log(`\n${Object.keys(report).length - bad}/${Object.keys(report).length} ok`);
-if (Object.values(report).some((v) => v.some((i) => i.startsWith("over budget")))) process.exitCode = 1;
+if (Object.entries(report).some(([k, v]) => v.some((i) => i.startsWith("over budget") || (k.startsWith("large-text") && i)))) process.exitCode = 1;
 await b.close();

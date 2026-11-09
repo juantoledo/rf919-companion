@@ -1,59 +1,64 @@
-/* Design tokens: a Liquid Glass identity, in a light and a dark theme that follow the system.
-   Glass for what floats (the bars, the search button, sheets, the snackbar) over solid cards; iOS blue for everything
-   "lit" (deepened in the light theme so it still reads as text, dark ink on it when filled in the dark one). Teal for
-   information; red for danger.
+/* Design tokens: the look of an iOS 27 app, in a light and a dark theme that follow the system.
+   iOS's grouped greys for the page and its cards, Liquid Glass for what floats (the bars, the search button, sheets, the
+   snackbar). iOS blue for everything "lit" (deepened in the light theme so it still reads as text, dark ink on it when
+   filled in the dark one). Teal for information; red for danger. Colours are Apple's published values wherever those
+   reach the 4.5:1 its guidelines ask of text; where one doesn't, a deeper custom tint stands in (tests/ios-hig.test.mjs
+   holds the list, tests/contrast.test.mjs the ratios).
    Every colour is light-dark(light, dark); sizes are in rem so the phone's text-size setting carries through.
-   The theme follows the system unless More › Appearance picks one: <html data-theme="light|dark">. */
+   The theme follows the system unless More › Appearance picks one: <html data-theme="light|dark">.
+   A skin for another platform starts here: the component tokens below carry what differs between platforms. */
 :root {
   color-scheme: light dark;
 
-  /* ---- surfaces: a tonal scale, low to high ---- */
-  --bg: light-dark(#eef2f6, #070d15);              /* the page */
-  --surface: light-dark(#ffffff, #0b141f);         /* cards */
-  --surface-2: light-dark(#f2f5f8, #101b28);       /* fields, rows, keys */
-  --surface-3: light-dark(#e6ebf1, #16222f);       /* selected, pressed */
+  /* ---- surfaces: iOS's grouped background, its cards and its translucent fills ---- */
+  --bg: light-dark(#f2f2f7, #000000);              /* the page */
+  --surface: light-dark(#ffffff, #1c1c1e);         /* cards */
+  --surface-2: light-dark(rgba(118, 118, 128, .12), rgba(118, 118, 128, .24));  /* fields, keys, grey buttons */
+  --surface-3: light-dark(rgba(118, 118, 128, .2), rgba(118, 118, 128, .36));   /* selected, pressed */
+  --seg-thumb: light-dark(#ffffff, #636366);       /* the chosen segment of a segmented control */
+  --tab-pill: light-dark(#e3efff, rgba(0, 0, 0, .35));  /* the current tab: darker than the glass in the dark theme (iOS 27) */
   /* glass: what floats over the content. The rim is its lit edge; strong is for glass that carries text (snackbar) */
-  --glass: light-dark(rgba(255, 255, 255, .64), rgba(32, 38, 48, .58));
-  --glass-strong: light-dark(rgba(255, 255, 255, .8), rgba(32, 38, 48, .76));
+  --glass: light-dark(rgba(255, 255, 255, .64), rgba(72, 72, 74, .5));
+  --glass-strong: light-dark(rgba(255, 255, 255, .8), rgba(72, 72, 74, .76));
   --glass-blur: blur(20px) saturate(1.9);
-  --glass-rim: inset 0 1px 0 light-dark(rgba(255, 255, 255, .95), rgba(255, 255, 255, .2)), inset 0 0 0 1px light-dark(rgba(255, 255, 255, .55), rgba(255, 255, 255, .09));
-  --glass-shadow: 0 8px 30px light-dark(rgba(20, 40, 70, .14), rgba(0, 0, 0, .45));
+  --glass-rim: inset 0 1px 0 light-dark(#ffffff, rgba(255, 255, 255, .34)), inset 0 0 0 1px light-dark(rgba(255, 255, 255, .55), rgba(255, 255, 255, .09)), 0 0 0 .5px light-dark(rgba(0, 0, 0, .14), rgba(0, 0, 0, .6));  /* iOS 27: a bright highlight and a darkened edge */
+  --glass-shadow: 0 4px 16px light-dark(rgba(0, 0, 0, .08), rgba(0, 0, 0, .3));
   --glass-sheen: linear-gradient(160deg, light-dark(rgba(255, 255, 255, .55), rgba(255, 255, 255, .12)), transparent 42%);
-  --deep: light-dark(#e9eef3, #050a11);            /* wells: logs */
-  --inverse: light-dark(#1b2633, #e3ebf3);         /* snackbar */
-  --on-inverse: light-dark(#eef3f8, #0e1824);
+  --deep: light-dark(#e5e5ea, #000000);            /* wells: logs */
+  --inverse: light-dark(#2c2c2e, #e5e5ea);         /* snackbar */
+  --on-inverse: light-dark(#f2f2f7, #1c1c1e);
 
   /* ---- content ---- */
-  --text: light-dark(#0f1924, #dbe6f2);
-  --dim: light-dark(#4b5c6e, #8fa3b8);             /* secondary text, AA on every surface */
-  --faint: light-dark(#8e9cab, #56677a);           /* decoration only, never body text */
-  --line: light-dark(rgba(20, 45, 75, .12), rgba(140, 185, 230, .14));
-  --line-strong: light-dark(rgba(20, 45, 75, .24), rgba(140, 185, 230, .3));
-  --hover: light-dark(rgba(20, 45, 75, .06), rgba(140, 185, 230, .08));
-  --press: light-dark(rgba(20, 45, 75, .12), rgba(140, 185, 230, .16));
+  --text: light-dark(#000000, #ffffff);
+  --dim: light-dark(#5c5c61, #aeaeb2);             /* secondary text, AA on every surface */
+  --faint: light-dark(#aeaeb2, #636366);           /* decoration only, never body text */
+  --line: light-dark(rgba(60, 60, 67, .29), rgba(84, 84, 88, .65));
+  --line-strong: light-dark(rgba(60, 60, 67, .36), rgba(120, 120, 128, .6));
+  --hover: light-dark(rgba(120, 120, 128, .08), rgba(120, 120, 128, .12));
+  --press: light-dark(rgba(120, 120, 128, .16), rgba(120, 120, 128, .24));
 
   /* ---- accents: the colour, its container (tint) and its outline ---- */
-  --accent: light-dark(#0062cc, #2b90ff);         /* iOS blue, a step either side of #007AFF/#0A84FF to reach 4.5:1 */
+  --accent: light-dark(#0062cc, #0091ff);         /* system blue in the dark theme; deeper in the light one to reach 4.5:1 */
   --on-accent: light-dark(#ffffff, #00172e);       /* text on filled accent (white on the dark blue is under 4.5:1) */
-  --accent-soft: light-dark(#e3efff, rgba(43, 144, 255, .16));
-  --accent-line: light-dark(rgba(0, 98, 204, .45), rgba(43, 144, 255, .6));
-  --accent-glow: light-dark(transparent, rgba(43, 144, 255, .5));
-  --cool: light-dark(#00707a, #5fd4dc);            /* information: teal, apart from the accent */
-  --cool-soft: light-dark(#ddf3f4, rgba(95, 212, 220, .1));
-  --cool-line: light-dark(rgba(0, 112, 122, .4), rgba(95, 212, 220, .4));
-  --warn: light-dark(#b3261e, #ff8a7a);
-  --warn-soft: light-dark(#fde7e4, rgba(255, 138, 122, .1));
-  --warn-line: light-dark(rgba(179, 38, 30, .45), rgba(255, 138, 122, .5));
+  --accent-soft: light-dark(#e3efff, rgba(0, 145, 255, .12));
+  --accent-line: light-dark(rgba(0, 98, 204, .45), rgba(0, 145, 255, .6));
+  --cool: light-dark(#00707a, #00d2e0);            /* information: teal, apart from the accent */
+  --cool-soft: light-dark(#ddf3f4, rgba(0, 210, 224, .1));
+  --cool-line: light-dark(rgba(0, 112, 122, .4), rgba(0, 210, 224, .4));
+  --warn: light-dark(#c00013, #ff4245);
+  --warn-soft: light-dark(#fde7e4, rgba(255, 66, 69, .08));
+  --warn-line: light-dark(rgba(192, 0, 19, .45), rgba(255, 66, 69, .5));
   --on-warn-soft: light-dark(#7a1710, #ffc2b8);
-  --prop-fair: light-dark(#7a5a00, #ffd166);       /* the reception estimate's middle tier: amber */
+  --danger-fill: light-dark(#e9152d, #e9152d);     /* a filled destructive action, under white text: red, Increased Contrast */
+  --switch-on: light-dark(#34c759, #30d158);       /* iOS's green */
+  --prop-fair: light-dark(#7a5a00, #ffd600);       /* the reception estimate's middle tier: amber */
 
   /* ---- the radio's display ---- */
-  --freq-ink: light-dark(#0b1520, #ffffff);
-  --freq-glow: light-dark(transparent, rgba(255, 255, 255, .3));
-  --lamp-off: light-dark(#b8c3ce, #3b4a5b);
-  --track: light-dark(rgba(20, 45, 75, .09), rgba(140, 185, 230, .1));  /* bars, progress */
-  --switch-off: light-dark(rgba(20, 45, 75, .18), rgba(140, 185, 230, .22));
-  --scrim: light-dark(rgba(10, 20, 30, .32), rgba(3, 7, 12, .66));
+  --freq-ink: light-dark(#000000, #ffffff);
+  --lamp-off: light-dark(#c7c7cc, #48484a);
+  --track: light-dark(rgba(120, 120, 128, .2), rgba(120, 120, 128, .32));  /* bars, progress */
+  --switch-off: light-dark(#e5e5ea, #2c2c2e);
+  --scrim: light-dark(rgba(0, 0, 0, .25), rgba(0, 0, 0, .5));
 
   /* ---- log colours (More › Log) ---- */
   --log-unknown: light-dark(#9c2f73, #e0a3c8);
@@ -62,29 +67,54 @@
   --log-rx: light-dark(#5b3fc4, #b9a6ff);
   --log-rx2: light-dark(#8a6100, #ffd166);
 
-  /* ---- type ---- */
-  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-  --font-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
-  --font-freq: "Goldman", var(--font-display);
-  --fs-title: 1.375rem;        /* 22: sheet titles */
-  --fs-headline: 1.0625rem;    /* 17: the compact title bar, row titles */
-  --fs-lead: 1.125rem;
-  --fs-body: 1rem;             /* 16 */
-  --fs-callout: .9375rem;      /* 15 */
-  --fs-small: .8125rem;        /* 13: footnotes, secondary */
-  --fs-caption: .75rem;        /* 12: labels, eyebrows */
+  /* ---- type: iOS's text styles ---- */
+  --font-ui: -apple-system, system-ui, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;  /* diagnostics only */
+  --font-freq: "Goldman", "Arial Narrow", "Roboto Condensed", sans-serif;           /* the frequency's digits */
+  /* Apple's Dynamic Type table at the default size (size / leading, in pt); rules use a pair, tests/ios-hig.test.mjs holds them
+     to it. In rem so the text follows the phone's Larger Text setting (below) */
+  --type-scale: 1;
+  --fs-large: calc(2.125rem * var(--type-scale));    --lh-large: calc(2.5625rem * var(--type-scale));   /* Large Title 34/41 */
+  --fs-title1: calc(1.75rem * var(--type-scale));    --lh-title1: calc(2.125rem * var(--type-scale));   /* Title 1 28/34 */
+  --fs-title2: calc(1.375rem * var(--type-scale));   --lh-title2: calc(1.75rem * var(--type-scale));    /* Title 2 22/28 */
+  --fs-title3: calc(1.25rem * var(--type-scale));    --lh-title3: calc(1.5625rem * var(--type-scale));  /* Title 3 20/25 */
+  --fs-headline: calc(1.0625rem * var(--type-scale)); --lh-headline: calc(1.375rem * var(--type-scale)); /* Headline 17/22 */
+  --fs-body: calc(1.0625rem * var(--type-scale));    --lh-body: calc(1.375rem * var(--type-scale));     /* Body 17/22 */
+  --fs-callout: calc(1rem * var(--type-scale));      --lh-callout: calc(1.3125rem * var(--type-scale)); /* Callout 16/21 */
+  --fs-sub: calc(.9375rem * var(--type-scale));      --lh-sub: calc(1.25rem * var(--type-scale));       /* Subhead 15/20 */
+  --fs-small: calc(.8125rem * var(--type-scale));    --lh-small: calc(1.125rem * var(--type-scale));    /* Footnote 13/18 */
+  --fs-caption: calc(.75rem * var(--type-scale));    --lh-caption: calc(1rem * var(--type-scale));      /* Caption 1 12/16 */
+  --fs-caption2: calc(.6875rem * var(--type-scale)); --lh-caption2: calc(.8125rem * var(--type-scale)); /* Caption 2 11/13 */
+  /* the bars keep their size whatever the text setting, as the system's do: the same styles, fixed */
+  --fs-bar-title: 17px; --lh-bar-title: 22px;
+  --fs-bar-label: 15px; --lh-bar-label: 20px;
+  --fs-bar-small: 12px; --lh-bar-small: 16px;
+  --fs-bar-tab: 11px;   --lh-bar-tab: 13px;
 
   /* ---- space, shape, depth ---- */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
   --stack: clamp(8px, 1.5dvh, 12px);  /* the gap between a view's blocks: tighter on a short screen */
   --panel-pad: var(--s3);             /* inside a card; roomier once there's width to spare (app.css) */
-  --r1: 8px; --r2: 12px; --r3: 20px; --r4: 28px; --round: 999px;
-  --shadow-float: 0 10px 34px rgba(5, 15, 30, .5);
+  --r1: 8px; --r2: 12px; --r3: 26px; --r4: 34px; --round: 999px;
+  --hair: .5px;                /* separators: a hairline wherever the screen can draw one */
+  --shadow-float: 0 10px 34px rgba(0, 0, 0, .5);
   --flag-opacity: .3;
-  --hero-shadow: 0 1px 10px rgba(5, 10, 17, .85);
-  --hit: 44px;                 /* minimum target; 48 on touch (Android 48 dp ≥ iOS 44 pt) */
+  --hero-shadow: 0 1px 10px rgba(0, 0, 0, .85);
+  --hit: 44px;                 /* a control's default size and hit region (Apple: 44 × 44 pt) */
   --key: 52px;                 /* radio keys */
+
+  /* ---- components: what a skin for another platform would change ---- */
+  --control-radius: var(--round);  /* buttons */
+  --control-border: 0;
+  --press-opacity: .55;            /* a pressed button dims */
+  --sep-inset: var(--s4);          /* separators start at the text, not at the card's edge */
+  --control-gap: var(--s3);        /* between separate controls (Apple: about 12 pt around what has a bezel) */
+  /* concentric corners: an inner radius is the outer one less the gap between them */
+  --r-in-card: calc(var(--r3) - var(--panel-pad));
+  --r-in-sheet: calc(var(--r4) - var(--s4));
+  /* sheets: large, and medium at half of it (Apple: "about half of the fully expanded height"; gestures.js has the same ratios) */
+  --detent-large: 92dvh;
+  --detent-medium: 46dvh;
 
   /* ---- motion ---- */
   --fast: .12s; --med: .22s; --slow: .36s;
@@ -106,8 +136,13 @@
 :root[data-theme="dark"] { color-scheme: dark; }
 /* what light-dark() can't hold (shadows, opacities), for the light theme however it was chosen */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
+  :root:not([data-theme="dark"]) { --shadow-float: 0 8px 28px rgba(0, 0, 0, .14); --flag-opacity: .2; --hero-shadow: none; }
 }
-:root[data-theme="light"] { --shadow-float: 0 8px 28px rgba(20, 40, 70, .16); --flag-opacity: .2; --hero-shadow: none; }
-@media (pointer: coarse) { :root { --hit: 48px; } }
+:root[data-theme="light"] { --shadow-float: 0 8px 28px rgba(0, 0, 0, .14); --flag-opacity: .2; --hero-shadow: none; }
 @media (prefers-reduced-motion: reduce) { :root { --fast: 0s; --med: 0s; --slow: 0s; } }
+/* Larger Text: on iOS the root takes the size set for Body (17 at the default), so everything in rem follows it; the scale keeps
+   the default on Apple's table */
+@supports (font: -apple-system-body) {
+  html { font: -apple-system-body; }
+  :root { --type-scale: calc(16 / 17); }
+}

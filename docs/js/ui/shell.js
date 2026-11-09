@@ -12,8 +12,9 @@ import {link, pressKey, send} from "./more.js";
 
 // ---- UI ----
 export const $ = (id) => document.getElementById(id);
-export const BAND_COLORS = {FM:"#4fc3f7", AM:"#ffb74d", SW:"#81c784", LW:"#ce93d8", AIR:"#90caf9", WB:"#ef5350",
-  HAM:"#fff176", CB:"#a1887f", VHF:"#4db6ac", UHF:"#9575cd"};
+// Apple's system colours (dark variants: the chip darkens them for the light theme, app.css .band)
+export const BAND_COLORS = {FM:"#3cd3fe", AM:"#ff9230", SW:"#30d158", LW:"#db34f2", AIR:"#0091ff", WB:"#ff4245",
+  HAM:"#ffd600", CB:"#b78a66", VHF:"#00d2e0", UHF:"#6d7cff"};
 // A band's symbol (protocol.js BAND_ICON), before its name; decoration, the name says it
 export const bandIco = (band) => `<svg class="ico band-ico" aria-hidden="true"><use href="#${bandIconId(band)}"/></svg>`;
 // The band chip (the readout, the radio bar, the Remote): symbol, name, colour
@@ -21,7 +22,7 @@ export function setBandChip(el, band) {
   if (el.dataset.band === band) return;
   el.dataset.band = band;
   el.innerHTML = `${bandIco(band)}<span class="band-name">${band}</span>`;
-  el.style.setProperty("--band", BAND_COLORS[band] || "#b0bec5");
+  el.style.setProperty("--band", BAND_COLORS[band] || "#8e8e93");
 }
 export const state = {mode: "", battery: "", sleep: "", alarm: "", fields: {}, hold: false, raw: false, wake: null, ok: false};
 
@@ -53,7 +54,7 @@ export function setStatus(kind, text) {
 
 export function renderStat() {
   const parts = [esc(state.link || "")];
-  if (state.mode) parts.push(`▶ <b>${esc(state.mode)}</b>`);
+  if (state.mode) parts.push(`<b>${esc(state.mode)}</b>`);
   if (state.battery) parts.push(state.battery);
   if (state.sleep) parts.push(`☾ ${state.sleep}`);
   if (state.alarm) parts.push(`⏰ ${state.alarm}`);
@@ -147,7 +148,7 @@ export const handlers = {
   alarm(d) { state.alarm = d.state ? `${pad2(d.hour)}:${pad2(d.minute)}` : ""; renderStat(); },
   bands(d) { state.bands = d.bands; fillBandSelects(); },
   preset(d) {
-    const t = ({1: `PRESET ${d.n}`, 2: `PRESET ${d.n}`, 3: "PRESET - -"})[d.state] || "";
+    const t = ({1: `Preset ${d.n}`, 2: `Preset ${d.n}`, 3: "Preset - -"})[d.state] || "";
     // The radio can't show names; the phone shows the one this app stored on that channel
     const r = (d.state === 1 || d.state === 2) && waiters.freq && mem.record[memKey(waiters.freq.band, d.n)];
     $("preset").textContent = r && r.name ? `${t} · ${r.name}` : t;
@@ -167,7 +168,7 @@ export function statusLine() {
   $("statusline").textContent = [state.fields.msg, state.fields.rec].filter(Boolean).join("   ");
 }
 
-// ---- View Transitions: tabs slide, and the frequency tapped on Explore's home grows into the dial (and back) ----
+// ---- View Transitions: tabs cross-fade (vt-tab), a screen pushes in (vt-push), and the frequency tapped on Explore's home grows into the dial (and back) ----
 // Only what the user starts (a tap, Back) goes through them: their DOM update runs a frame later, and code that calls
 // go() or lookUp() expects the page to have changed when they return. Without them (or with reduced motion) nothing
 // slides; html.has-vt turns the views' own keyframes off where they exist
@@ -189,7 +190,7 @@ export function vt(update, {dir = "fwd", named = [], cls = ""} = {}) {
   t.finished.finally(() => {
     if (vtRun !== t) return;
     vtRun = null;
-    root.classList.remove("vt-run", "vt-freq");
+    root.classList.remove("vt-run", "vt-freq", "vt-tab", "vt-push");
     document.querySelectorAll("[data-vt-name]").forEach((el) => { el.style.viewTransitionName = ""; delete el.dataset.vtName; });
   });
 }
@@ -199,17 +200,19 @@ export const twoPane = () => matchMedia("(min-width: 840px) and (min-height: 520
 const opener = (k) => document.querySelector(`#x-home :is([data-look="${k}"], [data-to="${k}"], [data-go="${k}"])`);
 // A tap on Explore's home: the tapped thing grows into the dial
 export function openFrom(el, k, opts) {
+  if (!el && current === "explore" && !inDetail() && !twoPane()) { vt(() => lookUp(k, opts), {cls: "vt-push"}); return; }  // nothing to grow from: it pushes in
   if (!el || current !== "explore" || inDetail() || !el.closest("#x-home") || twoPane()) { lookUp(k, opts); return; }
   vt(() => lookUp(k, opts), {named: [[el, "freq"]], cls: "vt-freq"});
 }
 // Back from the detail: the dial shrinks into what opened it
 function closeToHome() {
   if (twoPane()) { exploreHome(); return; }
+  const morph = openerK != null && !!opener(openerK);
   vt(() => {
     exploreHome();
     const from = openerK != null && opener(openerK);
     if (from) { from.style.viewTransitionName = "freq"; from.dataset.vtName = ""; }
-  }, {dir: "back", cls: "vt-freq"});
+  }, {dir: "back", cls: morph ? "vt-freq" : "vt-push"});
 }
 
 // ---- views: Radio follows the dial, Explore looks up any frequency; both show the same info panels ----
@@ -219,7 +222,7 @@ const scrollMem = {};  // each tab comes back where it was left
 export function go(name, {focus = true} = {}) {
   if (!VIEWS.includes(name)) name = "radio";
   const prev = current, changed = prev !== name;
-  if (changed && prev) scrollMem[prev] = window.scrollY;
+  if (changed && prev) { scrollMem[prev] = window.scrollY; const edit = $(`view-${prev}`).querySelector("[data-edit]"); if (edit) setEditing(edit, false); }
   if (name === "explore") exploreScreen(view.exploreK != null);  // Explore comes back on the screen it was left on
   current = name;
   if (name === "radio" || name === "explore") {
@@ -254,7 +257,7 @@ export function go(name, {focus = true} = {}) {
 export function focusSearch() {
   if (current === "explore") { if (inDetail()) exploreBack({search: true}); else $("q").focus(); return; }
   try { history.pushState(null, "", "#explore"); } catch { /* sandboxed */ }
-  vt(() => { go("explore", {focus: false}); if (inDetail()) exploreHome(); $("q").focus(); }, {dir: tabDir("explore")});
+  vt(() => { go("explore", {focus: false}); if (inDetail()) exploreHome(); $("q").focus(); }, {dir: tabDir("explore"), cls: "vt-tab"});
 }
 // ---- scrolled down, the tab bar shrinks to the current tab and the mini player rides beside it (iOS 26) ----
 // Not on Radio (its controls dock stays), with a rail, or under a sheet; back at the top, or scrolled up a little, it
@@ -271,14 +274,19 @@ function barsOnScroll() {
   if (acc > 12) setBarsMin(true);
   else if (acc < -12) setBarsMin(false);
 }
-// The top bar turns to glass once the page scrolls under it; Explore's dial hands over to the bar's title
+// The top bar turns to glass once the page scrolls under it; Explore's dial, or a large title, hands over to the bar's title
 export function barState() {
   const v = current && $(`view-${current}`);
   if (!v) return;
   v.classList.toggle("scrolled", window.scrollY > 2);
-  const title = v === $("view-explore") && inDetail() ? v.querySelector(".d-dial, .d-freq") : null;
+  const title = v === $("view-explore") && inDetail() ? v.querySelector(".d-dial, .d-freq") : v.querySelector(".large-title");
   const bar = v.querySelector(".appbar");
   v.classList.toggle("collapsed", !!title && !!bar && title.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
+}
+// Edit / Done at the top of Memories and the Log: the rows' red minus buttons show while it's on
+export function setEditing(btn, on) {
+  btn.closest(".view").classList.toggle("editing", on);
+  btn.textContent = on ? "Done" : "Edit";
 }
 export function followRadio() {
   if (!view.follow) view.exploreK = view.k;
@@ -359,7 +367,7 @@ export function route({animate = false} = {}) {
   else if (h === "explore" && current === "explore" && inDetail()) { if (animate) closeToHome(); else exploreHome(); }
   else {
     const to = VIEWS.includes(h) ? h : store.get("rf919.view", "radio");
-    if (animate && current && to !== current) vt(() => go(to, {focus: false}), {dir: tabDir(to)});
+    if (animate && current && to !== current) vt(() => go(to, {focus: false}), {dir: tabDir(to), cls: "vt-tab"});
     else go(to, {focus: false});
   }
 }
@@ -373,7 +381,7 @@ export function tuneHere() {
   if (autoTuneOn()) return;
   view.exploreK = view.k;
   try { history.pushState(null, "", "#radio"); } catch { /* sandboxed */ }
-  vt(() => go("radio"), {dir: "back"});
+  vt(() => go("radio"), {dir: "back", cls: "vt-tab"});
 }
 
 // ---- Tuning: Explore tunes the radio to what's picked; Tune, Nearby on Radio and reminders tune at once ----
@@ -534,6 +542,7 @@ export function init() {
   let barFrame = 0;
   window.addEventListener("scroll", () => { cancelAnimationFrame(barFrame); barFrame = requestAnimationFrame(() => { barState(); barsOnScroll(); }); }, {passive: true});
   $("tab-search").addEventListener("click", focusSearch);
+  document.addEventListener("click", (e) => { const b = e.target.closest("[data-edit]"); if (b) setEditing(b, !b.closest(".view").classList.contains("editing")); });
   $("tabbar").addEventListener("focusin", () => setBarsMin(false));  // the keyboard finds the whole bar
   // Glass that answers the finger: where it's pressed, for the light in app.css
   const GLASS_I = ".tabbar a, .tab-search, .radiobar > button, .radiobar .rb-open, .dock > button";

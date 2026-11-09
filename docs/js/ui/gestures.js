@@ -67,6 +67,7 @@ export function swipeUp(el, onUp) {
 // Where sheets come in from the side instead of the bottom: wide screens, and phones held sideways (as in app.css)
 export const SIDE_SHEETS = "(min-width: 900px), (orientation: landscape) and (max-height: 540px)";
 const FLING = 0.8;      // px/ms: a flick this fast moves one detent in its direction
+const LARGE = .92, MEDIUM = .46;  // of the screen's height, as --detent-large and --detent-medium in tokens.css
 
 // A bottom sheet's top drags it between its detents (data-detent="medium" | "large"); dragged down past medium
 // it closes. It follows the finger, then settles on the nearest detent, or the next one after a flick.
@@ -84,13 +85,13 @@ export function sheetDrag(sheet, handles, {onClose, onDetent = () => {}}) {
     if (e.pointerId !== id) return;
     if (e.timeStamp > lastT) v = (e.clientY - lastY) / (e.timeStamp - lastT);
     lastY = e.clientY; lastT = e.timeStamp;
-    const h = h0 - (e.clientY - y0), max = innerHeight * .92;
+    const h = h0 - (e.clientY - y0), max = innerHeight * LARGE;
     sheet.style.height = `${h > max ? max + (h - max) * .2 : Math.max(0, h)}px`;  // a little give past the top
   };
   const end = (e) => {
     if (e.pointerId !== id) return;
     id = null;
-    const h = sheet.getBoundingClientRect().height, medium = innerHeight * .58, large = innerHeight * .92;
+    const h = sheet.getBoundingClientRect().height, medium = innerHeight * MEDIUM, large = innerHeight * LARGE;
     sheet.classList.remove("dragging");
     sheet.style.height = "";
     let to = Math.abs(h - medium) < Math.abs(h - large) ? "medium" : "large";
@@ -115,7 +116,7 @@ export function sheetDrag(sheet, handles, {onClose, onDetent = () => {}}) {
   }
 }
 
-// List rows that uncover an action when swiped left (touch and pen; with a mouse the row's ✕ does it). Let go past
+// List rows that uncover an action when swiped left (touch and pen; with a mouse, Edit and the row's minus do it). Let go past
 // half the row and the action runs; past half the action's width the row stays open on it. Rows are delegated, so
 // re-rendering the list keeps this working. Each row: .mr-fg (what moves) and .mr-act (the button behind).
 const REVEAL = 88;

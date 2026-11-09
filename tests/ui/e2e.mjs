@@ -191,14 +191,10 @@ await page.goBack();
 await page.waitForFunction(() => location.hash === "#f=11620" && document.getElementById("view-explore").dataset.mode === "detail");
 assert.equal(await visibleView(), "explore");
 ok("Tune radio goes to Radio, tuned; system Back returns to the frequency on Explore");
-assert.equal(await page.locator("#x-back .bar-back-label").isVisible(), true);
-assert.equal(await page.textContent("#x-back .bar-back-label"), "Explore");
-await E(() => window.scrollTo(0, document.documentElement.scrollHeight));
-await page.waitForTimeout(200);
-if (await E(() => document.getElementById("view-explore").classList.contains("collapsed"))) assert.equal(await page.locator("#x-back .bar-back-label").isHidden(), true);
-await E(() => window.scrollTo(0, 0));
+assert.equal(await page.locator("#x-back .ico").isVisible(), true);
+assert.equal(await page.getAttribute("#x-back", "aria-label"), "Back to Explore");
 await E(() => document.getElementById("autotune").click());
-ok("the detail's back button reads ‹ Explore, the name giving way to the title once it collapses");
+ok("the detail's back button is a chevron named Back to Explore");
 await tab("radio");
 await page.waitForFunction(() => view.k === 11620 && view.data, null, {timeout: 15000});
 assert.equal(await page.locator("#readout").isVisible(), true);
@@ -282,9 +278,8 @@ ok("glass answers the finger: the light sits where it's pressed");
 { const cdp = await ctx.newCDPSession(page);
   await cdp.send("Emulation.setEmulatedMedia", {features: [{name: "prefers-reduced-transparency", value: "reduce"}]});
   assert.equal(await E(() => getComputedStyle(document.getElementById("tabbar")).backdropFilter), "none");
-  assert.equal(await E(() => getComputedStyle(document.body, "::before").display), "none");
   await cdp.send("Emulation.setEmulatedMedia", {features: []}); }
-ok("Reduce Transparency: solid bars, no blur, no ambient light");
+ok("Reduce Transparency: solid bars, no blur");
 await tab("radio");
 
 // ---- swipe on the readout (left = up, right = down; long = seek) ----
@@ -364,11 +359,29 @@ await menu("mem-menu"); await page.click('[data-mem="clear"]'); await page.waitF
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
 await page.click("#toast-act");  // Undo
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 2);
+assert.equal(await page.locator('#mem-list .mem-row:first-child .mr-del').isHidden(), true);
+await page.click("#mem-edit");
+assert.equal(await page.textContent("#mem-edit"), "Done");
 await page.click('#mem-list .mem-row:first-child .mr-del');
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 1);
+await page.click("#mem-edit");
+assert.equal(await page.textContent("#mem-edit"), "Edit");
+assert.equal(await page.locator('#mem-list .mem-row:first-child .mr-del').isHidden(), true);
 await menu("mem-menu"); await page.click('[data-mem="clear"]'); await page.waitForFunction(() => !document.getElementById("tools").open);
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
-ok("Clear the AIR list, then Undo from the snackbar; ✕ removes one row");
+assert.equal(await page.locator("#mem-edit").isHidden(), true);
+ok("Clear the AIR list, then Undo from the snackbar; Edit shows the rows' minus, which removes one; Done hides it; no rows, no Edit");
+await tab("more");
+assert.equal(await page.locator("#t-more").isVisible(), true);
+await E(() => window.scrollTo(0, 0));  // (a tab comes back where it was left)
+await page.waitForFunction(() => getComputedStyle(document.querySelector("#view-more .topbar-title")).opacity === "0");
+await E(() => window.scrollTo(0, 200)); await page.waitForFunction(() => document.getElementById("view-more").classList.contains("collapsed"));
+await E(() => window.scrollTo(0, 0)); await page.waitForFunction(() => !document.getElementById("view-more").classList.contains("collapsed"));
+ok("More: a large title that hands over to the bar as it scrolls away");
+assert.equal(await E(() => getComputedStyle(document.getElementById("radiobar")).borderTopLeftRadius), "999px");
+assert.equal(await E(() => getComputedStyle(document.querySelector(".menu-list")).borderTopLeftRadius), "18px");
+ok("concentric corners: the mini player is a capsule, a list in a sheet is the sheet's radius less its inset");
+await tab("memories");
 await tool("mem-fresh");
 await page.click('[data-mem="fresh"]');
 await page.waitForSelector("#ask[open]");
