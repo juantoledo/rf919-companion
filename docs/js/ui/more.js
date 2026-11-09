@@ -4,7 +4,7 @@ import {MAX_CH, MEM_BANDS, bandCount, delay, listToText, recallTestSteps, storeT
 import {waiters} from "../state.js";
 import {BleLink, ReplayLink, VirtualLink, errText, linkOpts, sleep} from "../link.js";
 import {$, ask, autoTuneOn, esc, exploreHome, focusSearch, go, handlers, inDetail, log, openRemote, openTool, route, setAutoTune, setStatus, state, toast} from "./shell.js";
-import {airSeek, airSignal, mem, nearPasses, renderView, setScanning, show, store, view} from "./radio.js";
+import {airSeek, airSignal, mem, nearPasses, renderView, setScanning, show, store, syncPanes, view} from "./radio.js";
 import {addMem, addPicked, jobs, applyText, exportBackup, importBackup, memNote, nearFind, radioMemBand, readBackup, recordedIn, renderMem, renderPicks, renderSwChips, runJob, saveMem, selRows, shownBand, startFresh, storeHere, swFind} from "./memories.js";
 
 // ---- Test one memory: fixed pauses, every step marked in the log ----
@@ -454,7 +454,7 @@ export function init() {
 
   // The page's state and a few helpers, on window as the single-script page had them: for the browser checks
   // and for poking around in the console. link is a getter, since the page replaces it on Connect / No radio
-  Object.assign(window, {state, view, mem, waiters, capture, frame, toKHz, fmtKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask,
+  Object.assign(window, {syncPanes, state, view, mem, waiters, capture, frame, toKHz, fmtKHz, KEYS, addMem, renderMem, shownBand, radioMemBand, nearPasses, go, ask,
     startDemo, startNoRadio});
   Object.defineProperty(window, "link", {get: () => link, configurable: true});
 }

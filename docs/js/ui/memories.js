@@ -73,7 +73,7 @@ export function renderMem() {
       `<button class="mr-del" type="button" data-mem="del" data-i="${i}" aria-label="Remove ${e.band} CH ${e.ch}"${dis}>✕</button></div>` +
       `<button class="mr-act" type="button" data-mem="del" data-i="${i}" tabindex="-1" aria-hidden="true"${dis}>Delete</button></li>`;
   }).join("") : `<li class="empty-row"><b>No ${band} memories yet</b><span>Add some with + Memory under a frequency, ` +
-    `Store here on Radio, or the tools below.</span></li>`;
+    `Store here on Radio, or the ⋯ menu.</span></li>`;
   renderMemRun();
 }
 
@@ -91,8 +91,12 @@ export const jobLabel = (kind, it) => kind === "wipe" ? it.band : kind === "next
 export function renderMemRun() {
   const box = $("mem-run"), band = shownBand(), list = selRows(), n = list.length;
   box.classList.toggle("running", !!mem.run);  // stays in view, over the list, while it runs
-  let h = `<h2 class="h"><span>Store on the radio · ${band}</span><span>${n ? `${n} · ≈${memSecs(n)}` : ""}</span></h2>`;
+  const clear = $("mem-clear");
+  clear.hidden = !n || !!mem.run;
+  clear.textContent = `Clear the ${band} list`;
+  let h = "";
   if (mem.run) {
+    h += `<h2 class="h"><span>Store on the radio · ${band}</span><span>${n ? `${n} · ≈${memSecs(n)}` : ""}</span></h2>`;
     const job = JOBS[mem.kind], items = job.items(), total = items.length, i = mem.pos, e = items[i], todo = total - mem.from;
     const avg = mem.done ? (Date.now() - mem.t0) / mem.done / 1000 : mem.kind === "wipe" ? 3 : 2.5;
     h += `<div class="progress"><i style="width:${todo ? mem.done / todo * 100 : 0}%"></i></div>` +
@@ -111,9 +115,8 @@ export function renderMemRun() {
       (over.length > 8 ? ` and ${over.length - 8} more` : "") + `. The radio overwrites a channel without asking.</p>`;
   }
   const off = !state.ok || !n ? " disabled" : "";
-  h += `<div class="row" style="margin-top:8px"><button class="filled" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""}</button>` +
-    `<button type="button" data-mem="check"${off}>Check${n ? ` ${n}` : ""}</button></div>` +
-    (n ? `<div class="row" style="margin-top:var(--s2)"><button class="small quiet" type="button" data-mem="clear">Clear the ${band} list</button></div>` : "");
+  h += `<div class="run-row"><button class="filled" type="button" data-mem="store"${off}>Store${n ? ` ${n}` : ""}</button>` +
+    `<button type="button" data-mem="check"${off}>Check${n ? ` ${n}` : ""}</button>${n ? `<span class="run-time">≈${memSecs(n)}</span>` : ""}</div>`;
   if (mem.fail) {
     h += `<p class="errs">${esc(mem.fail.msg)}</p><div class="row" style="margin-top:8px">` +
       `<button class="small" type="button" data-mem="resume">Resume from ${JOBS[mem.fail.kind].noun} ${mem.fail.i + 1}</button></div>`;
@@ -122,7 +125,7 @@ export function renderMemRun() {
     const c = mem.check;
     h += `<p class="hint">Checked ${c.n}: ${c.ok} match${c.bad ? ` · ${c.bad} differ or didn't answer (marked in the list)` : ""}.</p>`;
   }
-  if (!state.ok) h += `<p class="hint">Connect the radio, or choose No radio, to store the list. About 2–3 s per memory; keep the screen on and don't touch the radio during a run.</p>`;
+  if (!state.ok && n) h += `<p class="hint">Connect the radio, or choose No radio, to store the list.</p>`;
   box.innerHTML = h;
   renderFresh();
   renderBackup();

@@ -1,7 +1,9 @@
 /* RF919 Companion. Layout: five views (Radio, Explore, Memories, Log, More). Phones in portrait get a floating glass
    tab bar with a search button beside it and the radio as a mini player above it (scrolling down, the tab bar shrinks
    and the mini player rides beside it); wide screens, and phones held sideways, a navigation rail. The Remote is a
-   native <dialog> sheet. Liquid Glass: glass for what floats, solid cards for the content. */
+   native <dialog> sheet. Liquid Glass: glass for what floats, solid cards for the content.
+   Space: the page is meant to fit the screen. One compact bar per view, actions and filters before any list, one info
+   tab at a time under the card, and tests/ui/audit.mjs holds each view to a scroll budget. */
 
 /* ================= base ================= */
 * { box-sizing: border-box; }
@@ -25,12 +27,15 @@ body::after {
 :root { --dock-w: min(440px, calc(100% - var(--rail-w) - 2 * var(--s3))); }  /* the floating group: tab bar + search */
 body {
   font: 400 var(--fs-body)/1.45 var(--font-ui); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
-  padding: 0 0 calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s4)) var(--rail-w);
+  padding: 0 0 calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s2)) var(--rail-w);
   overflow-x: hidden;
 }
-body.with-radiobar { --radiobar-h: 72px; }
+/* (on the root, so the scroll padding below sees them too) */
+:root:has(body.with-radiobar) { --radiobar-h: 72px; }
 /* the Radio tab's controls take the same slot above the tabs (the two never show together) */
-body.on-radio:has(#radio-controls:not([hidden])) { --radiobar-h: 60px; }  /* the dock (52) and the gap */
+:root:has(body.on-radio #radio-controls:not([hidden])) { --radiobar-h: 60px; }  /* the dock (52) and the gap */
+/* what the keyboard or a scroll-into-view lands on stays clear of the floating bars (WCAG 2.2 Focus Not Obscured) */
+html { scroll-padding-block: calc(var(--bar-h) + env(safe-area-inset-top) + var(--s2)) calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s2)); }
 [hidden] { display: none !important; }
 :focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; }
 a { color: var(--accent); text-underline-offset: 3px; }
@@ -128,7 +133,7 @@ input[type=checkbox]:not([role=switch]) { width: 20px; height: 20px; margin: 0; 
 
 /* ================= shell ================= */
 .view {
-  max-width: 640px; margin: 0 auto; padding: 0 var(--gutter-r) var(--s4) var(--gutter-l); display: grid; gap: var(--s3);
+  max-width: 640px; margin: 0 auto; padding: 0 var(--gutter-r) 0 var(--gutter-l); display: grid; gap: var(--stack);
   animation: view-in var(--med) var(--ease) backwards;
 }
 /* tabs slide in from the side they sit on */
@@ -160,11 +165,6 @@ main { view-transition-name: page; }
 html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: freq; }
 ::view-transition-group(freq) { z-index: 1; animation-duration: var(--slow); animation-timing-function: var(--ease-sheet); }
 ::view-transition-old(freq), ::view-transition-new(freq) { height: 100%; animation-duration: var(--slow); }
-/* the large title fades and settles as the page scrolls under the bar, with the finger rather than at a threshold */
-@supports (animation-timeline: scroll()) {
-  .large-title { transform-origin: 0 100%; animation: title-out linear both; animation-timeline: scroll(root); animation-range: 0 72px; }
-  @keyframes title-out { to { opacity: 0; transform: scale(.94); } }
-}
 
 /* ---- the top bar: sticky under the status bar; clear until the page scrolls under it, then glass ---- */
 .appbar {
@@ -180,13 +180,11 @@ html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: f
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--s5)), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - var(--s5)), transparent);
 }
 .view.scrolled > .appbar::before { opacity: 1; }
-/* titled views: a large title that hands over to a small one in the bar once it scrolls away (iOS) */
-.topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: var(--s3); }
-.topbar-title { grid-column: 2; font: 600 var(--fs-headline)/1.2 var(--font-ui); white-space: nowrap; opacity: 0; transition: opacity var(--fast); }
-.view.collapsed .topbar-title { opacity: 1; }
-.topbar-end { grid-column: 3; justify-self: end; display: flex; align-items: center; gap: var(--s2); }
-.large-title { margin: calc(-1 * var(--s2)) 0 0; font: 700 var(--fs-large-title)/1.15 var(--font-ui); letter-spacing: -.02em; }
-.large-title:focus { outline: none; }
+/* one compact bar: the view's name at the start, its count and actions at the end. (The tab names the view; the h1 is for screen readers) */
+.topbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--s3); }
+.topbar-title { font: 700 var(--fs-headline)/1.2 var(--font-ui); white-space: nowrap; transition: opacity var(--fast); }
+.topbar-end { display: flex; align-items: center; gap: var(--s2); }
+h1.sr-only:focus { outline: none; }
 /* Radio: no title (like a Now Playing screen); the status line is its bar */
 .status-line { display: flex; align-items: center; gap: var(--s2); min-width: 0; font: 400 var(--fs-caption)/1.4 var(--font-mono); color: var(--dim); }
 .status { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -261,7 +259,7 @@ html.vt-freq #view-explore[data-mode="detail"] .d-freq { view-transition-name: f
   left: auto; translate: none; right: calc((100% - var(--rail-w) - min(440px, 100% - var(--rail-w) - 2 * var(--s3))) / 2);
   display: flex; width: max-content; height: auto; padding: 4px; border-radius: var(--round); bottom: calc(var(--bar-bottom) + var(--tabbar-h) + var(--s1));
 }
-body.with-radiobar:has(#radiobar.off) { --radiobar-h: 60px; }
+:root:has(body.with-radiobar #radiobar.off) { --radiobar-h: 60px; }
 .radiobar .rb-off { display: flex; align-items: center; gap: 2px; }
 .radiobar .rb-off button { display: inline-flex; align-items: center; gap: var(--s2); }
 .radiobar .rb-off .lamp { background: var(--lamp-off); }
@@ -327,13 +325,26 @@ body:not(.on-radio) .dock { display: none; }
   .radiobar, .dock { bottom: var(--bar-bottom); width: min(640px, calc(100% - var(--rail-w) - 2 * var(--s4))); }
   .radiobar.off { right: calc((100% - var(--rail-w) - min(640px, 100% - var(--rail-w) - 2 * var(--s4))) / 2); }
   .view { max-width: 760px; }
+  #view-memories, #view-log, #view-more { max-width: 1120px; }
 }
-/* phones held sideways: no room for a large title, the bar shows the small one from the start */
+.more-grid { display: grid; gap: var(--stack); }
+/* the width goes to the lists and settings instead of being left empty either side */
+@media (min-width: 700px) {
+  :root { --panel-pad: var(--s4); }
+  .more-grid { display: block; columns: 2; column-gap: var(--s5); }
+  .more-grid > .group { break-inside: avoid; margin-bottom: var(--stack); }
+}
+@media (min-width: 900px) {
+  #mem-list, .log-days { columns: 2; column-gap: 0; }
+  .mem-row, .log-day-h { break-inside: avoid; }
+  .log-day-h { position: static; break-after: avoid; }
+}
+/* phones held sideways: the bar slimmer, and glass from the start */
 @media (orientation: landscape) and (max-height: 540px) {
   :root { --bar-h: 40px; --rail-row: 56px; }  /* five tabs and search down a 360 px tall screen */
-  .large-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  .topbar-title { opacity: 1; }
   .view > .appbar { background: var(--glass); border-bottom-color: var(--line); -webkit-backdrop-filter: blur(22px) saturate(1.8); backdrop-filter: blur(22px) saturate(1.8); }
+  /* the keys sit under the card, and leave the info pane its height */
+  .dock { left: calc(var(--rail-w) + var(--gutter-l)); translate: none; width: min(420px, calc((100% - var(--rail-w) - var(--gutter-l) - var(--gutter-r)) * .52)); }
 }
 
 /* ---- band picker: a native <select> laid over a chip, so tapping it opens the phone's own picker ---- */
@@ -418,9 +429,8 @@ main { transition: transform var(--slow) var(--ease-sheet), border-radius var(--
 .seg.seg-fill { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; margin: 0; padding: 2px; border-radius: var(--r2); background: var(--surface-2); overflow: visible; }
 .seg-fill label { min-width: 0; }
 .seg-fill span { justify-content: center; min-height: 36px; padding: 0 var(--s2); border: 0; border-radius: 10px; font: 600 var(--fs-small) var(--font-ui); letter-spacing: 0; color: var(--dim); }
-/* the theme picker: under its label, full width */
-.item:has(.theme-seg) { flex-wrap: wrap; padding-top: var(--s3); padding-bottom: var(--s3); }
-.item:has(.theme-seg) > * { flex: 1 1 100%; }
+/* the theme picker: in line with its label */
+.theme-seg.seg-fill { flex: 0 1 15rem; min-width: 0; }
 .seg-fill input:checked + span { background: light-dark(var(--surface), var(--surface-3)); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .14); }
 
 /* ---- ask(): an alert; the verbs full width, the answer first and Cancel last ---- */
@@ -454,7 +464,7 @@ dialog .toast { position: fixed; bottom: calc(env(safe-area-inset-bottom) + var(
 .toast.err { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--on-warn-soft); }
 
 /* ================= layout pieces ================= */
-.panel { min-width: 0; padding: var(--s4); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r3); }
+.panel { min-width: 0; padding: var(--panel-pad); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r3); }
 .panel > h2, .group > h2, .h {
   display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin: 0 0 var(--s3);
   font: 500 var(--fs-caption) var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim);
@@ -498,6 +508,12 @@ label.item { cursor: pointer; }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 13'%3E%3Cpath d='M1.5 1.5 6.5 6.5 1.5 11.5' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .nav-row:active:not(:disabled) { transform: none; }
+/* tools two to a line; in a ⋯ menu, one */
+.nav-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line) !important; overflow: clip; }
+.nav-grid .nav-row { padding: var(--s1) var(--s3); font-size: var(--fs-callout); }
+.menu-list { display: grid; gap: 1px; background: var(--line); border-radius: var(--r2); overflow: clip; }
+.conn-row { padding-block: 2px; }
+.conn-row button { flex: none; }
 .footnote { margin: 0; padding: 0 var(--s4); }
 /* a tool, in the tools sheet */
 .tool { display: grid; gap: var(--s3); align-content: start; }
@@ -540,25 +556,26 @@ label.item { cursor: pointer; }
 .readout { touch-action: pan-y; }
 /* a swipe surface: no text selection (a second drag on selected digits would start a native drag instead) */
 .freq { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-#readout:not([hidden]) + #dossier { margin-top: var(--s4); }
+#readout:not([hidden]) + #dossier { margin-top: var(--s2); }
 .lcd-row { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
 .readout .band-pick { justify-content: flex-start; }
-.freq { display: flex; align-items: baseline; min-width: 0; margin-top: var(--s2); line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; transition: transform var(--fast); }
-.freq .main, .d-freq { font: italic 700 clamp(2.25rem, 12vw, 3.5rem)/1 var(--font-freq); letter-spacing: .01em; color: var(--freq-ink); text-shadow: 0 0 18px var(--freq-glow); }
-.freq .small { font: italic 700 clamp(1.1rem, 5vw, 1.5rem) var(--font-freq); color: var(--freq-ink); opacity: .8; margin-left: 2px; }
+.freq-row { display: flex; align-items: center; gap: var(--s3); min-width: 0; }
+.freq { flex: 1; display: flex; align-items: baseline; min-width: 0; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; transition: transform var(--fast); }
+.freq .main, .d-freq { font: italic 700 clamp(2rem, 10.5vw, 3.5rem)/1 var(--font-freq); letter-spacing: .01em; color: var(--freq-ink); text-shadow: 0 0 18px var(--freq-glow); }
+.freq .small { font: italic 700 clamp(1rem, 4.5vw, 1.5rem) var(--font-freq); color: var(--freq-ink); opacity: .8; margin-left: 2px; }
 .unit, .d-freq small { flex: none; margin-left: var(--s2); font: 500 var(--fs-caption) var(--font-mono); letter-spacing: .1em; color: var(--dim); text-shadow: none; }
 .d-freq { margin: 0 0 var(--s4); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .sub { display: flex; gap: var(--s2); min-width: 0; font: 500 var(--fs-caption) var(--font-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
 .sub span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .alert { color: var(--warn); }
-.cells { display: flex; flex-wrap: wrap; gap: 2px var(--s3); margin-top: var(--s2); font: 500 var(--fs-small) var(--font-mono); font-variant-numeric: tabular-nums; }
-.cell { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+/* Demod, BW and SQL: a small stack at the end of the digits' line */
+.cells { flex: none; display: grid; gap: 0; font: 500 var(--fs-caption)/1.3 var(--font-mono); font-variant-numeric: tabular-nums; }
+.cell { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s2); min-width: 0; }
 .cell .l { font-size: .6875rem; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .cell .v { white-space: nowrap; }
 /* RSSI and SNR are in the meter at the top right (.sig): the cells stay for the radio's blink and the tests, out of sight, so
    Demod, BW and SQL fit on one line and a reading's width can't re-wrap the row */
 #c-rssi, #c-snr { display: none; }
-.swipe-hint { margin: var(--s2) 0 0; font-size: var(--fs-caption); color: var(--faint); }
 /* the signal meter (log.js), top right of the Radio card: a line per measure, its value and the last minute; muted line,
    the latest in accent. Fixed columns, so a reading's width can't move the row */
 .sig { flex: none; margin-left: auto; display: grid; gap: 2px; }
@@ -576,14 +593,17 @@ label.item { cursor: pointer; }
 /* Two panes when the info has the room (a tablet, a desktop, a phone held sideways): the card on the left;
    Also on and Nearby on the right. The last row is flexible so a tall card doesn't spread them apart */
 .info-host { container-type: inline-size; min-width: 0; }
+.info-pane { min-height: 96px; }
+.seg.seg-fill#info-seg { margin: 0; }
 @container (min-width: 640px) {
-  .info { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; align-items: start; }
-  #now { grid-column: 1; grid-row: 1 / span 4; }
+  .info { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; }
+  #now { grid-column: 1; grid-row: 1 / span 2; }
+  .freq .main, .d-freq { font-size: clamp(2rem, 5.2cqi, 3.5rem); }  /* the card is about half the width here */
   .info > :not(#now) { grid-column: 2; }
 }
 
 /* ================= frequency info (shared by Radio and Explore) ================= */
-.info { display: grid; gap: var(--s3); min-width: 0; }
+.info { display: grid; gap: var(--stack); min-width: 0; }
 .search {
   position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 5; display: flex; gap: var(--s2);
   margin: calc(-1 * var(--s1)) calc(-1 * var(--gutter-r)) 0 calc(-1 * var(--gutter-l)); padding: var(--s1) var(--gutter-r) var(--s2) var(--gutter-l);
@@ -639,7 +659,7 @@ svg.flag.none { fill: none; stroke: var(--dim); stroke-width: 1.1; box-shadow: n
 .pill.on { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
 .pill.on::before { box-shadow: 0 0 8px var(--accent); }
 .pill.cat { color: var(--cool); border-color: var(--cool-line); }
-.d-name { margin: var(--s2) 0 0; font: 800 2.125rem/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.d-name { margin: var(--s1) 0 0; font: 800 2.125rem/.98 var(--font-display); letter-spacing: .01em; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .d-meta { margin: var(--s1) 0 0; color: var(--dim); font-size: var(--fs-small); }
 /* the reception estimate: ascending bars, a colour and a word (the lamps and pills already mean "on air") */
 .t-likely { color: var(--cool); }
@@ -665,13 +685,13 @@ button.prop::after { content: "›"; color: var(--dim); }
 .prop-key .p-likely { background: var(--cool); }
 .prop-key .p-possible { background: var(--prop-fair); }
 .prop-key .p-unlikely { background: var(--faint); }
-.conds { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s1) var(--s3); margin-top: var(--s3); color: var(--dim); font-size: var(--fs-small); }
+.conds { flex: 1; min-width: 0; text-align: right; color: var(--dim); font-size: var(--fs-caption); }
 .conds[hidden] { display: none; }
 .conds p { margin: 0; }
 .conds b { color: var(--text); font-weight: 600; }
 .conds em { color: var(--warn); font-style: normal; font-weight: 600; }
 /* the facts: as many columns as fit, under a line that closes the hero */
-.d-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: var(--s3); margin: var(--s4) 0 0; padding-top: var(--s4); border-top: 1px solid var(--line); }
+.d-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: var(--s2) var(--s3); margin: var(--s2) 0 0; padding-top: var(--s2); border-top: 1px solid var(--line); }
 .d-grid:empty { display: none; }
 .d-grid > div { min-width: 0; }
 .d-grid dt { font: 500 .6875rem/1.3 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
@@ -679,8 +699,8 @@ button.prop::after { content: "›"; color: var(--dim); }
 /* the card's foot: tune, keep, filter, and the data source */
 /* what to do with it, right under the name: one row that scrolls sideways rather than wrapping */
 .d-actions {
-  display: flex; align-items: center; gap: var(--s2); margin: var(--s4) calc(-1 * var(--s4)) 0; padding: 2px var(--s4);
-  overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--s4);
+  display: flex; align-items: center; gap: var(--s2); margin: var(--s2) calc(-1 * var(--panel-pad)) 0; padding: 2px var(--panel-pad);
+  overflow-x: auto; scrollbar-width: none; scroll-padding-inline: var(--panel-pad);
 }
 .d-actions::-webkit-scrollbar { display: none; }
 /* "Logged 3× · last yesterday": the frequency's history, a way into the Log */
@@ -701,8 +721,10 @@ button.prop::after { content: "›"; color: var(--dim); }
 .d-sep { align-self: stretch; width: 1px; margin: var(--s2) var(--s1); background: var(--line-strong); }
 .d-freq:focus { outline: none; }
 .info-src { margin: 0; text-align: center; }
-.sched { margin-top: var(--s4); }
-.sched .h { margin-bottom: var(--s2); }
+/* Today: its label in line with the bar */
+.sched { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--s3); margin-top: var(--s2); }
+.sched .h { margin: 0; }
+.sched .axis, .sched .prop-key { grid-column: 2; }
 .bar { position: relative; height: 10px; border-radius: 3px; background: var(--track); }
 .bar .win { position: absolute; top: 0; bottom: 0; background: var(--accent); opacity: .6; }
 .win.p-likely { background: var(--cool); opacity: .9; }
@@ -710,7 +732,12 @@ button.prop::after { content: "›"; color: var(--dim); }
 .win.p-unlikely { background: var(--faint); opacity: .9; }
 .bar .now { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--text); }
 .axis { display: flex; justify-content: space-between; margin-top: var(--s1); font: 400 .6875rem var(--font-mono); color: var(--dim); }
-.slots { margin-top: var(--s4); }
+#sched-pane .slots { margin-top: 0; }
+/* the Schedule tab: one line a slot (the sheet has the room for two) */
+#sched-box table { table-layout: auto; }
+#sched-box td { padding-block: 6px; }
+#sched-box td:last-child { width: 100%; max-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sched-box td small { display: inline; margin-left: var(--s2); }
 .slots table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
 .slots th { position: sticky; top: 0; z-index: 1; padding: 0 6px 6px 0; text-align: left; background: var(--surface); font: 500 .6875rem var(--font-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .slots td { padding: 8px 6px 8px 0; border-top: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
@@ -748,14 +775,26 @@ button.icon[aria-pressed="true"] .ico { fill: currentColor; }
 #view-explore.collapsed #x-back .bar-back-label { display: none; }
 #view-explore.collapsed #x-back { padding: 0; width: var(--hit); justify-content: center; }
 @media (max-width: 360px) { #x-back .bar-back-label { display: none; } #x-back { padding: 0; width: var(--hit); justify-content: center; } }
-#view-explore .topbar-title { overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0; }
-#view-explore[data-mode="detail"] .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+#view-explore .topbar { grid-template-columns: auto minmax(0, 1fr) auto; }
+#view-explore .topbar-title { grid-column: 2; overflow: hidden; text-overflow: ellipsis; max-width: 100%; min-width: 0; }
+#view-explore .topbar-end { grid-column: 3; }
 #view-explore[data-mode="detail"] .topbar-title { text-align: center; }
-.x-home, .x-find { display: grid; gap: var(--s3); min-width: 0; align-content: start; }
+/* a phone: the frequency's name reaches the bar once the dial scrolls under it */
+@media (max-width: 839px) and (min-height: 541px) {
+  #view-explore[data-mode="detail"] .topbar-title { opacity: 0; }
+  #view-explore[data-mode="detail"].collapsed .topbar-title { opacity: 1; }
+}
+/* Explore's home: the search field is the top of the page, no bar over it */
+@media not ((min-width: 840px) and (min-height: 520px)) {
+  #view-explore[data-mode="home"] > .appbar { display: none; }
+  #view-explore[data-mode="home"] .search { top: 0; margin-top: 0; padding-top: max(var(--s2), env(safe-area-inset-top)); }
+}
+.x-home, .x-find { display: grid; gap: var(--stack); min-width: 0; align-content: start; }
+#picks { margin-top: 0; }
 .x-hint { margin: 0; }
 .shelf { display: grid; gap: var(--s2); min-width: 0; }
 .shelf .h { margin: 0; }
-#bands { scroll-snap-type: x proximity; }
+#bands { scroll-snap-type: x proximity; scroll-padding-inline: var(--gutter-l) var(--gutter-r); }
 #bands .chip { scroll-snap-align: start; }
 /* search by name (find.js): a station per row, its frequencies as chips; the lamp marks the one on air */
 .q-results { display: grid; gap: var(--s2); padding: var(--s2) 0; border-radius: var(--r3); background: var(--surface); border: 1px solid var(--line); }
@@ -785,13 +824,12 @@ button.icon[aria-pressed="true"] .ico { fill: currentColor; }
 /* Two panes when there's room: Explore's home on the left (one column), the frequency on the right, kept in view */
 @media (min-width: 840px) and (min-height: 520px) {
   #view-explore { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); column-gap: var(--s5); align-items: start; }
-  #view-explore > .appbar, #view-explore > .large-title { grid-column: 1 / -1; }
-  #view-explore .x-home { grid-column: 1; grid-template-columns: minmax(0, 1fr); }
+  #view-explore > .appbar { grid-column: 1 / -1; }
+  #view-explore .x-home { grid-column: 1; grid-row: 2; grid-template-columns: minmax(0, 1fr); }
   #view-explore .x-find :is(.search, .chips, .oa-row) { margin-inline: 0; padding-inline: 0; }
   #view-explore[data-mode="detail"] :is(.x-home, .x-home-only) { display: grid !important; }
-  #view-explore[data-mode="detail"] .large-title.x-home-only { display: block !important; }
   #view-explore[data-mode="home"] .info-host.x-detail { display: block !important; }
-  #view-explore .info-host { grid-column: 2; grid-row: 3 / span 2; position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--s2));
+  #view-explore .info-host { grid-column: 2; grid-row: 2; position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--s2));
     max-height: calc(100dvh - var(--bar-h) - env(safe-area-inset-top) - var(--radiobar-h) - var(--bar-bottom) - var(--s5)); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
   #view-explore[data-mode="home"] .info-host::before {
     content: "Pick a frequency, a band or a station on the left to see who's on it."; display: grid; place-items: center; min-height: 240px; padding: var(--s5);
@@ -800,11 +838,11 @@ button.icon[aria-pressed="true"] .ico { fill: currentColor; }
   /* the bar's ← and search aren't needed: the list is right there */
   #view-explore #x-back, #view-explore #x-search { display: none; }
 }
-.d-dial { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s3); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.d-dial { display: flex; align-items: center; gap: var(--s2); margin: 0 0 var(--s2); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 .d-dial .d-freq { flex: 1; min-width: 0; margin: 0; text-align: center; transition: transform var(--fast); }
 .dial-step { flex: none; width: var(--hit); border-radius: 50%; background: transparent; }
 .dial-step .ico { width: 22px; height: 22px; }
-.strip { margin: 0 0 var(--s4); padding-top: var(--s2); touch-action: pan-y; cursor: pointer; user-select: none; -webkit-user-select: none; outline: none; }
+.strip { margin: 0 0 var(--s2); padding-top: var(--s1); touch-action: pan-y; cursor: pointer; user-select: none; -webkit-user-select: none; outline: none; }
 .strip-track { position: relative; height: 28px; border-radius: 4px; background: var(--track); }
 @media (pointer: coarse) { .strip-track { height: 36px; } }
 .strip:focus-visible .strip-track { outline: 2px solid var(--cool); outline-offset: 3px; }
@@ -818,10 +856,19 @@ button.icon[aria-pressed="true"] .ico { fill: currentColor; }
 .chip.pinned { border-color: var(--accent-line); }
 .chip.pinned .ico { width: 13px; height: 13px; align-self: center; fill: var(--accent); stroke: var(--accent); }
 /* Discover (Explore): on air across a meter band, the stations near you */
-#discover { display: grid; gap: var(--s3); }
-#discover > .h, #discover .seg { margin: 0; }
-#disc-sw { display: grid; gap: var(--s3); min-width: 0; }
-#disc-aimed-row { min-height: 0; padding: 0; }
+/* the filters on two lines: what and when side by side, then the bands. #disc-sw's parts join the panel's grid */
+#discover { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--s2); }  /* (three buttons on the right, each a full touch target at 360 px) */
+#discover > * { grid-column: 1 / -1; min-width: 0; }
+#discover .h, #discover .seg { margin: 0; }
+.disc-head { display: flex; align-items: center; gap: var(--s3); }
+#disc-seg { grid-column: 1; }
+#disc-sw { display: contents; }
+#disc-win { grid-column: 2; }
+#discover:has(#disc-sw[hidden]) #disc-seg { grid-column: 1 / -1; }
+.disc-row { grid-column: 1 / -1; display: flex; gap: var(--s1); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.disc-row::-webkit-scrollbar { display: none; }
+.disc-row .seg { flex: none; overflow: visible; }
+#disc-flags:not(:has(label:not([hidden]))) { display: none; }
 .disc-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--s2); }
 #disc-bands { grid-column: 1 / -1; }
 #disc-results .hint, #disc-results .note { margin: 0; }
@@ -830,12 +877,26 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 @media (pointer: coarse) { select.radius { min-height: 40px; } }
 .far { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); margin: var(--s3) 0 0; font-size: var(--fs-small); color: var(--dim); }
 .list { list-style: none; margin: 0; padding: 0; }
-.st { padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.st { padding: var(--s2) 0; border-top: 1px solid var(--line); }
+.info-pane .list > .st:first-child, .info-pane .list > li:first-child > .near-row { border-top: 0; }
 .st-main { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
 .st-main b { flex: none; font: 500 var(--fs-small) var(--font-mono); }
 .st-main span { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
 .st-main .km { flex: none; font: 500 var(--fs-caption) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--accent); }
 .st-sub { margin-top: 2px; color: var(--dim); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.st-sub { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s2); }
+.st-sub span { min-width: 0; }
+.st-sub a { flex: none; }
+/* the short list under the card: call sign and tags, then name and place on a line each; Show all gives them their room */
+.info-pane .list:not(.all) .st { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0 var(--s2); }
+.info-pane .list:not(.all) .st-main { display: contents; }
+.info-pane .list:not(.all) .st-main b { grid-area: 1 / 1; }
+.info-pane .list:not(.all) .st .tags { grid-area: 1 / 2; margin: 0; flex-wrap: nowrap; }
+.info-pane .list:not(.all) .st-main span:not(.km) { grid-column: 1 / -1; grid-row: 2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-pane .list:not(.all) .st-main .km { grid-area: 3 / 2; }
+.info-pane .list:not(.all) .st-sub { grid-area: 3 / 1 / auto / -1; margin: 0; }
+.info-pane .list:not(.all) .st-sub span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info-pane .list:not(.all) .st-main:has(.km) ~ .st-sub { grid-column: 1; }
 .more { width: 100%; margin-top: var(--s2); }
 .near-row {
   display: grid; grid-template-columns: 4.8em minmax(0, 1fr) auto 12px; align-items: center; gap: var(--s3); width: 100%; min-height: 60px; padding: var(--s2) var(--s1);
@@ -847,8 +908,8 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 /* Nearby on a phone: a shelf of cards that scrolls sideways, so the page stays short (a list when there's room) */
 @container (max-width: 639px) {
   #nearby .list {
-    display: flex; gap: var(--s2); margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4) var(--s1);
-    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--s4); scrollbar-width: none;
+    display: flex; gap: var(--s2); margin: 0 calc(-1 * var(--panel-pad)); padding: 2px var(--panel-pad) var(--s1);
+    overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--panel-pad); scrollbar-width: none;
   }
   #nearby .list::-webkit-scrollbar { display: none; }
   #nearby .list li { flex: 0 0 min(15rem, 78%); scroll-snap-align: start; }
@@ -875,17 +936,21 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 .view.scrolled:has(.band-chips) > .appbar { border-bottom-color: transparent; }
 .band-chips span { background: var(--surface); }
 /* the list: rows with the channel, the name over the frequency, and ✕; swiped left, Delete */
-.list-panel { padding: 0; overflow: hidden; }
+.list-panel { padding: 0; overflow: clip; }  /* (clip: the Log's day headings stick) */
 .mem-row { position: relative; border-top: 1px solid var(--line); overflow: hidden; touch-action: pan-y; }
 .mem-row:first-child { border-top: 0; }
 .mr-fg {
-  position: relative; z-index: 1; display: flex; align-items: center; gap: var(--s3); min-height: 56px; padding: var(--s2) var(--s1) var(--s2) var(--s4);
+  position: relative; z-index: 1; display: flex; align-items: center; gap: var(--s3); min-height: var(--hit); padding: 0 var(--s1) 0 var(--panel-pad);
   background: var(--surface); transition: transform var(--med) var(--ease-sheet);
 }
 .mem-row.swiping .mr-fg { transition: none; }
 .mem-row .ch { flex: none; display: grid; place-items: center; min-width: 36px; height: 28px; padding: 0 6px; border-radius: var(--r1); background: var(--surface-2); font: 600 var(--fs-small) var(--font-mono); font-variant-numeric: tabular-nums; color: var(--dim); }
-.mr-main { flex: 1; min-width: 0; display: grid; }
-.mr-main b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the name, the frequency at its end when there's both; a row with a warning gives it a line of its own */
+.mr-main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--s2); }
+.mr-main small { flex: none; margin-left: auto; }
+.mem-row.bad .mr-main { display: grid; gap: 0; }
+.mem-row.bad .mr-main small { margin-left: 0; }
+.mr-main b { min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mr-main small { font: 500 var(--fs-caption)/1.4 var(--font-mono); color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mr-del { flex: none; width: var(--hit); padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--faint); font-size: .875rem; }
 .mr-act { position: absolute; inset: 0 0 0 auto; width: 88px; min-height: 0; border: 0; border-radius: 0; background: light-dark(#b3261e, #c8372b); color: #fff; font-weight: 600; }
@@ -897,17 +962,18 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 /* ---- the Log (log.js): a panel per UTC day; each row its time and length, the station, a star; swiped left, Delete ---- */
 .log-list { display: grid; gap: var(--s3); }
 #log-filter span { min-width: var(--hit); justify-content: center; }  /* "FM", "SW": still a full touch target */
-.log-day { padding-top: var(--s3); }
-.log-day-h { padding: 0 var(--s4); }
+.log-day-h { position: sticky; top: calc(var(--bar-h) + env(safe-area-inset-top)); z-index: 3; margin: 0; padding: var(--s2) var(--panel-pad); background: var(--surface); border-bottom: 1px solid var(--line); }
+.log-day .mem-row:first-child { border-top: 0; }
 .log-row .mr-fg { padding-left: var(--s3); }
 .log-time { flex: none; display: grid; justify-items: center; min-width: 52px; font: 600 var(--fs-small) var(--font-mono); font-variant-numeric: tabular-nums; }
 .log-time small { font: 500 .6875rem var(--font-mono); color: var(--dim); }
 .log-row.live .log-time small { color: var(--accent); }
-.log-open { color: inherit; text-decoration: none; min-height: var(--hit); align-content: center; }
-/* names and their details wrap to two lines rather than lose the end (the star and ✕ take room on a phone) */
-.log-open b, .log-open small { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; }
+.log-open { display: grid; gap: 0; color: inherit; text-decoration: none; min-height: var(--hit); align-content: center; }
+.log-open small { margin-left: 0; }
+/* one line each, so more of the Log fits; the row's name has it all for a screen reader, and opening it shows the rest */
+.log-open b, .log-open small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log-open b .flag, .log-open b svg.flag { display: inline-block; margin-right: 6px; vertical-align: -2px; }
-.log-row .mr-fg { padding-block: var(--s2); }
+.log-row .mr-fg { padding-block: 2px; }
 .log-open:focus-visible { outline: 2px solid var(--cool); outline-offset: 2px; border-radius: var(--r1); }
 .log-star { flex: none; border: 0; background: transparent; color: var(--faint); }
 .log-star[aria-pressed="true"] { color: var(--accent); }
@@ -915,7 +981,14 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 .empty-row b { font-weight: 600; }
 .empty-row span { color: var(--dim); font-size: var(--fs-small); }
 /* a run in progress stays in view, over the list */
-#mem-run.running { position: sticky; z-index: 4; bottom: calc(var(--bar-bottom) + var(--tabbar-h) + var(--radiobar-h) + var(--s2)); border-color: var(--accent-line); box-shadow: var(--shadow-float); }
+#mem-run.running { position: sticky; z-index: 4; top: calc(var(--bar-h) + env(safe-area-inset-top) + var(--hit) + var(--s3)); border-color: var(--accent-line); box-shadow: var(--shadow-float); }
+/* Store and Check: one line over the list */
+#mem-run:not(.running) { padding: 0; background: transparent; border: 0; }
+#mem-run:empty { display: none; }
+.run-row { display: flex; align-items: center; gap: var(--s2); }
+.run-row button { flex: 1 1 0; min-width: 0; }
+.run-time { flex: none; color: var(--dim); font: 500 var(--fs-caption) var(--font-mono); font-variant-numeric: tabular-nums; }
+#mem-run .hint { margin-top: var(--s1); }
 .errs { margin: var(--s2) 0 0; font: 400 var(--fs-small)/1.55 var(--font-mono); color: var(--warn); }
 .errs:empty { display: none; }
 .picks { margin-top: var(--s3); }
@@ -927,7 +1000,7 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 .progress i { display: block; height: 100%; background: var(--accent); transition: width var(--med); }
 
 /* ================= More ================= */
-.lines { display: grid; gap: var(--s1); padding: var(--s3) var(--s4); font: 400 var(--fs-small)/1.6 var(--font-mono); }
+.lines { display: grid; gap: var(--s1); font: 400 var(--fs-small)/1.6 var(--font-mono); }
 .lines div { overflow-wrap: anywhere; }
 .lines div:empty { display: none; }
 .lines:not(:has(div:not(:empty)))::before { content: "Connect the radio to see its text lines."; color: var(--dim); font-family: var(--font-ui); }
@@ -940,6 +1013,12 @@ select.radius { width: auto; min-height: 32px; padding: 0 28px 0 var(--s3); bord
 #probe-log .hit { color: var(--accent); } #probe-log .warn { color: var(--warn); }
 
 @media (max-width: 440px) { .d-name { font-size: 1.75rem; } }
+/* a short screen (a small phone, or browser toolbars): secondary details give way; Schedule's rows carry the same facts */
+@media (max-height: 720px) {
+  .sched .axis { display: none; }
+  .d-meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .d-name { -webkit-line-clamp: 2; }
+}
 @media (min-width: 900px) { .d-name { font-size: 2.5rem; } .slots-box { max-height: 24rem; } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }

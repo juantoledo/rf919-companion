@@ -33,7 +33,7 @@ light or dark setting, or the theme picked in **More › Appearance** (System, L
 | **Radio** | The radio's frequency, band, preset and signal, and what's on the frequency it's tuned to, with **Store here** under it; ◀ ▶, Memo, volume and **Keys** (the Remote, which also has Sub) in a dock that stays on screen while the page scrolls |
 | **Explore** | Look up any frequency, with or without the radio; step along a band; find what's on air now or near you |
 | **Memories** | Memory lists for the radio, one band at a time |
-| **More** | Connection, settings, the radio's text lines, tools and the log |
+| **More** | Connection, settings, and tools (the radio's text lines, key capture, the log, About) |
 
 On every tab but Radio, a **mini player** above the tabs keeps the radio at hand: band, frequency,
 what's on the air there, and ◀ ▶. Tap it (or swipe it up) for the **Remote**, with every key of the
@@ -68,7 +68,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   between two) shows a tick for each of them; tap or drag it to jump, or use ←/→, Page Up/Down,
   Home/End. Explore's home has a chip per band with how many frequencies it has.
   Back still goes straight home after stepping.
-- **Discover** (Explore's home): **On air now** lists who's on air across one meter band
+- **Discover** (Explore's home): **On air** lists who's on air across one meter band
   (optionally only what's aimed at your region, or what starts within the hour); **Near me** lists the
   stations of a band nearest to you (FM, AM, VHF, UHF, AIR; by kind and distance). radiomap.cl has one
   file per frequency, so nothing is fetched until you tap a band (about 100 files for a busy meter
@@ -76,11 +76,11 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   failed. Tap a row to look it up.
 - **Radio** shows the same for the frequency the radio is on, and follows the dial.
 - **Shortwave**: the station on air (or the next one) with its flag, transmitter site, language
-  and target, today's transmissions on a UTC bar, and what's coming up (**Full schedule** opens all
-  of EiBi's entries in a sheet). When the next
+  and target, today's transmissions on a UTC bar, and what's coming up in the **Schedule** tab under the card
+  (**Full schedule** opens all of EiBi's entries in a sheet). When the next
   broadcast starts within a day, **Remind me** shows a snackbar (and a notification, if allowed) when
   it does, as long as the page is open.
-- **Stations**: Chilean broadcasters, amateur repeaters (output/input, CTCSS tone, shift, DMR,
+- **Stations** (a tab under the card, with Schedule and Nearby; one shows at a time and your choice is kept): Chilean broadcasters, amateur repeaters (output/input, CTCSS tone, shift, DMR,
   EchoLink) and ATC, each linked to the radiomap.cl map.
 - **Nearby**: the closest frequencies with data and what's on them (on a phone, cards that scroll
   sideways). Tap one to tune the radio
@@ -98,7 +98,7 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   whether it's on the air. They come from the solar flux, the Kp index and radio blackouts
   ([NOAA SWPC](https://www.swpc.noaa.gov/), refreshed every 30 minutes), the sun along the path, the number of hops, and
   where the broadcast is aimed. Tap the badge on a station for the reasons; the **Today** bar is tinted by the same
-  estimate, and Discover can sort by **Best reception first**. It needs your location, and asks once on Explore
+  estimate, and Discover can sort by **Best first**. It needs your location, and asks once on Explore
   (**Show reception estimates**). NOAA's requests carry no location: the estimate is worked out in the browser. It's a
   simple model that doesn't know the transmitter's power, your antenna or the local noise, so take it as a hint.
 
@@ -160,7 +160,7 @@ channel, confirm), one channel at a time, about 2–3 s each. See [memory.md](me
   band. **Store**, **Check on radio**, **Start fresh** and **Edit as text** act on the band shown;
   in Edit as text, lines without a band belong to it. Backup still exports every band.
 - **Removing** a memory (✕, or swiping it left) or clearing a band's list can be undone from the
-  snackbar. The tools (Start fresh, Backup, Edit as text, the list builders) open in a sheet.
+  snackbar. The tools (Start fresh, Backup, Edit as text, the list builders) and Clear the list are under the **⋯** at the top of Memories; the Log's export is under its own **⋯**.
 - **Start fresh** wipes the band shown on the radio, the same as holding SCAN/ATS (all 200
   channels of the band), then clears the app's list and record for it. It recalls a channel
   afterwards to make sure it's empty before clearing anything in the app.

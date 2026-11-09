@@ -41,6 +41,10 @@ export function setStatus(kind, text) {
   $("connect").textContent = virtual ? "Connect radio" : kind === "ok" ? "Connected" : (link instanceof BleLink && link.device ? "Reconnect" : "Connect");
   $("connect").disabled = (kind === "ok" && !virtual) || kind === "busy";  // without Bluetooth it opens the sheet saying so
   $("noradio").disabled = virtual;
+  // Only what applies now: a real radio connected offers Disconnect alone; No radio can move on to a real one
+  $("connect").hidden = kind === "ok" && !virtual;
+  $("disconnect").hidden = kind !== "ok";
+  $("noradio").hidden = kind === "ok";
   log({kind: "link", text: "● " + text, raw: new Uint8Array()});
   if (!state.ok) { waiters.freq = null; if (mem.run) mem.run.stop("the connection dropped"); logOff(); }
   renderView();
@@ -87,7 +91,8 @@ export function log(ev) {
 export function setBlink(el, on) { if (el) el.classList.toggle("blink", !!on); }
 export function cell(name, label, value) {
   const c = $("c-" + name);
-  if (label !== undefined) c.querySelector(".l").textContent = label || " ";
+  // (the radio's own words for these are too long for the small stack beside the digits)
+  if (label !== undefined) c.querySelector(".l").textContent = {DEMODULATION: "Demod", BANDWIDTH: "BW"}[String(label).trim().toUpperCase()] || label || " ";
   if (value !== undefined) c.querySelector(".v").textContent = value || "–";
 }
 
@@ -266,13 +271,12 @@ function barsOnScroll() {
   if (acc > 12) setBarsMin(true);
   else if (acc < -12) setBarsMin(false);
 }
-// The top bar turns to glass once the page scrolls under it; a large title hands over to the bar's small one
+// The top bar turns to glass once the page scrolls under it; Explore's dial hands over to the bar's title
 export function barState() {
   const v = current && $(`view-${current}`);
   if (!v) return;
   v.classList.toggle("scrolled", window.scrollY > 2);
-  // Explore's detail has no large title: its dial hands over to the bar's title instead
-  const title = v === $("view-explore") && inDetail() ? v.querySelector(".d-dial, .d-freq") : v.querySelector(".large-title");
+  const title = v === $("view-explore") && inDetail() ? v.querySelector(".d-dial, .d-freq") : null;
   const bar = v.querySelector(".appbar");
   v.classList.toggle("collapsed", !!title && !!bar && title.getBoundingClientRect().bottom <= bar.getBoundingClientRect().bottom);
 }
@@ -447,8 +451,8 @@ export function fromHash() {
 // ---- the Remote: a native <dialog> (focus trap, Esc, backdrop and focus return come with it) ----
 // Sheets open at a detent; the page behind steps back (CSS, bottom sheets only)
 export function openSheet(d, detent = "medium") {
+  d.dataset.detent = detent;  // (already open: a ⋯ menu moving on to the tool it opened)
   if (d.open) return;
-  d.dataset.detent = detent;
   document.body.style.setProperty("--sy", `${window.scrollY}px`);
   document.body.classList.add("sheet-open");
   d.showModal();
@@ -534,7 +538,7 @@ export function init() {
   $("remote").addEventListener("click", (e) => { if (e.target === $("remote") || e.target.closest("[data-close]")) closeRemote(); });
   for (const d of [$("remote"), $("tools")]) d.addEventListener("close", () => document.body.classList.remove("sheet-open"));
   $("tools").addEventListener("click", (e) => { if (e.target === $("tools") || e.target.closest("[data-close]")) $("tools").close(); });
-  document.addEventListener("click", (e) => { const t = e.target.closest("[data-tool]"); if (t) openTool(t.dataset.tool); });
+  document.addEventListener("click", (e) => { const t = e.target.closest("[data-tool]"); if (t) openTool(t.dataset.tool, t.dataset.toolTitle ?? null, t.dataset.detent); });
   $("remote-seg").addEventListener("change", (e) => remotePane(e.target.value));
   $("open-remote").addEventListener("click", openRemote);
   $("rb-open").addEventListener("click", openRemote);
@@ -543,12 +547,10 @@ export function init() {
 
   // Gestures (each also has a button): swipe a frequency to step or seek, swipe the radio bar up for the Remote,
   // drag the Remote down by its top to close it
-  // The readout's hint goes once the swipe has been found
-  $("swipe-hint").hidden = store.get("rf919.swiped", false);
   document.querySelectorAll("[data-swipe-tune]").forEach((el) => swipeTune(el, (dir, seek) => {
     if (!state.ok) return;
     pressKey(dir > 0 ? "UP" : "DOWN", seek);
-    if (!$("swipe-hint").hidden) { $("swipe-hint").hidden = true; store.set("rf919.swiped", true); }
+    store.set("rf919.swiped", true);  // found it: no need for the hint (radio.js renderView)
   }));
   swipeUp($("rb-open"), openRemote);
   sheetDrag($("remote"), [$("remote-grab"), $("remote").querySelector(".sheet-head"), $("remote").querySelector(".sheet-tabs")], {onClose: closeRemote});

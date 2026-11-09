@@ -76,21 +76,24 @@
               <span class="sub"><span class="scan-tag" aria-hidden="true">Scanning</span><span id="preset"></span><span class="alert" id="alert"></span></span>
               <div class="sig" id="sig" hidden></div>
             </div>
-            <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span><span class="unit" id="unit"></span></div>
-            <div class="cells">
-              <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
-              <div class="cell" id="c-bw"><span class="l">BW</span><span class="v">–</span></div>
-              <div class="cell" id="c-snr"><span class="l">SNR</span><span class="v">–</span></div>
-              <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
-              <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
+            <div class="freq-row">
+              <div class="freq" id="freqbox" data-swipe-tune aria-live="off"><span class="main" id="freq">---.---</span><span class="small" id="small"></span><span class="unit" id="unit"></span></div>
+              <div class="cells">
+                <div class="cell" id="c-demod"><span class="l">Demod</span><span class="v">–</span></div>
+                <div class="cell" id="c-bw"><span class="l">BW</span><span class="v">–</span></div>
+                <div class="cell" id="c-snr"><span class="l">SNR</span><span class="v">–</span></div>
+                <div class="cell" id="c-rssi"><span class="l">RSSI</span><span class="v">–</span></div>
+                <div class="cell" id="c-field9"><span class="l">SQL</span><span class="v">–</span></div>
+              </div>
             </div>
-            <p class="swipe-hint" id="swipe-hint">Swipe the frequency to step · flick to seek</p>
           </div>
           <div id="dossier" aria-live="polite"></div>
         </section>
-        <section class="panel" id="stations" hidden></section>
-        <section class="panel" id="nearby" hidden></section>
-        <p class="note info-src" id="info-src" hidden></p>
+        <!-- One of these at a time, picked here (radio.js syncPanes), so the page stops growing -->
+        <fieldset class="seg seg-fill" id="info-seg" hidden><legend>Show</legend></fieldset>
+        <section class="panel info-pane" id="sched-box" aria-label="Schedule" hidden></section>
+        <section class="panel info-pane" id="stations" aria-label="Stations" hidden></section>
+        <section class="panel info-pane" id="nearby" aria-label="Nearby" hidden></section>
       </div>
     </div>
   </section>
@@ -103,7 +106,7 @@
       <span class="topbar-title" id="x-title" aria-hidden="true">Explore</span>
       <span class="topbar-end x-detail"><button class="icon quiet bar-btn" type="button" id="x-search" aria-label="Look up another frequency"><svg class="ico" aria-hidden="true"><use href="#i-explore"/></svg></button></span>
     </header>
-    <h1 class="large-title x-home-only" id="t-explore" tabindex="-1">Explore</h1>
+    <h1 class="sr-only x-home-only" id="t-explore" tabindex="-1">Explore</h1>
     <div class="x-home" id="x-home">
       <div class="x-find">
         <form class="search" id="search" role="search">
@@ -118,28 +121,29 @@
         <div class="chips picks" id="picks" role="group" aria-label="Pinned and suggested stations" hidden></div>
         <p class="hint x-hint" id="x-hint">Type a frequency in kHz (9580) or in MHz with a dot (9.58, 146.73) to see who's on it, or a station's name.</p>
         <section class="shelf" aria-labelledby="g-bands">
-          <h2 class="h" id="g-bands"><span>Browse a band</span><span>then step along it</span></h2>
+          <h2 class="sr-only" id="g-bands">Browse a band, then step along it</h2>
           <div class="chips" id="bands"></div>
         </section>
-        <div class="conds" id="conds" hidden></div>
       </div>
     <section class="panel" id="discover" aria-labelledby="g-discover">
-      <h2 class="h" id="g-discover"><span>Discover</span></h2>
+      <div class="disc-head"><h2 class="h" id="g-discover"><span>Discover</span></h2><div class="conds" id="conds" hidden></div></div>
       <fieldset class="seg seg-fill" id="disc-seg"><legend>What to find</legend>
-        <label><input type="radio" name="disc" value="sw" checked><span>On air now</span></label>
+        <label><input type="radio" name="disc" value="sw" checked><span>On air</span></label>
         <label><input type="radio" name="disc" value="near"><span>Near me</span></label>
       </fieldset>
       <div id="disc-sw">
-        <fieldset class="seg" id="disc-meters"><legend>Meter band</legend></fieldset>
         <fieldset class="seg seg-fill" id="disc-win"><legend>When</legend>
           <label><input type="radio" name="discwin" value="0" checked><span>Now</span></label>
-          <label><input type="radio" name="discwin" value="30"><span>+ 30 min</span></label>
-          <label><input type="radio" name="discwin" value="60"><span>+ 1 h</span></label>
+          <label><input type="radio" name="discwin" value="30"><span>+30m</span></label>
+          <label><input type="radio" name="discwin" value="60"><span>+1h</span></label>
         </fieldset>
-        <label class="item" id="disc-aimed-row" hidden><span class="label">Only aimed at <span id="disc-aimed-name"></span></span>
-          <input type="checkbox" role="switch" switch id="disc-aimed"></label>
-        <label class="item" id="disc-best-row" hidden><span class="label">Best reception first</span>
-          <input type="checkbox" role="switch" switch id="disc-best"></label>
+        <div class="disc-row" id="disc-row">
+          <fieldset class="seg" id="disc-flags"><legend>Filters</legend>
+            <label id="disc-aimed-row" hidden><input type="checkbox" id="disc-aimed"><span>Aimed at <span id="disc-aimed-name"></span></span></label>
+            <label id="disc-best-row" hidden><input type="checkbox" id="disc-best"><span>Best first</span></label>
+          </fieldset>
+          <fieldset class="seg" id="disc-meters"><legend>Meter band</legend></fieldset>
+        </div>
       </div>
       <div class="disc-opts" id="disc-near" hidden>
         <fieldset class="seg wrap" id="disc-bands"><legend>Band</legend></fieldset>
@@ -157,64 +161,49 @@
 
   <!-- ======== Memories ======== -->
   <section class="view" id="view-memories" data-view="memories" aria-labelledby="t-memories" hidden>
-    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><span class="clock" id="mem-total"></span></span></header>
-    <h1 class="large-title" id="t-memories" tabindex="-1">Memories</h1>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Memories</span><span class="topbar-end"><span class="clock" id="mem-total"></span>
+      <button class="icon quiet bar-btn" type="button" data-tool="mem-menu" data-tool-title="Memories" data-detent="medium" aria-haspopup="dialog" aria-label="Memories tools"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button></span></header>
+    <h1 class="sr-only" id="t-memories" tabindex="-1">Memories</h1>
     <fieldset class="seg chips band-chips" id="mem-counts"><legend>Band</legend></fieldset>
+    <section class="panel" id="mem-run" aria-label="Store on the radio"></section>
     <section class="panel list-panel" aria-label="Memories in the list"><ul class="list" id="mem-list"></ul></section>
-    <section class="panel" id="mem-run"></section>
-    <section class="group" aria-labelledby="g-mtools">
-      <h2 id="g-mtools">Tools</h2>
-      <button class="nav-row" type="button" data-tool="mem-fresh"><span class="label" id="fresh-sum">Start fresh: wipe a band</span></button>
-      <button class="nav-row" type="button" data-tool="mem-backup"><span class="label">Backup: export / import</span></button>
-      <button class="nav-row" type="button" data-tool="mem-textbox"><span class="label" id="mem-text-sum">Edit as text</span></button>
-      <button class="nav-row" type="button" data-tool="mem-sw"><span class="label">Add shortwave on air (EiBi)</span></button>
-      <button class="nav-row" type="button" data-tool="mem-near"><span class="label">Add Chilean stations near me</span></button>
-    </section>
-    <p class="hint footnote">+ Memory, under a frequency in Radio or Explore, adds it to the list.</p>
   </section>
 
   <!-- ======== Log: what the radio stayed on ======== -->
   <section class="view" id="view-log" data-view="log" aria-labelledby="t-log" hidden>
-    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Log</span><span class="topbar-end"><span class="clock" id="log-total"></span></span></header>
-    <h1 class="large-title" id="t-log" tabindex="-1">Log</h1>
+    <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">Log</span><span class="topbar-end"><span class="clock" id="log-total"></span>
+      <button class="icon quiet bar-btn" type="button" id="log-menu" data-tool="log-export" data-tool-title="Export the log" data-detent="medium" aria-haspopup="dialog" aria-label="Export the log" hidden><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button></span></header>
+    <h1 class="sr-only" id="t-log" tabindex="-1">Log</h1>
     <fieldset class="seg chips" id="log-filter" hidden><legend>Show</legend></fieldset>
     <div class="log-list" id="log-list"></div>
-    <section class="group" id="log-export" aria-labelledby="g-logx" hidden>
-      <h2 id="g-logx">Export</h2>
-      <div class="item-actions">
-        <button type="button" data-log="csv">CSV</button>
-        <button type="button" data-log="adif" title="Amateur Data Interchange Format, for logbook programs">ADIF</button>
-      </div>
-    </section>
-    <p class="hint footnote">A frequency the radio stays on for 30 seconds is logged, with who was on air and the best RSSI and SNR. Times in UTC.</p>
   </section>
 
   <!-- ======== More: connection, settings, tools ======== -->
   <section class="view" id="view-more" data-view="more" aria-labelledby="t-more" hidden>
     <header class="appbar topbar"><span class="topbar-title" aria-hidden="true">More</span></header>
-    <h1 class="large-title" id="t-more" tabindex="-1">More</h1>
+    <h1 class="sr-only" id="t-more" tabindex="-1">More</h1>
+    <div class="more-grid">
     <section class="panel group" aria-labelledby="g-conn">
       <h2 id="g-conn">Connection</h2>
-      <div class="item"><span class="lamp" data-lamp></span><span class="label" id="conn-state">Not connected</span></div>
-      <div class="item-actions">
-        <button class="filled" type="button" id="connect">Connect</button>
-        <button type="button" id="disconnect">Disconnect</button>
-        <button type="button" id="noradio">No radio</button>
+      <div class="item conn-row"><span class="lamp" data-lamp></span><span class="label" id="conn-state">Not connected</span>
+        <button class="small filled" type="button" id="connect">Connect</button>
+        <button class="small" type="button" id="disconnect" hidden>Disconnect</button>
+        <button class="small" type="button" id="noradio">No radio</button>
       </div>
-      <label class="item"><span class="label">Only list RF919 radios<small>When connecting. Off lists every Bluetooth device, as some iPhone browsers miss the name.</small></span>
+      <label class="item"><span class="label">Only list RF919 radios<small>Off lists every Bluetooth device</small></span>
         <input type="checkbox" role="switch" switch id="onlyRadio"></label>
     </section>
     <section class="panel group" aria-labelledby="g-radio">
       <h2 id="g-radio">Radio</h2>
-      <label class="item"><span class="label">Tune as you explore<small>Picking a frequency in Explore tunes the radio to it</small></span><input type="checkbox" role="switch" switch id="autotune"></label>
-      <label class="item"><span class="label">Keep screen on<small>While this page is open</small></span><input type="checkbox" role="switch" switch id="wake"></label>
-      <label class="item"><span class="label">Hold next key<small>The next key you tap is sent as a long press</small></span><input type="checkbox" role="switch" switch id="hold"></label>
-      <div class="item"><span class="label">Radio clock<small>Set it to this phone's time</small></span><button class="small" type="button" id="settime">Sync</button></div>
+      <label class="item"><span class="label">Tune as you explore<small>Picks in Explore tune the radio</small></span><input type="checkbox" role="switch" switch id="autotune"></label>
+      <label class="item"><span class="label">Keep screen on</span><input type="checkbox" role="switch" switch id="wake"></label>
+      <label class="item"><span class="label">Hold next key<small>Sends the next tap as a long press</small></span><input type="checkbox" role="switch" switch id="hold"></label>
+      <div class="item"><span class="label">Radio clock<small>Set to this phone's time</small></span><button class="small" type="button" id="settime">Sync</button></div>
     </section>
     <section class="panel group" aria-labelledby="g-look">
       <h2 id="g-look">Appearance</h2>
       <div class="item">
-        <span class="label">Theme<small>System follows the phone's light or dark setting</small></span>
+        <span class="label">Theme</span>
         <fieldset class="seg seg-fill theme-seg" id="theme-seg"><legend>Theme</legend>
           <label><input type="radio" name="theme" value="system" checked><span>System</span></label>
           <label><input type="radio" name="theme" value="light"><span>Light</span></label>
@@ -222,22 +211,18 @@
         </fieldset>
       </div>
     </section>
-    <section class="panel group" aria-labelledby="g-display">
-      <h2 id="g-display">The radio's display</h2>
-      <div class="lines"><div id="field11"></div><div id="field12"></div><div id="statusline"></div></div>
-    </section>
     <section class="panel group" aria-labelledby="g-tools">
       <h2 id="g-tools">Tools</h2>
-      <button class="nav-row" type="button" data-tool="capbox"><span class="label">Key capture</span></button>
-      <button class="nav-row" type="button" data-tool="mem-test"><span class="label">Test one memory</span></button>
-      <button class="nav-row" type="button" data-tool="devbox"><span class="label">Developer: send a frame</span></button>
-      <button class="nav-row" type="button" data-tool="logpanel"><span class="label">Log</span></button>
+      <div class="nav-grid">
+        <button class="nav-row" type="button" data-tool="display-pane"><span class="label">The radio's display</span></button>
+        <button class="nav-row" type="button" data-tool="capbox"><span class="label">Key capture</span></button>
+        <button class="nav-row" type="button" data-tool="mem-test"><span class="label">Test one memory</span></button>
+        <button class="nav-row" type="button" data-tool="devbox"><span class="label">Developer: send a frame</span></button>
+        <button class="nav-row" type="button" data-tool="logpanel"><span class="label">Log</span></button>
+        <button class="nav-row" type="button" data-tool="about-pane"><span class="label">About and data</span></button>
+      </div>
     </section>
-    <section class="panel group" aria-labelledby="g-about">
-      <h2 id="g-about">About</h2>
-      <div class="item"><span class="label">RF919 Companion<small>Unofficial; not affiliated with or endorsed by Raddy. Station data from
-        <a href="https://www.radiomap.cl/" target="_blank" rel="noopener">radiomap.cl</a>, shortwave schedules from EiBi, flags from flag-icons.</small></span></div>
-    </section>
+    </div>
   </section>
 </main>
 
@@ -351,6 +336,33 @@
     <button class="close" type="button" data-close aria-label="Close">✕</button>
   </header>
   <div class="sheet-body">
+    <!-- the ⋯ of Memories: its tools, and clearing the band on show -->
+    <section class="tool" id="mem-menu" hidden>
+      <div class="menu-list">
+        <button class="nav-row" type="button" data-tool="mem-fresh"><span class="label" id="fresh-sum">Start fresh: wipe a band</span></button>
+        <button class="nav-row" type="button" data-tool="mem-backup"><span class="label">Backup: export / import</span></button>
+        <button class="nav-row" type="button" data-tool="mem-textbox"><span class="label" id="mem-text-sum">Edit as text</span></button>
+        <button class="nav-row" type="button" data-tool="mem-sw"><span class="label">Add shortwave on air (EiBi)</span></button>
+        <button class="nav-row" type="button" data-tool="mem-near"><span class="label">Add Chilean stations near me</span></button>
+      </div>
+      <button class="danger" type="button" id="mem-clear" data-mem="clear" data-close hidden>Clear the list</button>
+    </section>
+    <!-- the ⋯ of the Log -->
+    <section class="tool" id="log-export" hidden>
+      <div class="row">
+        <button type="button" data-log="csv">CSV</button>
+        <button type="button" data-log="adif" title="Amateur Data Interchange Format, for logbook programs">ADIF</button>
+      </div>
+      <p class="hint">A frequency the radio stays on for 30 seconds is logged, with who was on air and the best RSSI and SNR. Times in UTC.</p>
+    </section>
+    <section class="tool" id="display-pane" hidden>
+      <div class="lines"><div id="field11"></div><div id="field12"></div><div id="statusline"></div></div>
+    </section>
+    <section class="tool" id="about-pane" hidden>
+      <p class="hint">RF919 Companion is unofficial; not affiliated with or endorsed by Raddy. Station data from
+        <a href="https://www.radiomap.cl/" target="_blank" rel="noopener">radiomap.cl</a>, shortwave schedules from EiBi, flags from flag-icons.</p>
+      <p class="note" id="info-src" hidden></p>
+    </section>
     <section class="tool" id="sched-pane" hidden><div id="sched-body"></div></section>
     <section class="tool" id="prop-pane" hidden><div id="prop-body"></div></section>
     <!-- Connect in a browser without Web Bluetooth (more.js startBle): what to use instead -->

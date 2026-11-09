@@ -137,7 +137,7 @@ function rowHtml(e) {
 
 export function renderLog() {
   const now = Date.now(), all = logbook.entries, today = all.filter((e) => dayOf(e.start) === dayOf(now)).length;
-  $("log-total").textContent = all.length ? `Today · ${today}` : "";
+  $("log-total").textContent = all.length ? `Today · ${today} · UTC` : "";
   // Filters: All, Starred, then the bands in the log; a frequency picked from its card shows as a chip to clear
   const bands = [...new Set(all.map((e) => e.band).filter(Boolean))];
   if (!["all", "star", ...bands].includes(lf.filter)) lf.filter = "all";
@@ -145,7 +145,7 @@ export function renderLog() {
   $("log-filter").innerHTML = `<legend>Show</legend>` + chip("all", "All") + chip("star", "Starred") + bands.map((b) => chip(b, `${bandIco(b)}${b}`)).join("") +
     (lf.k != null ? `<button class="chip" type="button" data-log="unk" aria-label="Show every frequency">${fmtKHz(lf.k)} ✕</button>` : "");
   $("log-filter").hidden = !all.length;
-  $("log-export").hidden = !all.length;
+  $("log-menu").hidden = !all.length;
   const list = shownEntries();
   if (!all.length) {
     $("log-list").innerHTML = `<div class="panel empty-row"><b>Nothing logged yet</b><span>Stay on a frequency for 30 seconds and it's ` +
@@ -154,11 +154,11 @@ export function renderLog() {
     return;
   }
   if (!list.length) { $("log-list").innerHTML = `<div class="panel empty-row"><b>Nothing here</b><span>No entry matches this filter.</span></div>`; return; }
-  // Newest first, a panel per UTC day
+  // Newest first, one list with a heading per UTC day that stays in view
   const days = new Map();
   for (const e of [...list].reverse()) { const d = dayOf(e.start); if (!days.has(d)) days.set(d, []); days.get(d).push(e); }
-  $("log-list").innerHTML = [...days].map(([d, es]) => `<section class="panel list-panel log-day" aria-label="${dayLabel(d, now)}">` +
-    `<h2 class="h log-day-h"><span>${dayLabel(d, now)}</span><span>${es.length}</span></h2><ul class="list">${es.map(rowHtml).join("")}</ul></section>`).join("");
+  $("log-list").innerHTML = `<div class="panel list-panel log-days">` + [...days].map(([d, es]) => `<section class="log-day" aria-label="${dayLabel(d, now)}">` +
+    `<h2 class="h log-day-h"><span>${dayLabel(d, now)}</span><span>${es.length}</span></h2><ul class="list">${es.map(rowHtml).join("")}</ul></section>`).join("") + `</div>`;
 }
 
 // "Logged 3× · last yesterday" under a frequency's name (Radio and Explore); a tap opens the Log on it
@@ -202,7 +202,6 @@ export function init() {
     const b = e.target.closest("[data-log]");
     if (!b) return;
     const act = b.dataset.log;
-    if (act === "csv" || act === "adif") { exportLog(act); return; }
     if (act === "unk") { lf.k = null; renderLog(); return; }
     const entry = logbook.entries.find((x) => x.id === b.dataset.id);
     if (!entry) return;
@@ -213,6 +212,8 @@ export function init() {
       toast(`Deleted ${entry.station || fmtKHz(entry.k)}`, 5000, false, {label: "Undo", run: () => { logbook.restore(r); saveSoon(); renderLog(); }});
     }
   });
+  // Export lives in the ⋯ sheet, outside the view
+  $("log-export").addEventListener("click", (e) => { const b = e.target.closest("[data-log]"); if (b) exportLog(b.dataset.log); });
   swipeRows($("log-list"));
   // The meter: the reading under the finger or the pointer
   const sig = $("sig");

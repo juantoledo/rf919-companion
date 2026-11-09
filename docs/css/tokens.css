@@ -67,7 +67,6 @@
   --font-mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
   --font-display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", sans-serif;
   --font-freq: "Goldman", var(--font-display);
-  --fs-large-title: 2.125rem;  /* 34: a view's title, before it scrolls away (iOS large title) */
   --fs-title: 1.375rem;        /* 22: sheet titles */
   --fs-headline: 1.0625rem;    /* 17: the compact title bar, row titles */
   --fs-lead: 1.125rem;
@@ -78,6 +77,8 @@
 
   /* ---- space, shape, depth ---- */
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  --stack: clamp(8px, 1.5dvh, 12px);  /* the gap between a view's blocks: tighter on a short screen */
+  --panel-pad: var(--s3);             /* inside a card; roomier once there's width to spare (app.css) */
   --r1: 8px; --r2: 12px; --r3: 20px; --r4: 28px; --round: 999px;
   --shadow-float: 0 10px 34px rgba(5, 15, 30, .5);
   --flag-opacity: .3;

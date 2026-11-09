@@ -32,7 +32,12 @@ const settled = () => page.waitForFunction(() => !document.documentElement.class
 // The tools of Memories and More open in one sheet; a modal sheet has to close before the page behind takes taps
 const toolsOpen = () => E(() => document.getElementById("tools").open);
 const closeTool = async () => { if (await toolsOpen()) { await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open); } };
-const tool = async (id) => { await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction(() => document.getElementById("tools").open); };
+// Memories' tools are behind its ⋯, the first step of the same sheet
+const MENUED = ["mem-fresh", "mem-backup", "mem-textbox", "mem-sw", "mem-near"];
+const menu = async (id) => { await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction((id) => document.getElementById("tools").open && !document.getElementById(id).hidden, id); };
+const tool = async (id) => { if (MENUED.includes(id)) await menu("mem-menu"); else await closeTool(); await page.click(`[data-tool="${id}"]`); await page.waitForFunction((id) => document.getElementById("tools").open && !document.getElementById(id).hidden, id); };
+// Under the card, one of Schedule / Stations / Nearby shows at a time
+const pane = async (id, p = page) => { await p.waitForSelector(`#info-seg input[value="${id}"]`, {state: "attached", timeout: 15000}); await p.click(`#info-seg label:has(input[value="${id}"])`); await p.waitForFunction((id) => !document.getElementById(id).hidden, id); };
 const mode = () => E(() => document.getElementById("view-explore").dataset.mode);
 const atHome = () => page.waitForFunction(() => location.hash === "#explore" && document.getElementById("view-explore").dataset.mode === "home" && !document.documentElement.classList.contains("vt-run"));
 const visibleView = () => E(() => [...document.querySelectorAll(".view")].filter((v) => !v.hidden).map((v) => v.dataset.view).join());
@@ -229,7 +234,9 @@ assert.deepEqual(await E(() => {
   return [...after, document.querySelectorAll(".log-row").length];
 }), [nLog - 1, "Undo", nLog]);
 ok("the Log: an entry named from radiomap.cl, with its best signal; star it; ✕ deletes and Undo brings it back");
+await menu("log-export");
 const [adi] = await Promise.all([page.waitForEvent("download"), page.click('#log-export [data-log="adif"]')]);
+await closeTool();
 assert.match(adi.suggestedFilename(), /^rf919-log-\d{8}\.adi$/);
 assert.match(fs.readFileSync(await adi.path(), "utf8"), /<FREQ:6>11\.620 .*<SWL:1>Y .*<EOR>/);
 ok("the Log exports ADIF for logbook programs");
@@ -247,8 +254,9 @@ ok("a row opens its frequency on Explore; its card says Logged once, which opens
 await tab("more");
 assert.equal(await E(() => getComputedStyle(document.querySelector('#tabbar [aria-current="page"]')).color), "rgb(0, 98, 204)");
 assert.match(await E(() => getComputedStyle(document.getElementById("tabbar")).backdropFilter), /blur\(20px\)/);
+await page.setViewportSize({width: 390, height: 520});  // More fits a tall phone now: a short screen still scrolls it
 await E(() => window.scrollTo(0, 0)); await page.waitForTimeout(100);
-await page.mouse.move(195, 400); await page.mouse.wheel(0, 700);
+await page.mouse.move(195, 300); await page.mouse.wheel(0, 700);
 await page.waitForFunction(() => document.body.classList.contains("bars-min"));
 await page.waitForTimeout(450);  // the bars settle
 { const tb = await page.locator("#tabbar").boundingBox(), rb = await page.locator("#radiobar").boundingBox(), sb = await page.locator("#tab-search").boundingBox();
@@ -257,6 +265,7 @@ await page.waitForTimeout(450);  // the bars settle
 await page.click('#tabbar [aria-current="page"]');
 await page.waitForFunction(() => !document.body.classList.contains("bars-min"));
 assert.equal(await visibleView(), "more");
+await page.setViewportSize({width: 390, height: 844});
 ok("scrolled down, the tab bar shrinks to its current tab and the mini player rides beside it; a tap brings it back");
 await page.click("#tab-search");
 await page.waitForFunction(() => !document.getElementById("view-explore").hidden && document.activeElement.id === "q"); await settled();
@@ -351,13 +360,13 @@ await page.click('[data-mem="store"]'); await done();
 await page.click('[data-mem="check"]'); await done();
 assert.deepEqual(await E(() => [mem.check.n, mem.check.ok]), [2, 2]);
 ok("Store 2 + Check 2 on AIR");
-await page.click('[data-mem="clear"]');
+await menu("mem-menu"); await page.click('[data-mem="clear"]'); await page.waitForFunction(() => !document.getElementById("tools").open);
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
 await page.click("#toast-act");  // Undo
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 2);
 await page.click('#mem-list .mem-row:first-child .mr-del');
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 1);
-await page.click('[data-mem="clear"]');
+await menu("mem-menu"); await page.click('[data-mem="clear"]'); await page.waitForFunction(() => !document.getElementById("tools").open);
 assert.equal(await E(() => mem.list.filter((e) => e.band === "AIR").length), 0);
 ok("Clear the AIR list, then Undo from the snackbar; ✕ removes one row");
 await tool("mem-fresh");
@@ -555,15 +564,16 @@ await page.waitForFunction(() => view.data);
 // 9580 carries a long schedule (11 entries in EiBi B26); Near me (on since its check) would hide some of them
 await page.goto(URL + "#f=9580"); await page.waitForFunction(() => view.k === 9580 && view.data, null, {timeout: 15000});
 if (await page.getAttribute('#dossier [data-act="nearme"]', "aria-pressed") === "true") await page.click('#dossier [data-act="nearme"]');
-await page.waitForSelector('#dossier [data-act="sched"]');
-assert.equal(await page.locator("#dossier .slots tr").count(), 4);
+await page.waitForSelector('#sched-box [data-act="sched"]', {state: "attached"});
+await pane("sched-box");
+assert.equal(await page.locator("#sched-box .slots tr").count(), 3);
 assert.equal(await E(() => [...document.querySelectorAll("#dossier *")].some((el) => el.scrollHeight > el.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(el).overflowY))), false);
-await page.click('#dossier [data-act="sched"]');
+await page.click('#sched-box [data-act="sched"]');
 await page.waitForFunction(() => document.getElementById("tools").open && !document.getElementById("sched-pane").hidden);
-assert.ok(await page.locator("#sched-body tr").count() > 4);
+assert.ok(await page.locator("#sched-body tr").count() > 3);
 assert.match(await page.textContent("#tools-title"), /^Schedule · 9580 kHz/);
 await page.keyboard.press("Escape"); await page.waitForFunction(() => !document.getElementById("tools").open);
-ok("the card shows 4 slots and no scrolling box; Full schedule opens all of them in the sheet");
+ok("the Schedule tab shows 3 slots and no scrolling box; Full schedule opens all of them in the sheet");
 const kp = await E(() => view.k);
 await E(() => localStorage.setItem("rf919.pinned", "[]"));  // the pins the checks above started with
 await page.click('#dossier [data-act="pin"]');
@@ -571,12 +581,23 @@ assert.equal(await page.getAttribute('#dossier [data-act="pin"]', "aria-pressed"
 await page.click('#dossier [data-act="share"]');
 await page.waitForFunction(() => /Link copied|#f=\d+/.test(document.getElementById("toast-text").textContent));
 ok("Share: no share sheet here, so the link is copied (or shown)");
-await page.waitForSelector("#nearby [data-go]", {timeout: 15000});
+await page.waitForSelector("#nearby [data-go]", {state: "attached", timeout: 15000});
+await pane("nearby");
 const kNear = +await page.getAttribute("#nearby [data-go]", "data-go"), h1 = await E(() => history.length);
 await page.click("#nearby [data-go]");
 await page.waitForFunction((k) => view.k === k && location.hash === `#f=${k}`, kNear);
 assert.equal(await E(() => history.length), h1);
 ok("a Nearby card opens its frequency in place (no new history entry)");
+// The tabs under the card: the choice stays across frequencies; a tab with nothing to show goes
+assert.equal(await E(() => localStorage.getItem("rf919.infopane")), '"nearby"');
+assert.equal(await page.locator("#nearby").isVisible(), true);
+assert.equal(await E(() => ["sched-box", "stations", "nearby"].filter((id) => !document.getElementById(id).hidden).length), 1);
+await E(() => { const box = document.getElementById("nearby"), html = box.innerHTML; window.__near = html; box.innerHTML = ""; syncPanes(); });
+assert.equal(await page.locator('#info-seg input[value="nearby"]').count(), 0);
+assert.equal(await page.locator("#nearby").isHidden(), true);
+await E(() => { document.getElementById("nearby").innerHTML = window.__near; syncPanes(); });
+assert.equal(await page.locator("#nearby").isVisible(), true);
+ok("the tabs under the card: one pane at a time, the choice remembered, no tab for an empty pane");
 await page.click('#tabbar [data-tab="explore"]'); await atHome();
 ok("tapping Explore's tab in the detail goes back to its home");
 await page.goto(URL + `#f=${kp}`); await page.reload(); await page.waitForFunction((k) => view.k === k, kp);
@@ -678,7 +699,10 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
 
   // A station change keeps the page where it is: scrolled to the bottom, ▶ doesn't jump it to the top, the dock doesn't
   // move and the signal tiles stay (they used to go until the next reading)
-  await p.waitForFunction(() => view.data && view.near.length && document.documentElement.scrollHeight > innerHeight + 300, null, {timeout: 15000});
+  // (Radio fits a tall phone now: a short screen still scrolls)
+  const vp0 = p.viewportSize();
+  await p.setViewportSize({width: 390, height: 480});
+  await p.waitForFunction(() => view.data && view.near.length && document.documentElement.scrollHeight > innerHeight + 150, null, {timeout: 15000});
   await PE(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(300);
   { const dock0 = await p.locator("#radio-controls").boundingBox(), y0 = await PE(() => scrollY);
     assert.ok(y0 > 100, `scrolled to ${y0}`);
@@ -698,6 +722,7 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
     await p.click('#radio-controls [data-key="DOWN"]');  // back where it was, for the checks after
     await p.waitForFunction((k) => toKHz(waiters.freq) === k, k0); }
   await PE(() => window.scrollTo(0, 0));
+  await p.setViewportSize(vp0);
   ok("a station change keeps the scroll, the dock in place and the signal tiles");
 
   await PE(() => link.press("BAND"));
@@ -790,6 +815,7 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
   assert.match(await p.getAttribute("#dossier .bar", "aria-label"), /^Reception estimate for today, UTC: /);
   assert.equal(await p.locator("#dossier .prop-key span").count(), 3);
   await p.waitForFunction(() => document.querySelector("#nearby .prop-bars"), null, {timeout: 15000});
+  await pane("nearby", p);
   assert.match(await p.getAttribute("#nearby .near-row", "aria-label"), /, reception (likely|possible|unlikely)$/);
   await p.screenshot({path: path.join(OUT, "reception-dossier.png"), fullPage: true});
   await p.click(badge);
