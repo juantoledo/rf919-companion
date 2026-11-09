@@ -3,7 +3,8 @@ import {haversineKm} from "./radiomap.js";
 // ---- Reception estimate: can this station reach the listener now? ----
 // No DOM. A deliberately simple model (solar flux, sun angle along the path, hops, where the broadcast is aimed), far
 // short of VOACAP: the data has no transmitter power and it knows neither the antenna nor the local noise. Its
-// coefficients are rough, so the page always calls the result an estimate
+// coefficients are rough, so the page always calls the result an estimate. FOF2_CURVE is fitted to measurements, and
+// tests/fixtures/propagation-calibration.json checks it and the MUF against them
 export const HF_MAX = 30000;   // kHz. Above it reception is line of sight and solar data doesn't drive it: no estimate
 export const MW_MAX = 1800;    // kHz. Below it: ground wave by day, sky wave at night, and no MUF to speak of
 export const TIERS = {
@@ -45,8 +46,17 @@ export function geomagLat(p) {
   return Math.asin(Math.max(-1, Math.min(1, sin))) / RAD;
 }
 
-// The F2 layer's critical frequency in MHz: rises with the sun's height and the solar flux, with a floor at night
-const foF2 = (c, sfi) => Math.max(0.28 * Math.sqrt(sfi), 0.55 * Math.sqrt(sfi) * (0.45 + 0.55 * Math.sqrt(Math.max(0, c))));
+// foF2 / √SFI against the sun's height (cos zenith): the medians of a week of ionosonde readings (Nov 2026, 20 stations
+// away from the auroral zones, SFI 97–128). Flat through the night, climbing through twilight, levelling off by mid-morning
+const FOF2_CURVE = [[-.3, .36], [0, .58], [.3, .79], [.6, .87], [1, .89]];
+// The F2 layer's critical frequency in MHz
+export function foF2(c, sfi) {
+  const i = FOF2_CURVE.findIndex(([x]) => c < x), root = Math.sqrt(sfi);
+  if (i === 0) return FOF2_CURVE[0][1] * root;
+  if (i < 0) return FOF2_CURVE.at(-1)[1] * root;
+  const [x0, y0] = FOF2_CURVE[i - 1], [x1, y1] = FOF2_CURVE[i];
+  return (y0 + (y1 - y0) * (c - x0) / (x1 - x0)) * root;
+}
 // The secant law for a layer 300 km up; the earth's curve caps it at about 3.2 on a long hop
 const mFactor = (hopKm) => Math.min(3.2, Math.hypot(1, hopKm / 600));
 const absorbK = (c, sfi) => c > 0 ? 677 * c ** .75 * (1 + .0037 * (sfi - 70)) : 0;
@@ -106,6 +116,46 @@ export function bestRange(pos, wx, t) {
   return {lo, hi: Math.max(lo, Math.round(.9 * foF2(c, wx.sfi) * 3.2))};
 }
 
+// ---- the band-by-hour grid (Explore's Conditions sheet) ----
+// One real transmitter site per part of the world: where a broadcast aimed at the listener could come from
+export const GRID_PATHS = [
+  {id: "nam", label: "N. America", lat: 27.46, lon: -80.93},
+  {id: "sam", label: "S. America", lat: -23.5, lon: -46.6},
+  {id: "eur", label: "Europe", lat: 52.65, lon: 12.91},
+  {id: "afr", label: "Africa", lat: -18.75, lon: 47.5},
+  {id: "asi", label: "Asia", lat: 35.83, lon: 126.83},
+  {id: "oce", label: "Oceania", lat: -38.84, lon: 176.4},
+];
+const TIER_RANK = {likely: 2, possible: 1, unlikely: 0};
+// bands: [[name, loKHz, hiKHz]…]; wxAt(t): the solar data for a moment. The first column is the present, the others the
+// middle of their hour. A cell says what at least half of the paths reach, so that one nearby region can't colour the whole
+// grid: {tier, score, muf, reasons (of the path at that half), path, open (the ids of the paths not unlikely)}, or null with no estimate.
+export function bandGrid({rx, bands, paths = GRID_PATHS, now, hours = 24, wxAt}) {
+  const start = Math.floor(now / HOUR) * HOUR, times = Array.from({length: hours}, (_, i) => i ? start + (i + .5) * HOUR : now);
+  const wxs = times.map(wxAt);
+  const rows = bands.map(([name, lo, hi]) => ({name, kHz: (lo + hi) / 2, cells: times.map((t, i) => {
+    const ranked = paths.flatMap((p) => {
+      const e = estimate({kHz: (lo + hi) / 2, rx, tx: p, t, now: t, wx: wxs[i], aimed: true});
+      return e ? [{p, e}] : [];
+    }).sort((a, b) => TIER_RANK[b.e.tier] - TIER_RANK[a.e.tier] || b.e.score - a.e.score);
+    if (!ranked.length) return null;
+    const {p, e} = ranked[Math.min(Math.ceil(paths.length / 2), ranked.length) - 1];
+    return {tier: e.tier, score: e.score, muf: e.muf, reasons: e.reasons, path: p.id, open: ranked.filter((x) => x.e.tier !== "unlikely").map((x) => x.p.id)};
+  })}));
+  return {start, hours, times, sun: times.map((t) => cosZenith(rx, t)), rows};
+}
+const openIn = (row, i) => row.cells[i] && row.cells[i].tier === "likely";
+// In words: what's open now, and what opens next. {now: [band…], next: {band, col} | null}, the bands low to high
+export function gridSummary({rows, hours}) {
+  const now = rows.filter((r) => openIn(r, 0)).map((r) => r.name);
+  let next = null;
+  for (const r of rows) {
+    if (openIn(r, 0)) continue;
+    for (let i = 1; i < hours; i++) if (openIn(r, i)) { if (!next || i < next.col) next = {band: r.name, col: i}; break; }
+  }
+  return {now, next};
+}
+
 // What to suggest listening to, best first. rows: {k, key (the station, for keeping one frequency each), est, left (minutes
 // on the air still), aimed}. ranked: by the estimate, dropping what's unlikely; else there's no estimate to go on, so
 // what's aimed here comes first, then what stays on longest
@@ -158,14 +208,41 @@ export function parseScales(json) {
 }
 const FEEDS = [["sfi", "products/summary/10cm-flux.json", parseFlux], ["kp", "products/noaa-planetary-k-index.json", parseKp], ["r", "products/noaa-scales.json", parseScales]];
 
+// ---- what NOAA expects: 3-hourly Kp, the odds of a blackout, and a month of solar flux ----
+// Each is [] when it can't be read, so a change of format costs the forecast and nothing else
+export function parseKpForecast(json) {
+  if (!Array.isArray(json)) return [];
+  return json.filter((x) => x && x.observed !== "observed").map((x) => reading("kp", num(x.kp), utc(x.time_tag))).filter(Boolean);
+}
+// The days ahead in noaa-scales.json ("1" is today): {at (the day, ms), minor, major (% chance of R1–R2 and of R3 or worse)}
+export function parseRisk(json) {
+  if (!json || typeof json !== "object") return [];
+  return ["1", "2", "3"].flatMap((d) => {
+    const x = json[d], at = x ? utc(`${x.DateStamp}T00:00:00`) : NaN, minor = x && x.R ? num(x.R.MinorProb) : NaN, major = x && x.R ? num(x.R.MajorProb) : NaN;
+    return Number.isFinite(at) && Number.isFinite(minor) && Number.isFinite(major) ? [{at, minor, major}] : [];
+  });
+}
+// SWPC's 27-day table, in text: "2026 Nov 09     125          15          4"
+const MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
+export function parseOutlook(text) {
+  if (typeof text !== "string") return [];
+  return [...text.matchAll(/^(\d{4}) ([A-Z][a-z]{2}) (\d{2})\s+(\d+)\s+\d+\s+\d+\s*$/gm)].flatMap(([, y, m, d, flux]) => {
+    const month = MONTHS.indexOf(m), sfi = +flux;
+    return month >= 0 && inRange("sfi", sfi) ? [{at: Date.UTC(+y, month, +d), sfi}] : [];
+  });
+}
+const FORECAST_REFRESH = 6 * HOUR, NEAR_NOW = 3 * HOUR;
+const FORECASTS = [["kp", "products/noaa-planetary-k-index-forecast.json", parseKpForecast, "json"], ["risk", "products/noaa-scales.json", parseRisk, "json"], ["flux", "text/27-day-outlook.txt", parseOutlook, "text"]];
+
 export class SpaceWeather {
   // load() / save(state): the cached readings. onChange(): a value changed, not merely the time it was read
   constructor({base = SWPC, load = () => null, save = () => {}, onChange = () => {}} = {}) {
-    Object.assign(this, {base, save, onChange, state: {}, tried: 0, busy: null});
+    Object.assign(this, {base, save, onChange, state: {}, tried: 0, forecastTried: 0, busy: null});
     const s = load();
     if (s && typeof s === "object") {
       for (const key of Object.keys(RANGE)) if (s[key] && reading(key, s[key].v, s[key].at)) this.state[key] = {v: s[key].v, at: s[key].at};
       if (Number.isFinite(s.fetched)) this.state.fetched = s.fetched;
+      if (s.forecast && typeof s.forecast === "object") this.state.forecast = Object.fromEntries(FORECASTS.map(([key]) => [key, Array.isArray(s.forecast[key]) ? s.forecast[key] : []]));
     }
   }
 
@@ -174,6 +251,21 @@ export class SpaceWeather {
     const fresh = (key) => { const x = this.state[key]; return x && now - x.at <= WX_TTL[key] ? x.v : null; };
     const sfi = fresh("sfi"), kp = fresh("kp");
     return sfi === null ? null : {sfi, kp: kp ?? QUIET_KP, kpKnown: kp !== null, r: fresh("r") ?? 0, fetched: this.state.fetched ?? null};
+  }
+
+  // The solar data for a moment, as estimate() takes it. Around the present, what's measured. Further ahead, the forecast
+  // where there is one; blackouts only come as odds, so they aren't counted. Behind the present, a quiet sun
+  at(t, now = Date.now()) {
+    const wx = this.current(now);
+    if (!wx || Math.abs(t - now) <= NEAR_NOW) return wx;
+    const quiet = {...wx, kp: QUIET_KP, kpKnown: false, r: 0};
+    if (t < now || !this.state.forecast) return quiet;
+    const {kp = [], flux = []} = this.state.forecast, slot = kp.find((x) => t >= x.at && t < x.at + NEAR_NOW), day = flux.find((x) => t >= x.at && t < x.at + DAY);
+    return {...quiet, ...(slot ? {kp: slot.v, kpKnown: true} : {}), ...(day ? {sfi: day.sfi} : {})};
+  }
+  // The odds of a radio blackout on the UTC day of now, or null when they aren't known
+  risk(now = Date.now()) {
+    return ((this.state.forecast || {}).risk || []).find((x) => now >= x.at && now < x.at + DAY) || null;
   }
 
   due(now = Date.now()) { return now - Math.max(this.tried, this.state.fetched || 0) >= WX_REFRESH; }
@@ -198,9 +290,29 @@ export class SpaceWeather {
       if (!old || old.v !== x.v) changed = true;
       this.state[key] = x;
     });
-    if (!got) return;
-    this.state.fetched = now;
-    this.save(this.state);
-    if (changed) this.onChange();
+    let foreseen = false;
+    if (now - this.forecastTried >= FORECAST_REFRESH) {
+      this.forecastTried = now;
+      foreseen = await this.loadForecast();
+    }
+    if (got) this.state.fetched = now;
+    if (got || foreseen) this.save(this.state);
+    if (changed || foreseen) this.onChange();
+  }
+  // true when something changed. Whatever can't be read keeps its last value
+  async loadForecast() {
+    const results = await Promise.allSettled(FORECASTS.map(async ([, path, parse, type]) => {
+      const r = await fetch(this.base + path);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return parse(await r[type]());
+    }));
+    const old = this.state.forecast || {}, next = {...old};
+    FORECASTS.forEach(([key], i) => {
+      const x = results[i].status === "fulfilled" ? results[i].value : [];
+      next[key] = x.length ? x : old[key] || [];
+    });
+    if (JSON.stringify(next) === JSON.stringify(old) || !Object.values(next).some((x) => x.length)) return false;
+    this.state.forecast = next;
+    return true;
   }
 }

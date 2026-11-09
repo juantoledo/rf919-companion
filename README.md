@@ -100,7 +100,14 @@ JSON API, `api/v1/freq/{kHz}.json`). It works with or without the radio:
   where the broadcast is aimed. Tap the badge on a station for the reasons; the **Today** bar is tinted by the same
   estimate, and Discover can sort by **Best first**. It needs your location, and asks once on Explore
   (**Show reception estimates**). NOAA's requests carry no location: the estimate is worked out in the browser. It's a
-  simple model that doesn't know the transmitter's power, your antenna or the local noise, so take it as a hint.
+  simple model that doesn't know the transmitter's power, your antenna or the local noise, so take it as a hint. How the
+  ionosphere responds to the sun is fitted to a week of real ionosonde readings
+  ([`tests/fixtures/propagation-calibration.json`](tests/fixtures/propagation-calibration.json) keeps a sample to check against).
+- **Conditions**: tap the solar line on Explore's home for a grid of the shortwave meter bands over the next 24 hours, starting
+  now, with day and night where you are. **Worldwide** shows what at least half of six regions could reach you with; a chip narrows
+  it to one region. Tap or drag a cell (or use the arrow keys) to read it, then **Who's on** opens that band in Discover, and on a later hour
+  **Remind** tells you when it should open, as long as the page is open. It also shows NOAA's forecast: a storm expected in the next
+  day, today's odds of a radio blackout, and the solar flux for the days ahead, which later hours of every estimate use. Local time or UTC.
 
 ### The radio's controls
 

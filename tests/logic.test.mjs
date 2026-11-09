@@ -1,6 +1,7 @@
 // Logic checks for the RF919 Companion: protocol frames, memory lists, the store/recall sequences against the
 // simulated radio, backup text, EiBi targets. Run: npm test (or node --test tests/)
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import * as protocol from "../docs/js/protocol.js";
 import * as radiomap from "../docs/js/radiomap.js";
 import * as memories from "../docs/js/memories.js";
@@ -789,7 +790,8 @@ ok("Logbook: No radio's entries are their own (never joined with a radio's), tag
     assert.equal(est(6000, 4).tier, "likely");
     assert.equal(est(15400, 16).tier, "likely");
     assert.equal(est(15400, 4).tier, "unlikely");   // above the night's MUF
-    assert.equal(est(21500, 16).tier, "unlikely");
+    assert.equal(est(21500, 16).tier, "likely");    // 3,700 km at midday: the measured F2 layer carries 13 m
+    assert.equal(est(27000, 16, {wx: {...wx, sfi: 75}}).tier, "unlikely");   // a quiet sun closes it
     assert.ok(est(6000, 16).absorption > est(15400, 16).absorption);
     assert.equal(est(6000, 4).absorption, 0);
     assert.ok(est(6000, 16).muf > est(6000, 4).muf);
@@ -921,6 +923,104 @@ ok("Logbook: No radio's entries are their own (never joined with a radio's), tag
     assert.equal(s.state.fetched, fetched, "nothing read: not counted as fetched");
     globalThis.fetch = realFetch;
     ok("reception: a refresh merges what it could read and only reports real changes", () => {});
+  }
+  {
+    const cal = JSON.parse(fs.readFileSync(new URL("./fixtures/propagation-calibration.json", import.meta.url), "utf8"));
+    ok("reception: foF2 follows a week of ionosonde readings", () => {
+      const errs = cal.ionosonde.map(([, , fof2, sfi, c]) => P.foF2(c, sfi) - fof2), mean = errs.reduce((a, b) => a + b, 0) / errs.length;
+      const rmse = Math.sqrt(errs.reduce((a, b) => a + b * b, 0) / errs.length);
+      assert.ok(cal.ionosonde.length > 400);
+      assert.ok(Math.abs(mean) < .5, `bias ${mean}`);
+      assert.ok(rmse < 1.7, `rmse ${rmse}`);
+      assert.ok(P.foF2(-.9, 127) === P.foF2(-.3, 127), "flat through the night");
+      assert.ok(P.foF2(0, 127) > P.foF2(-.3, 127) && P.foF2(.5, 127) > P.foF2(0, 127), "rises with the sun");
+      assert.ok(P.foF2(.5, 200) > P.foF2(.5, 100), "and with the flux");
+    });
+    ok("reception: broadcasters' real schedules fall under the MUF on the bands the model can judge", () => {
+      const above = {}, n = {}, skip = new Set(["15m"]);  // too few broadcasts in the sample
+      for (const [m, kHz, h, tlat, tlon, rlat, rlon] of cal.broadcasts) {
+        const t = Date.UTC(2026, 10, 9) + h * HOUR, e = P.estimate({kHz, rx: {lat: rlat, lon: rlon}, tx: {lat: tlat, lon: tlon}, t, now: t + 1e9, wx: {sfi: 128, kp: 2, r: 0}, aimed: true});
+        if (!e || e.muf == null) continue;
+        n[m] = (n[m] || 0) + 1;
+        if (kHz / 1000 / e.muf > 1.05) above[m] = (above[m] || 0) + 1;
+      }
+      const limit = {"49m": .15, "41m": .15, "31m": .2, "25m": .25, "22m": .45, "19m": .6, "16m": .55, "13m": .55};
+      for (const [m, c] of Object.entries(n)) if (!skip.has(m)) assert.ok((above[m] || 0) / c <= limit[m], `${m}: ${above[m]} of ${c} above the MUF`);
+    });
+  }
+  {
+    const KP = [{time_tag: "2026-11-08T12:00:00", kp: 3, observed: "observed"}, {time_tag: "2026-11-08T15:00:00", kp: 4, observed: "estimated"},
+      {time_tag: "2026-11-08T18:00:00", kp: 6, observed: "predicted"}, {time_tag: "2026-11-08T21:00:00", kp: "bad", observed: "predicted"}];
+    const SC = {"0": {R: {Scale: "0"}}, "1": {DateStamp: "2026-11-08", R: {MinorProb: "60", MajorProb: "15"}}, "2": {DateStamp: "2026-11-09", R: {MinorProb: null}}, "3": {DateStamp: "x", R: {MinorProb: "1", MajorProb: "1"}}};
+    const TXT = "# head\n#  Date\n2026 Nov 09     125          15          4\n2026 Nov 10     140          10          3\n2026 Foo 11     120          10          3\n2026 Nov 12     900          10          3\n";
+    ok("reception: NOAA's forecasts are read, and what's malformed is left out", () => {
+      deq(P.parseKpForecast(KP), [{v: 4, at: Date.UTC(2026, 10, 8, 15)}, {v: 6, at: Date.UTC(2026, 10, 8, 18)}]);
+      deq(P.parseRisk(SC), [{at: Date.UTC(2026, 10, 8), minor: 60, major: 15}]);
+      deq(P.parseOutlook(TXT), [{at: Date.UTC(2026, 10, 9), sfi: 125}, {at: Date.UTC(2026, 10, 10), sfi: 140}]);
+      for (const bad of [null, {}, "x", 3]) { deq(P.parseKpForecast(bad), []); deq(P.parseRisk(bad === "x" ? null : bad), []); }
+      deq(P.parseOutlook(null), []);
+    });
+    ok("reception: a moment's solar data: measured near now, the forecast later, a quiet sun before", () => {
+      const now = at(14), s = new P.SpaceWeather({load: () => ({sfi: {v: 127, at: now - HOUR}, kp: {v: 2, at: now - HOUR}, r: {v: 1, at: now - 60000},
+        forecast: {kp: [{v: 6, at: at(18)}], risk: [{at: DAY0, minor: 60, major: 15}], flux: [{at: DAY0 + 24 * HOUR, sfi: 140}]}})});
+      deq(s.at(now + HOUR, now), s.current(now));
+      const storm = s.at(at(19), now);
+      assert.equal(storm.kp, 6); assert.equal(storm.kpKnown, true); assert.equal(storm.r, 0, "the odds of a blackout aren't a blackout"); assert.equal(storm.sfi, 127);
+      assert.equal(s.at(at(26), now).sfi, 140);
+      assert.equal(s.at(at(26), now).kpKnown, false);
+      assert.equal(s.at(at(2), now).kp, 2); assert.equal(s.at(at(2), now).r, 0);
+      assert.equal(new P.SpaceWeather().at(now, now), null);
+      deq(s.risk(now), {at: DAY0, minor: 60, major: 15});
+      assert.equal(s.risk(at(30)), null);
+    });
+    ok("reception: the grid has a cell per band and hour, starts at the present and says what half the regions reach", () => {
+      const now = at(14) + 20 * 60000, seen = [], bands = [["41m", 7200, 7600], ["19m", 15100, 15800]];
+      const g = P.bandGrid({rx: RX, bands, now, wxAt: (t) => { seen.push(t); return wx; }});
+      assert.equal(g.rows.length, 2); assert.equal(g.rows[0].cells.length, 24); assert.equal(g.sun.length, 24);
+      assert.equal(seen[0], now, "the first column is the present");
+      assert.equal(seen[1], at(15) + HOUR / 2, "the others the middle of their hour");
+      assert.equal(g.start, at(14));
+      const one = (id) => P.bandGrid({rx: RX, bands, now, wxAt: () => wx, paths: P.GRID_PATHS.filter((p) => p.id === id)});
+      const RANK = {likely: 2, possible: 1, unlikely: 0};
+      g.rows.forEach((r, b) => r.cells.forEach((c, i) => {
+        const alone = P.GRID_PATHS.map((p) => ({id: p.id, ...one(p.id).rows[b].cells[i]})), third = alone.map((x) => RANK[x.tier]).sort((m, n) => n - m)[2];
+        assert.equal(RANK[c.tier], third, "the third of six regions decides");
+        deq([...c.open].sort(), alone.filter((x) => x.tier !== "unlikely").map((x) => x.id).sort());
+      }));
+      deq(one("eur").rows[0].cells[0].path, "eur");
+      assert.ok(one("eur").rows[0].cells[0].reasons[0].startsWith("MUF"));
+      deq(P.bandGrid({rx: RX, bands, now, wxAt: () => null}).rows[0].cells[0], null);
+    });
+    ok("reception: the grid's summary says what's open and what opens next", () => {
+      const row = (name, tiers) => ({name, cells: [...tiers].map((c) => c === "-" ? null : {tier: {L: "likely", P: "possible", U: "unlikely"}[c]})});
+      const g = (...rows) => ({hours: rows[0].cells.length, rows});
+      deq(P.gridSummary(g(row("49m", "LLU"), row("31m", "UUL"), row("19m", "PLU"))), {now: ["49m"], next: {band: "19m", col: 1}});
+      deq(P.gridSummary(g(row("49m", "UU-"))), {now: [], next: null});
+    });
+    {
+      const now = at(14), realFetch = globalThis.fetch;
+      let calls = 0, changes = 0, saved = null, fail = false;
+      globalThis.fetch = async (url) => {
+        calls++;
+        if (fail) throw new Error("offline");
+        const body = url.includes("forecast") ? KP : url.includes("scales") ? SC : url.includes("10cm") ? [{flux: 130, time_tag: "2026-11-08T12:00:00"}] : url.includes("planetary") ? [{Kp: 2, time_tag: "2026-11-08T12:00:00"}] : null;
+        return {ok: true, status: 200, json: async () => body, text: async () => TXT};
+      };
+      const s = new P.SpaceWeather({save: (v) => { saved = JSON.parse(JSON.stringify(v)); }, onChange: () => changes++});
+      await s.refresh(now);
+      assert.equal(calls, 6);
+      assert.equal(saved.forecast.kp.length, 2); assert.equal(saved.forecast.flux.length, 2);
+      assert.equal(changes, 1);
+      await s.refresh(now + 30 * 60000);
+      assert.equal(calls, 9, "forecasts aren't read at every refresh");
+      fail = true;
+      await s.refresh(now + 7 * HOUR);
+      assert.equal(s.state.forecast.kp.length, 2, "a failed read keeps the last forecast");
+      globalThis.fetch = realFetch;
+      deq(new P.SpaceWeather({load: () => saved}).state.forecast, saved.forecast);
+      assert.deepEqual(new P.SpaceWeather({load: () => ({forecast: {kp: "x"}})}).state.forecast, {kp: [], risk: [], flux: []});
+      ok("reception: forecasts are refreshed apart, kept when a read fails, and restored", () => {});
+    }
   }
 }
 console.log(`\n${n} checks passed`);

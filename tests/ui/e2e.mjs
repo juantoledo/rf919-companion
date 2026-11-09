@@ -877,6 +877,56 @@ ok("Discover: a meter band scan; Near me FM, nearest first; a row opens its freq
   assert.equal(await p.locator(badge).count(), 0);
   ok("reception: nothing above 30 MHz, where solar data doesn't decide");
 
+  await p.evaluate(() => { location.hash = "#explore"; });
+  await p.waitForFunction(() => document.getElementById("view-explore").dataset.mode === "home" && !document.documentElement.classList.contains("vt-run"));
+  await p.waitForSelector('#conds button[data-act="conds"]');
+  await p.click('#conds button[data-act="conds"]');
+  await p.waitForFunction(() => document.getElementById("tools").open && !document.getElementById("conds-pane").hidden);
+  assert.equal(await p.textContent("#tools-title"), "Conditions");
+  const bandCount = await p.locator("#pg .pg-b[data-row]").count();
+  assert.ok(bandCount >= 5, `${bandCount} bands`);
+  assert.equal(await p.locator("#pg i[data-x]").count(), bandCount * 24);
+  assert.equal(await p.locator("#pg i.sel").count(), 1);
+  assert.match(await p.textContent("#pg-read"), /· Now · (Likely|Possible|Unlikely)/);
+  assert.match(await p.textContent("#conds-head"), /SFI 127.*Kp 3\.33.*R0/s);
+  assert.equal(await p.locator('#pg-read [data-act="cond-remind"]').count(), 0, "nothing to be reminded of about the present");
+  assert.ok(await PE(() => document.getElementById("pg").getBoundingClientRect().right <= innerWidth), "the grid fits the phone");
+  assert.ok(await PE(() => { const b = document.querySelector("#tools .sheet-body"); return b.scrollWidth <= b.clientWidth; }), "the sheet doesn't scroll sideways");
+  await p.screenshot({path: path.join(OUT, "conditions.png")});
+  ok("conditions: the line on Explore opens a grid of bands by hour, starting at the present");
+
+  const open = await PE(() => { const c = [...document.querySelectorAll("#pg i.p-likely, #pg i.p-possible")].find((x) => +x.dataset.x > 0); return {x: c.dataset.x, y: c.dataset.y}; });
+  await p.locator(`#pg i[data-x="${open.x}"][data-y="${open.y}"]`).click();
+  assert.equal(await PE(() => { const s = document.querySelector("#pg i.sel"); return `${s.dataset.x},${s.dataset.y}`; }), `${open.x},${open.y}`);
+  assert.match(await p.textContent("#pg-read"), /\d\d:00 · (Likely|Possible).*Could reach you from \d of 6 regions/s);
+  await p.focus("#pg"); await p.keyboard.press("Home");
+  assert.equal(await PE(() => document.querySelector("#pg i.sel").dataset.x), "0");
+  await p.keyboard.press("ArrowRight");
+  assert.equal(await PE(() => document.querySelector("#pg i.sel").dataset.x), "1");
+  ok("conditions: tapping a cell or the arrow keys say what it means");
+
+  await p.click('#conds-tz label:has(input[value="utc"])');
+  await p.locator(`#pg i[data-x="${open.x}"][data-y="${open.y}"]`).click();
+  assert.match(await p.textContent("#pg-read"), /\d\d:00 UTC · /);
+  const before = await PE(() => document.getElementById("pg").innerHTML);
+  await p.click('#conds-paths label:has(input[value="asi"])');
+  assert.notEqual(await PE(() => document.getElementById("pg").innerHTML), before, "another part of the world, another grid");
+  assert.equal(await PE(() => localStorage.getItem("rf919.condpath")), '"asi"');
+  await p.click('#conds-paths label:has(input[value="all"])');
+  ok("conditions: UTC and the region are chosen and kept");
+
+  await p.locator(`#pg i[data-x="${open.x}"][data-y="${open.y}"]`).click();
+  await p.click('#pg-read [data-act="cond-remind"]');
+  assert.equal(await p.getAttribute('#pg-read [data-act="cond-remind"]', "aria-pressed"), "true");
+  assert.equal(await PE(() => JSON.parse(localStorage.getItem("rf919.reminders")).filter((r) => r.band).length), 1);
+  await p.click('#pg-read [data-act="cond-remind"]');
+  assert.equal(await PE(() => JSON.parse(localStorage.getItem("rf919.reminders")).filter((r) => r.band).length), 0);
+  const band = await PE(() => document.querySelector("#pg .pg-b.on").textContent);
+  await p.click('#pg-read [data-act="cond-band"]');
+  await p.waitForFunction(() => !document.getElementById("tools").open);
+  await p.waitForFunction((band) => document.querySelector("#disc-meters input:checked")?.value === band, band);
+  ok("conditions: a band can be reminded of, and Who's on opens it in Discover");
+
   await p.addInitScript(() => localStorage.removeItem("rf919.spacewx"));
   await p.route("**/services.swpc.noaa.gov/**", (route) => route.abort());
   await p.goto(URL + "#f=9580"); await p.reload();

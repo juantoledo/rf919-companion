@@ -548,6 +548,19 @@ export function toggleReminder(k, at) {
   saveReminders();
   renderDossier();
 }
+// From the Conditions sheet: a meter band that should open at a given hour. k: its middle, as every reminder has one
+export const bandReminderSet = (band, at) => reminders.some((r) => r.band === band && r.at === at);
+export function toggleBandReminder(band, k, at, label) {
+  const i = reminders.findIndex((r) => r.band === band && r.at === at);
+  if (i >= 0) { reminders.splice(i, 1); toast("Reminder cancelled", 2000); }
+  else {
+    if (reminders.length >= REM_MAX) reminders.shift();
+    reminders.push({k, at, band});
+    toast(`Reminder for ${band} at ${label}, while this page is open`, 3500);
+    if (window.Notification && Notification.permission === "default") Notification.requestPermission().catch(() => {});
+  }
+  saveReminders();
+}
 export function checkReminders(now = Date.now()) {
   const due = reminders.filter((r) => r.at <= now);
   if (!due.length) return;
@@ -555,8 +568,8 @@ export function checkReminders(now = Date.now()) {
   saveReminders();
   for (const r of due) {
     if (r.at < now - REM_STALE) continue;  // missed while the page was closed
-    const text = `${r.station || "A broadcast"} starts now on ${fmtKHz(r.k)}`;
-    toast(text, 8000, false, state.ok ? {label: "Tune", run: () => tuneKHz(r.k)} : {label: "Look up", run: () => lookUp(r.k)});
+    const text = r.band ? `${r.band} should be open about now` : `${r.station || "A broadcast"} starts now on ${fmtKHz(r.k)}`;
+    toast(text, 8000, false, r.band ? {label: "See stations", run: () => showBand(r.band)} : state.ok ? {label: "Tune", run: () => tuneKHz(r.k)} : {label: "Look up", run: () => lookUp(r.k)});
     if (document.hidden && window.Notification && Notification.permission === "granted") {
       try { new Notification("RF919 Companion", {body: text, tag: `rf919-${r.k}-${r.at}`}); } catch { /* Android wants a service worker */ }
     }
@@ -786,6 +799,18 @@ export async function discScan() {
     disc.all = false;
     renderDiscover();
   } finally { if (disc.busy === key) disc.busy = null; }
+}
+
+// Discover on one meter band, from anywhere (the Conditions sheet, a band's reminder)
+export function showBand(m) {
+  Object.assign(disc, {mode: "sw", meter: m, all: false});
+  store.set("rf919.disc", "sw"); store.set("rf919.discmeter", m);
+  if ($("tools").open) $("tools").close();
+  if (current !== "explore") go("explore", {focus: false});
+  if (inDetail()) exploreBack();
+  renderDiscover();
+  discPicked();
+  requestAnimationFrame(() => $("discover").scrollIntoView({block: "start"}));
 }
 
 // Asks for the position once more and keeps it; rejects (after a toast) when it isn't available

@@ -381,6 +381,20 @@
     </section>
     <section class="tool" id="sched-pane" hidden><div id="sched-body"></div></section>
     <section class="tool" id="prop-pane" hidden><div id="prop-body"></div></section>
+    <section class="tool" id="conds-pane" hidden>
+      <div id="conds-head"></div>
+      <div id="conds-main" hidden>
+        <fieldset class="seg" id="conds-paths"><legend>Transmitters in</legend></fieldset>
+        <div class="pg" id="pg" tabindex="0" role="group" aria-roledescription="band and hour grid" aria-label="Reception by band and hour. Arrow keys move." aria-describedby="pg-read"></div>
+        <div class="pg-foot"><p class="prop-key" id="conds-key" aria-hidden="true"></p>
+          <fieldset class="seg" id="conds-tz"><legend>Time</legend>
+            <label><input type="radio" name="condtz" value="local"><span>Local</span></label>
+            <label><input type="radio" name="condtz" value="utc"><span>UTC</span></label>
+          </fieldset></div>
+        <div id="pg-read" aria-live="polite"></div>
+        <p class="note">For a broadcast aimed at you from a typical transmitter in each region. Solar data and forecasts from NOAA SWPC. An estimate from a simple model, which doesn't know the transmitter's power, your antenna or the local noise.</p>
+      </div>
+    </section>
     <!-- Connect in a browser without Web Bluetooth (more.js startBle): what to use instead -->
     <section class="tool nobt" id="nobt-pane" hidden>
         <p>This browser can't reach the radio over Bluetooth. Use <b>Chrome on Android</b>, or the <b>Bluefy</b> browser on
